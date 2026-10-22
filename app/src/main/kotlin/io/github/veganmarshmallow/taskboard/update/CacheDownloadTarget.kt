@@ -1,6 +1,7 @@
 package io.github.veganmarshmallow.taskboard.update
 
 import android.content.Context
+import android.os.storage.StorageManager
 import io.github.veganmarshmallow.taskboard.core.update.DownloadTarget
 import java.io.File
 import java.io.FileOutputStream
@@ -11,13 +12,16 @@ import java.io.OutputStream
  * Downloads into `cache/updates/`: bytes go to a `.part` file, which is renamed to the final APK
  * only after core has verified it, so the installer never sees a partial or unverified file.
  */
-class CacheDownloadTarget(private val dir: File) : DownloadTarget {
+class CacheDownloadTarget(
+    private val dir: File,
+    private val freeSpace: (File) -> Long = { it.usableSpace },
+) : DownloadTarget {
     val apk = File(dir, APK_NAME)
     private val part = File(dir, "$APK_NAME.part")
 
     override fun availableBytes(): Long {
         dir.mkdirs()
-        return dir.usableSpace.takeIf { it > 0 } ?: -1 // 0 also means "couldn't tell"
+        return freeSpace(dir).takeIf { it > 0 } ?: -1 // 0 also means "couldn't tell"
     }
 
     override fun open(): OutputStream {
@@ -45,6 +49,16 @@ class CacheDownloadTarget(private val dir: File) : DownloadTarget {
 
         fun dir(context: Context) = File(context.cacheDir, "updates")
 
-        fun of(context: Context) = CacheDownloadTarget(dir(context))
+        fun of(context: Context): CacheDownloadTarget {
+            val storage = context.getSystemService(StorageManager::class.java)
+            return CacheDownloadTarget(dir(context)) { file -> allocatable(storage, file) }
+        }
+
+        /** Free space including cache Android would clear for us; falls back to usableSpace. */
+        private fun allocatable(storage: StorageManager?, file: File): Long = try {
+            storage?.let { it.getAllocatableBytes(it.getUuidForPath(file)) } ?: file.usableSpace
+        } catch (e: IOException) {
+            file.usableSpace
+        }
     }
 }
