@@ -10,8 +10,18 @@ import io.github.veganmarshmallow.taskboard.core.preview.TaskPreview
 
 /** Realistic preview states for instrumented tests and screenshots. */
 object FakePreviews {
-    private fun details(n: Int, title: String, body: String, vararg labels: String) =
-        IssueDetails(Issue(n, title, labels.map(Labels::normalize).toSet(), isOpen = true), body)
+    /** The board's real label colours (VeganMarshmallow/claude-workspace). */
+    val LABEL_COLORS = mapOf(
+        "status: todo" to "d4d4d4", "status: in-progress" to "fbca04", "status: blocked" to "d93f0b",
+        "type: feature" to "a2eeef", "type: bug" to "ee0701", "type: research" to "fef2c0", "type: refactor" to "bfd4f2",
+        "priority: high" to "b60205", "priority: low" to "c2e0c6",
+        "ready-for-claude" to "1d76db", "needs-owner" to "b60205", "created-by-claude" to "c5def5",
+    )
+
+    private fun details(n: Int, title: String, body: String, vararg labels: String): IssueDetails {
+        val names = labels.map(Labels::normalize).toSet()
+        return IssueDetails(Issue(n, title, names, isOpen = true), body, names.associateWith { LABEL_COLORS[it] })
+    }
 
     val TODO_BODY = """
         ### What should be done
@@ -25,10 +35,10 @@ object FakePreviews {
     """.trimIndent()
 
     fun todoLoaded(): PreviewScreen = PreviewScreen.initial(11, null)
-        .issueLoaded(details(11, "Widget: task preview with summary and approve", TODO_BODY, Labels.TODO))
+        .issueLoaded(details(11, "Widget: task preview with summary and approve", TODO_BODY, Labels.TODO, "type: feature"))
 
     fun blockedWithClaudeLine(): PreviewScreen = PreviewScreen.initial(12, null)
-        .issueLoaded(details(12, "Which charting library for the dashboard?", "### What should be done\nPick a charting library for the **stats** dashboard and wire it up.", Labels.BLOCKED, Labels.NEEDS_OWNER))
+        .issueLoaded(details(12, "Which charting library for the dashboard?", "### What should be done\nPick a charting library for the **stats** dashboard and wire it up.\n\n### Repo\nVeganMarshmallow/portfolio-site", Labels.BLOCKED, Labels.NEEDS_OWNER, Labels.PRIORITY_HIGH, "type: research", Labels.READY_FOR_CLAUDE))
         .commentsLoaded(
             listOf(
                 IssueComment(1, "🤖 Started in run 2026-10-22 10:00. Plan: compare 3 libraries", null),
@@ -40,8 +50,8 @@ object FakePreviews {
         .issueLoaded(
             details(
                 15, FakeBoards.HEBREW_TITLE,
-                "### What should be done\n- לבנות **דף נחיתה** בעברית עם טופס הרשמה\n- תמיכה מלאה ב־RTL ובדיקות קצה לכל השדות, כולל שדות ריקים וארוכים מאוד ושגיאות שרת",
-                Labels.IN_PROGRESS, Labels.READY_FOR_CLAUDE,
+                "### What should be done\n- לבנות **דף נחיתה** בעברית עם טופס הרשמה\n- תמיכה מלאה ב־RTL ובדיקות קצה לכל השדות, כולל שדות ריקים וארוכים מאוד ושגיאות שרת\n\n### Repo\nVeganMarshmallow/landing-page",
+                Labels.IN_PROGRESS, Labels.READY_FOR_CLAUDE, "type: feature", "created-by-claude",
             ),
         )
         .commentsLoaded(listOf(IssueComment(1, "🤖 התחלתי לעבוד על הטופס. תוכנית: רכיב טופס, ולידציה, בדיקות", null)))
@@ -55,6 +65,16 @@ object FakePreviews {
 
     fun noDescription(): PreviewScreen = PreviewScreen.initial(18, null)
         .issueLoaded(details(18, "Refactor the settings screen", "", Labels.TODO, Labels.READY_FOR_CLAUDE, Labels.PRIORITY_LOW))
+
+    /** Every kind of pill at once, plus labels that must stay hidden, to show wrapping. */
+    fun manyTags(): PreviewScreen = PreviewScreen.initial(20, null)
+        .issueLoaded(
+            details(
+                20, "Colourful tag pills in the task preview",
+                "### What should be done\nShow tags as rounded, colourful pills.\n\n### Repo\nVeganMarshmallow/Taskboard-widget",
+                Labels.TODO, "type: feature", "type: refactor", Labels.PRIORITY_LOW, Labels.NEEDS_OWNER, "created-by-claude", "bug",
+            ),
+        )
 
     fun justApproved(): PreviewScreen = todoLoaded().approveStarted().approveSucceeded()
 }

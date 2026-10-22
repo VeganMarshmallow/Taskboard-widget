@@ -5,6 +5,8 @@ import io.github.veganmarshmallow.taskboard.core.board.BoardBuilder
 import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.core.board.TitleCleaner
 import io.github.veganmarshmallow.taskboard.core.model.Labels
+import io.github.veganmarshmallow.taskboard.core.tags.TagPill
+import io.github.veganmarshmallow.taskboard.core.tags.TagPills
 
 /**
  * What the preview shows about a task. [summary] is null when it is not known yet (only the cached
@@ -17,6 +19,7 @@ data class TaskPreview(
     val canApprove: Boolean,
     val summary: String? = null,
     val isFromIssue: Boolean = false,
+    val tags: List<TagPill> = emptyList(),
 ) {
     val hasDescription: Boolean get() = summary != null
 
@@ -40,6 +43,7 @@ data class TaskPreview(
                 canApprove = canApprove,
                 summary = TaskSummary.of(details.body),
                 isFromIssue = true,
+                tags = TagPills.of(issue.labels.associateWith { details.labelColors[it] }, details.body),
             )
         }
 
