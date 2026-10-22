@@ -53,6 +53,11 @@ class ClaudeCommentsTest {
         assertEquals("⛔ Blocked: the repo owner/x doesn't exist. Create it; Or give access", ClaudeComments.latestLine(listOf(c(body))))
     }
 
+    @Test fun lineDropsInvisiblePrefixBeforeTheMarker() {
+        assertEquals("⛔ Blocked: why", ClaudeComments.latestLine(listOf(c("\u200B⛔ **Blocked**: why"))))
+        assertEquals("🤖 hi", ClaudeComments.latestLine(listOf(c("\uFEFF\u2060 🤖 hi"))))
+    }
+
     @Test fun lineIsCapped() {
         val line = ClaudeComments.latestLine(listOf(c("🤖 " + "word ".repeat(200))))!!
         assertTrue(line.length <= ClaudeComments.MAX_LENGTH)

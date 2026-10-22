@@ -23,12 +23,13 @@ data class PreviewScreen(
 ) {
     val showApprove: Boolean get() = task?.canApprove == true && !approving && !loading
 
-    /** Text for the summary area: the summary, "No description" once loaded, or nothing yet. */
+    /** The summary area: the summary, "No description" once loaded, "Loading…" while loading, else hidden. */
     val summaryState: SummaryState
         get() = when {
             task?.summary != null -> SummaryState.Text(task.summary)
             task?.isFromIssue == true -> SummaryState.NoDescription
-            else -> SummaryState.NotLoaded
+            loading -> SummaryState.NotLoaded
+            else -> SummaryState.Unavailable
         }
 
     fun loadStarted() = copy(loading = true, error = null)
@@ -67,4 +68,7 @@ sealed class SummaryState {
     data class Text(val text: String) : SummaryState()
     data object NoDescription : SummaryState()
     data object NotLoaded : SummaryState()
+
+    /** The load failed before any body arrived: show nothing rather than a stuck "Loading…". */
+    data object Unavailable : SummaryState()
 }

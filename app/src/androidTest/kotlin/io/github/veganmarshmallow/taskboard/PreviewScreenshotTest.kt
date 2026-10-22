@@ -63,6 +63,7 @@ class PreviewScreenshotTest {
         assertTrue(v.visible(R.id.preview_error))
         assertTrue(v.visible(R.id.preview_retry))
         assertTrue(v.text(R.id.preview_error).contains("No network"))
+        assertTrue(!v.visible(R.id.preview_summary))
         assertTrue(v.visible(R.id.preview_approve)) // the cached row could approve, nothing says otherwise
     }
 

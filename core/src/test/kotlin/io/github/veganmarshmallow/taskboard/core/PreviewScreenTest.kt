@@ -127,6 +127,8 @@ class PreviewScreenTest {
         assertEquals(PreviewError.Load(BoardError.Network), s.error)
         assertEquals("Todo task", s.task!!.title)
         assertTrue(s.showApprove) // cached row allowed it and nothing contradicts it
+        assertEquals(SummaryState.Unavailable, s.summaryState) // not a stuck "Loading…"
+        assertEquals(SummaryState.NotLoaded, s.loadStarted().summaryState)
     }
 
     @Test fun retryClearsTheError() {
