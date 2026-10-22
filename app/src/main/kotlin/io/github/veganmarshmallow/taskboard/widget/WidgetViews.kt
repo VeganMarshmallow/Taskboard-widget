@@ -4,7 +4,6 @@ import android.content.Context
 import android.view.View
 import android.widget.RemoteViews
 import io.github.veganmarshmallow.taskboard.R
-import io.github.veganmarshmallow.taskboard.core.board.BoardLinks
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 
@@ -33,13 +32,22 @@ class WidgetViews(private val context: Context) {
     private fun bindHeader(views: RemoteViews, state: WidgetState) {
         views.setOnClickPendingIntent(R.id.refresh, WidgetIntents.refresh(context))
         views.setOnClickPendingIntent(R.id.new_task, WidgetIntents.newTask(context))
-        views.setOnClickPendingIntent(R.id.title, WidgetIntents.openUrl(context, BoardLinks().openIssues()))
+        // Task #16: taps outside the explicit controls do nothing. The title and "last updated" get no
+        // intent of their own, and the root swallows stray taps with a no-op broadcast: some launchers
+        // open the app (whose launcher screen is the token setup) when a tap finds no handler.
+        // Buttons, list rows and the error banner have their own intents, which take precedence.
+        views.setOnClickPendingIntent(ROOT, WidgetIntents.swallowTap(context))
         val fetched = state.board?.fetchedAt
         views.setTextViewText(
             R.id.updated,
             fetched?.let { context.getString(R.string.last_updated, time.format(it)) }
                 ?: context.getString(R.string.never_updated),
         )
+    }
+
+    companion object {
+        /** The layout's root, `@android:id/background` (also used by launchers for rounded corners). */
+        const val ROOT = android.R.id.background
     }
 
     private fun bindList(views: RemoteViews, state: WidgetState, widgetId: Int) {
