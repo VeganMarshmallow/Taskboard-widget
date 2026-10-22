@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import io.github.veganmarshmallow.taskboard.data.StateStore
+import io.github.veganmarshmallow.taskboard.data.TabStore
 
 /** Periodic updates (updatePeriodMillis) and widget placement: draw the cached state, then refresh. */
 class BoardWidgetProvider : AppWidgetProvider() {
@@ -11,5 +12,9 @@ class BoardWidgetProvider : AppWidgetProvider() {
         val app = context.applicationContext
         // New widget ids always get the cached board, even when a refresh is already queued.
         BackgroundWork.refresh(goAsync(), app) { WidgetRenderer(app).render(StateStore(app).load(), appWidgetIds) }
+    }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        TabStore(context).clear(appWidgetIds)
     }
 }

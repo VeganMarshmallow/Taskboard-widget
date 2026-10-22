@@ -8,6 +8,7 @@ import io.github.veganmarshmallow.taskboard.core.board.BoardItem
 import io.github.veganmarshmallow.taskboard.core.board.BoardLinks
 import io.github.veganmarshmallow.taskboard.core.board.BoardRow
 import io.github.veganmarshmallow.taskboard.core.board.NeedsYouReason
+import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.core.model.Priority
 
 /** Maps one [BoardRow] to its RemoteViews, with fill-in intents for taps. */
@@ -15,16 +16,14 @@ class RowViews(private val context: Context) {
     private val links = BoardLinks()
 
     fun build(row: BoardRow): RemoteViews = when (row) {
-        is BoardRow.Header -> header(row)
         is BoardRow.Item -> item(row.item)
-        is BoardRow.More -> note(context.resources.getQuantityString(R.plurals.more_items, row.hidden, row.hidden), row)
-        BoardRow.Empty -> note(context.getString(R.string.empty_board), row)
-        is BoardRow.Done -> note(context.getString(R.string.done_count, row.count), row)
+        is BoardRow.More -> note(moreText(row), row)
+        is BoardRow.Empty -> note(context.getString(EmptyText.of(row.section)), row)
     }
 
-    private fun header(row: BoardRow.Header) = RemoteViews(context.packageName, R.layout.row_header).apply {
-        setTextViewText(R.id.section_title, row.section.title)
-        setTextViewText(R.id.section_count, row.count.toString())
+    private fun moreText(row: BoardRow.More): String {
+        val plural = if (row.section == Section.DONE) R.plurals.more_done else R.plurals.more_items
+        return context.resources.getQuantityString(plural, row.hidden, row.hidden)
     }
 
     private fun item(item: BoardItem) = RemoteViews(context.packageName, R.layout.row_item).apply {
@@ -43,7 +42,9 @@ class RowViews(private val context: Context) {
 
     private fun note(text: String, row: BoardRow) = RemoteViews(context.packageName, R.layout.row_note).apply {
         setTextViewText(R.id.note_text, text)
-        links.forRow(row)?.let { setOnClickFillInIntent(R.id.note_text, RowAction.Open(it).toFillIn()) }
+        // Rows are recycled, so a non-tappable note still needs a (harmless) fill-in to clear the old one.
+        val action = links.forRow(row)?.let { RowAction.Open(it).toFillIn() } ?: RowAction.NONE
+        setOnClickFillInIntent(R.id.note_text, action)
     }
 
     /** Short marker before the title: high priority, and why it needs the owner. */
@@ -57,6 +58,6 @@ class RowViews(private val context: Context) {
     }
 
     companion object {
-        const val VIEW_TYPE_COUNT = 3
+        const val VIEW_TYPE_COUNT = 2
     }
 }

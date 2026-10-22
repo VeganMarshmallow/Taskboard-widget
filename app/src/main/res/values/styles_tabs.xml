@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- One status tab. Three share a row; the text shrinks (down to 8sp) on narrow widgets, and only then ellipsizes. -->
+    <style name="WidgetTab">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">@dimen/tab_height</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_marginHorizontal">1.5dp</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:background">@drawable/tab_background</item>
+        <item name="android:gravity">center</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:paddingHorizontal">1dp</item>
+        <item name="android:textColor">@color/widget_header_text</item>
+        <item name="android:textSize">@dimen/tab_text</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:autoSizeTextType">uniform</item>
+        <item name="android:autoSizeMinTextSize">8sp</item>
+        <item name="android:autoSizeMaxTextSize">@dimen/tab_text</item>
+        <item name="android:autoSizeStepGranularity">1sp</item>
+    </style>
+</resources>

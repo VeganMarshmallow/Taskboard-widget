@@ -10,27 +10,34 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import io.github.veganmarshmallow.taskboard.core.board.BoardRow
 import io.github.veganmarshmallow.taskboard.core.board.BoardRows
+import io.github.veganmarshmallow.taskboard.core.board.Section
+import io.github.veganmarshmallow.taskboard.core.board.TabSelection
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.widget.RowViews
 import io.github.veganmarshmallow.taskboard.widget.WidgetViews
 
 /**
  * Renders the widget's real RemoteViews into a plain view tree, the way a launcher would: the outer
- * views from [WidgetViews], and each list row from [RowViews] (a launcher gets those through the
+ * views from [WidgetViews] with [tab] selected, and that tab's list rows from [RowViews] (a launcher gets those through the
  * RemoteViewsService; here they are applied directly into a column). Must run on the main thread.
  */
 class WidgetHost(private val context: Context) {
     class Rendered(val root: View, val widget: View)
 
-    fun render(state: WidgetState, widthDp: Int, heightDp: Int): Rendered {
+    fun render(
+        state: WidgetState,
+        widthDp: Int,
+        heightDp: Int,
+        tab: Section = TabSelection.default(state.board),
+    ): Rendered {
         val density = context.resources.displayMetrics.density
         val frame = FrameLayout(context).apply { setBackgroundColor(WALLPAPER) }
         val pad = (16 * density).toInt()
         frame.setPadding(pad, pad, pad, pad)
-        val widget = WidgetViews(context).build(state, WIDGET_ID).apply(context, frame)
+        val widget = WidgetViews(context).build(state, WIDGET_ID, tab).apply(context, frame)
         frame.addView(widget, FrameLayout.LayoutParams((widthDp * density).toInt(), (heightDp * density).toInt()))
 
-        replaceListWithRows(widget, state.board?.let(BoardRows::of).orEmpty())
+        replaceListWithRows(widget, state.board?.let { BoardRows.of(it, tab) }.orEmpty())
 
         val w = ((widthDp + 32) * density).toInt()
         val h = ((heightDp + 32) * density).toInt()

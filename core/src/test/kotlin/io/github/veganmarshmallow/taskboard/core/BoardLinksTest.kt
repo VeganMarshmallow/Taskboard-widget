@@ -19,9 +19,12 @@ class BoardLinksTest {
     }
 
     @Test fun otherRows() {
-        assertNull(links.forRow(BoardRow.Header(Section.TODO, 3)))
+        val done = "$base?q=is%3Aissue%20is%3Aclosed%20label%3A%22status%3A%20done%22"
         assertEquals(base, links.forRow(BoardRow.More(Section.TODO, 3)))
-        assertEquals("$base/new", links.forRow(BoardRow.Empty))
-        assertEquals("$base?q=is%3Aissue%20is%3Aclosed%20label%3A%22status%3A%20done%22", links.forRow(BoardRow.Done(2)))
+        assertEquals(base, links.forRow(BoardRow.More(Section.NEEDS_YOU, 3)))
+        assertEquals(done, links.forRow(BoardRow.More(Section.DONE, 3)))
+        assertEquals("$base/new", links.forRow(BoardRow.Empty(Section.TODO)))
+        Section.entries.filter { it != Section.TODO }.forEach { assertNull("$it", links.forRow(BoardRow.Empty(it))) }
+        assertEquals(done, links.recentlyDone())
     }
 }

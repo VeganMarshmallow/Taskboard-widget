@@ -5,18 +5,24 @@ import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import io.github.veganmarshmallow.taskboard.core.board.Section
+import io.github.veganmarshmallow.taskboard.core.board.TabSelection
 import io.github.veganmarshmallow.taskboard.setup.SetupActivity
 
 /** Every Intent / PendingIntent the widget uses, in one place so request codes never collide. */
 object WidgetIntents {
     const val ACTION_REFRESH = "io.github.veganmarshmallow.taskboard.REFRESH"
     const val ACTION_APPROVE = "io.github.veganmarshmallow.taskboard.APPROVE"
+    const val ACTION_SELECT_TAB = "io.github.veganmarshmallow.taskboard.SELECT_TAB"
     const val EXTRA_ISSUE = "issue"
+    const val EXTRA_TAB = "tab"
 
     private const val RC_REFRESH = 1
     private const val RC_SETUP = 2
     private const val RC_ROW_TEMPLATE = 3
     private const val RC_OPEN_BOARD = 4
+    /** Tab taps use request codes from here up (one per tab); the intent data also names the widget, so no two collide. */
+    private const val RC_TAB_BASE = 1000
 
     private const val IMMUTABLE = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
@@ -28,6 +34,17 @@ object WidgetIntents {
 
     fun refresh(context: Context): PendingIntent =
         PendingIntent.getBroadcast(context, RC_REFRESH, refreshIntent(context), IMMUTABLE)
+
+    fun selectTabIntent(context: Context, widgetId: Int, section: Section) =
+        Intent(context, WidgetActionReceiver::class.java).setAction(ACTION_SELECT_TAB)
+            .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+            .putExtra(EXTRA_TAB, TabSelection.key(section))
+            // Distinct data too, so PendingIntents for different widgets/tabs are never treated as equal.
+            .setData(Uri.parse("taskboard://tab/$widgetId/${section.name}"))
+
+    fun selectTab(context: Context, widgetId: Int, section: Section): PendingIntent = PendingIntent.getBroadcast(
+        context, RC_TAB_BASE + section.ordinal, selectTabIntent(context, widgetId, section), IMMUTABLE,
+    )
 
     fun setup(context: Context): PendingIntent = PendingIntent.getActivity(
         context, RC_SETUP,

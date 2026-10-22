@@ -27,7 +27,9 @@ class BoardBuilderTest {
 
     private fun build(vararg issues: io.github.veganmarshmallow.taskboard.core.model.Issue) = builder.build(issues.toList(), NOW)
     private fun Board.numbers(section: Section) = section(section).items.map { it.number }
-    private fun Board.allShown() = sections.flatMap { s -> s.items.map { it.number } }
+    private fun Board.allShown() = sections.filter { it.section != Section.DONE }.flatMap { s -> s.items.map { it.number } }.distinct()
+    private val statusTabSections = listOf(Section.TODO, Section.IN_PROGRESS, Section.BLOCKED, Section.IN_REVIEW)
+    private fun Board.statusTabs() = statusTabSections.flatMap { numbers(it) }
 
     @Test fun groupsEachStatusIntoItsSection() {
         val board = build(
@@ -36,23 +38,27 @@ class BoardBuilderTest {
         )
         assertEquals(listOf(5, 6), board.numbers(Section.NEEDS_YOU))
         assertEquals(listOf(3), board.numbers(Section.IN_PROGRESS))
-        assertEquals(listOf(4), board.numbers(Section.BLOCKED))
+        assertEquals(listOf(4, 6), board.numbers(Section.BLOCKED)) // 6 also needs you, but is still blocked
+        assertEquals(listOf(5), board.numbers(Section.IN_REVIEW))
         assertEquals(listOf(2), board.numbers(Section.TODO))
     }
 
     @Test fun sectionsAlwaysPresentInDisplayOrder() {
         assertEquals(Section.entries.toList(), build().sections.map { it.section })
-        assertEquals(listOf("Needs you", "In progress", "Blocked", "Todo"), Section.entries.map { it.title })
+        assertEquals(listOf("Needs you", "Todo", "In progress", "Blocked", "In review", "Done"), Section.entries.map { it.title })
     }
 
-    @Test fun needsOwnerWinsOverEveryStatusAndAppearsOnce() {
+    @Test fun needsOwnerIsAQuestionWhateverItsStatusAndKeepsItsStatusTab() {
         val statuses = listOf(TODO, IN_PROGRESS, BLOCKED, IN_REVIEW)
         val issues = statuses.mapIndexed { i, s -> issue(10 + i, s, NEEDS_OWNER) } + issue(20, NEEDS_OWNER)
         val board = builder.build(issues, NOW)
         assertEquals(listOf(10, 11, 12, 13, 20), board.numbers(Section.NEEDS_YOU))
-        assertEquals(board.allShown().size, board.allShown().toSet().size)
         assertTrue(board.section(Section.NEEDS_YOU).items.all { it.needsYouReason == NeedsYouReason.QUESTION })
-        assertEquals(0, board.section(Section.BLOCKED).totalCount)
+        assertEquals(listOf(10, 20), board.numbers(Section.TODO))
+        assertEquals(listOf(11), board.numbers(Section.IN_PROGRESS))
+        assertEquals(listOf(12), board.numbers(Section.BLOCKED))
+        assertEquals(listOf(13), board.numbers(Section.IN_REVIEW))
+        assertEquals(board.statusTabs().size, board.statusTabs().toSet().size) // one status tab each
     }
 
     @Test fun inReviewGoesToNeedsYouWithReviewReason() {
@@ -108,7 +114,8 @@ class BoardBuilderTest {
         )
         assertEquals(listOf(3), board.numbers(Section.IN_PROGRESS))
         assertEquals(listOf(4), board.numbers(Section.NEEDS_YOU))
-        assertEquals(Priority.HIGH, board.section(Section.TODO).items.single().priority)
+        assertEquals(Priority.HIGH, board.section(Section.TODO).items.single { it.number == 5 }.priority)
+        assertEquals(listOf(5, 4), board.numbers(Section.TODO)) // high first; no status label: Todo, even with a question
     }
 
     @Test fun issueWithNoLabelsIsTodoAndApprovable() {
@@ -127,10 +134,11 @@ class BoardBuilderTest {
             issue(6, TODO, IN_PROGRESS, BLOCKED, IN_REVIEW, DONE),
         )
         assertEquals(listOf(4, 6), board.numbers(Section.NEEDS_YOU))
+        assertEquals(listOf(4, 6), board.numbers(Section.IN_REVIEW))
         assertEquals(listOf(3), board.numbers(Section.BLOCKED))
         assertEquals(listOf(2), board.numbers(Section.IN_PROGRESS))
         assertEquals(listOf(5), board.numbers(Section.TODO))
-        assertEquals(board.allShown().size, board.allShown().toSet().size)
+        assertEquals(board.statusTabs().size, board.statusTabs().toSet().size)
     }
 
     @Test fun openIssueOnlyMarkedDoneIsHidden() {
@@ -144,7 +152,7 @@ class BoardBuilderTest {
             issue(2, TODO), issue(3, TODO, READY_FOR_CLAUDE), issue(4, IN_PROGRESS), issue(5, BLOCKED),
             issue(6, IN_REVIEW), issue(7, TODO, NEEDS_OWNER),
         )
-        val approvable = board.sections.flatMap { it.items }.filter { it.canApprove }.map { it.number }
+        val approvable = board.sections.flatMap { it.items }.filter { it.canApprove }.map { it.number }.distinct()
         assertEquals(listOf(2), approvable)
     }
 

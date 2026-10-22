@@ -14,12 +14,10 @@ class BoardLinks(private val repo: Repo = Repo.BOARD) {
 
     fun recentlyDone(): String = "${repo.issuesUrl()}?q=" + encode("is:issue is:closed label:\"${Labels.DONE}\"")
 
-    /** URL for a tapped row, or null when the row is not tappable (section headers). */
+    /** URL for a tapped row, or null when the row is not tappable. Only an empty Todo invites a new task. */
     fun forRow(row: BoardRow): String? = when (row) {
-        is BoardRow.Header -> null
         is BoardRow.Item -> issue(row.item.number)
-        is BoardRow.More -> openIssues()
-        BoardRow.Empty -> newIssue()
-        is BoardRow.Done -> recentlyDone()
+        is BoardRow.More -> if (row.section == Section.DONE) recentlyDone() else openIssues()
+        is BoardRow.Empty -> if (row.section == Section.TODO) newIssue() else null
     }
 }
