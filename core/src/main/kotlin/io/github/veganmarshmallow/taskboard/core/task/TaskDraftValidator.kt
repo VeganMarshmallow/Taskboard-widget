@@ -2,7 +2,7 @@ package io.github.veganmarshmallow.taskboard.core.task
 
 /**
  * Turns a [TaskDraft] into a [NewIssue], or field-by-field errors to show next to each field.
- * Titles are trimmed, inner line breaks and tabs become spaces, and they may be at most
+ * Titles are trimmed (a title of only invisible bidi marks counts as empty), inner line breaks and tabs become spaces, and they may be at most
  * [MAX_TITLE] characters (GitHub's limit, counted in code points so Hebrew and emoji count as one
  * each). The whole body must fit GitHub's [MAX_BODY] limit.
  */
@@ -24,7 +24,7 @@ object TaskDraftValidator {
         val title = cleanTitle(draft.title)
         val titleLength = title.codePointCount(0, title.length)
         when {
-            title.isEmpty() -> errors[Field.TITLE] = "A title is required"
+            InvisibleText.isBlank(title) -> errors[Field.TITLE] = "A title is required"
             titleLength > MAX_TITLE -> errors[Field.TITLE] = "Title is too long ($titleLength of $MAX_TITLE characters)"
         }
         val repo = when (val r = RepoInput.parse(draft.repo, defaultOwner)) {

@@ -3,7 +3,9 @@ package io.github.veganmarshmallow.taskboard.newtask
 import android.content.Context
 import android.widget.Toast
 import io.github.veganmarshmallow.taskboard.R
+import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
+import io.github.veganmarshmallow.taskboard.core.task.CreateErrors
 import io.github.veganmarshmallow.taskboard.core.task.CreatedIssue
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.widget.WidgetIntents
@@ -17,8 +19,13 @@ object NewTaskEffects {
 
     fun failedInBackground(context: Context, result: Outcome<CreatedIssue>) {
         val error = (result as? Outcome.Failure)?.error ?: return
+        Toast.makeText(context, failureText(context, error), Toast.LENGTH_LONG).show()
+    }
+
+    /** The form's and the toast's failure text; warns when the task may have been created anyway. */
+    fun failureText(context: Context, error: BoardError): String {
         val text = context.getString(R.string.task_failed, AppGraph.messages(context).message(error))
-        Toast.makeText(context, text, Toast.LENGTH_LONG).show()
+        return if (CreateErrors.mayAlreadyExist(error)) text + "\n" + context.getString(R.string.task_may_exist) else text
     }
 
     fun message(context: Context, created: CreatedIssue): String {

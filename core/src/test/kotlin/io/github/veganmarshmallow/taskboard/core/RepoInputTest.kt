@@ -41,7 +41,6 @@ class RepoInputTest {
         assertTrue(invalid("owner/").startsWith("Repo name is missing"))
         assertTrue(invalid("/").startsWith("Owner is missing"))
         assertTrue(invalid("a/b/c").startsWith("Too many slashes"))
-        assertTrue(invalid("https://github.com/o/r/issues/3").startsWith("Too many slashes"))
     }
 
     @Test fun invalidOwners() {

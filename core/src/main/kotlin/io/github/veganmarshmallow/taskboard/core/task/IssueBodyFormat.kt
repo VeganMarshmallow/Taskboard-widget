@@ -39,9 +39,9 @@ object IssueBodyFormat {
             NOTES to notes,
         ).joinToString("\n\n") { (heading, value) -> "### $heading\n\n${field(value)}" }
 
-    /** Normalized user text for one section, or [NO_RESPONSE] when blank. */
+    /** Normalized user text for one section, or [NO_RESPONSE] when nothing visible is left. */
     fun field(value: String): String {
         val text = value.replace("\r\n", "\n").replace('\r', '\n').trim()
-        return if (text.isEmpty()) NO_RESPONSE else text.replace(SECTION_HEADING, "$1\\\\$2")
+        return if (InvisibleText.isBlank(text)) NO_RESPONSE else text.replace(SECTION_HEADING, "$1\\\\$2")
     }
 }
