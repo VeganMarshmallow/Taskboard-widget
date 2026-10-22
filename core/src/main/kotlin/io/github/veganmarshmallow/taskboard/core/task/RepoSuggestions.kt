@@ -49,6 +49,5 @@ object RepoSuggestions {
         return all.filter { it.contains(q, ignoreCase = true) }
     }
 
-    private fun stripLink(value: String): String =
-        value.removePrefix("`").removeSuffix("`").replace(Regex("^https?://github\\.com/", RegexOption.IGNORE_CASE), "").trimEnd('/')
+    private fun stripLink(value: String): String = value.removePrefix("`").removeSuffix("`")
 }

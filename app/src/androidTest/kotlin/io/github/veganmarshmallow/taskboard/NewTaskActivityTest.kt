@@ -51,11 +51,11 @@ class NewTaskActivityTest {
         val posts: MutableList<HttpRequest> = Collections.synchronizedList(mutableListOf())
         @Volatile var release: CountDownLatch? = null
         @Volatile var postResponse: () -> HttpResponse = { HttpResponse(201, body = """{"number":77,"labels":[]}""") }
+        @Volatile var getResponse: () -> HttpResponse =
+            { HttpResponse(200, body = """[{"number":3,"body":"### Repo\n\nVeganMarshmallow/Taskboard-widget\n"}]""") }
 
         override fun execute(request: HttpRequest): HttpResponse {
-            if (request.method != "POST") {
-                return HttpResponse(200, body = """[{"number":3,"body":"### Repo\n\nVeganMarshmallow/Taskboard-widget\n"}]""")
-            }
+            if (request.method != "POST") return getResponse()
             posts += request
             release?.await(10, TimeUnit.SECONDS)
             return postResponse()
@@ -145,6 +145,8 @@ class NewTaskActivityTest {
         waitUntil("error shown") { activity.view<TextView>(R.id.task_status).visibility == View.VISIBLE }
         instrumentation.runOnMainSync {
             assertTrue(activity.view<TextView>(R.id.task_status).text.contains("No network"))
+            // A dropped connection may still have created the issue: the user is told to check first.
+            assertTrue(activity.view<TextView>(R.id.task_status).text.contains(context.getString(R.string.task_may_exist)))
             assertEquals("Keep me", activity.view<EditText>(R.id.task_title).text.toString())
             assertEquals("and me", activity.view<EditText>(R.id.task_goal).text.toString())
             assertEquals("o/r", activity.view<EditText>(R.id.task_repo).text.toString())
@@ -155,6 +157,28 @@ class NewTaskActivityTest {
         github.postResponse = { HttpResponse(401, body = "{}") }
         activity.tapSubmit()
         waitUntil("401 shown") { activity.view<TextView>(R.id.task_status).text.contains("401") }
+        instrumentation.runOnMainSync {
+            assertFalse(activity.view<TextView>(R.id.task_status).text.contains(context.getString(R.string.task_may_exist)))
+            activity.finish()
+        }
+    }
+
+    @Test fun failingSuggestionsDontBlockAndUnapprovedTaskHasNoReadyLabel() {
+        github.getResponse = { HttpResponse(500, body = "") }
+        github.postResponse = {
+            HttpResponse(422, body = """{"message":"Validation Failed","errors":[{"message":"title is too long"}]}""")
+        }
+        val activity = launch()
+        activity.fill("Not approved yet", repo = "https://github.com/VeganMarshmallow/Taskboard-widget/issues/9")
+        activity.tapSubmit()
+        waitUntil("422 shown") { activity.view<TextView>(R.id.task_status).text.contains("title is too long") }
+        instrumentation.runOnMainSync {
+            assertFalse(activity.view<TextView>(R.id.task_status).text.contains(context.getString(R.string.task_may_exist)))
+            assertFalse(activity.view<CheckBox>(R.id.task_approve).isChecked)
+        }
+        val json = JsonParser.parse(github.posts.single().body!!) as Map<*, *>
+        assertEquals(listOf("status: todo", "type: feature"), json["labels"])
+        assertTrue((json["body"] as String).startsWith("### Repo\n\nVeganMarshmallow/Taskboard-widget\n\n### Type\n\nfeature"))
         instrumentation.runOnMainSync { activity.finish() }
     }
 

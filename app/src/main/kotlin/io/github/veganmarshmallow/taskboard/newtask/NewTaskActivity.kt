@@ -10,7 +10,6 @@ import io.github.veganmarshmallow.taskboard.R
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.task.NewTaskSession
 import io.github.veganmarshmallow.taskboard.core.task.TaskType
-import io.github.veganmarshmallow.taskboard.data.AppGraph
 
 /**
  * The "New task" form, opened from the widget's + button. A thin binder: validation, the draft
@@ -103,7 +102,7 @@ class NewTaskActivity : Activity() {
         when (val result = session.takeResult()) {
             null -> Unit
             is Outcome.Success -> { keepDraft = false; finish() } // NewTaskEffects already toasted and refreshed
-            is Outcome.Failure -> showError(getString(R.string.task_failed, AppGraph.messages(this).message(result.error)))
+            is Outcome.Failure -> showError(NewTaskEffects.failureText(this, result.error))
         }
     }
 
