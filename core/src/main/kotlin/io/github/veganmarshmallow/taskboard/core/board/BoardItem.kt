@@ -5,7 +5,10 @@ import io.github.veganmarshmallow.taskboard.core.model.Priority
 /** Why an item is in "Needs you". */
 enum class NeedsYouReason { QUESTION, REVIEW }
 
-/** One row-worthy task. [title] is already cleaned for single-line display. */
+/**
+ * One row-worthy task. [title] is already cleaned for single-line display. [number] identifies the
+ * issue (taps, approve, links) but is not part of the row text.
+ */
 data class BoardItem(
     val number: Int,
     val title: String,
@@ -13,5 +16,6 @@ data class BoardItem(
     val canApprove: Boolean,
     val needsYouReason: NeedsYouReason? = null,
 ) {
-    val displayText: String get() = "#$number $title"
+    /** What the widget row shows: just the title, without the leading `#n`. */
+    val displayText: String get() = title
 }

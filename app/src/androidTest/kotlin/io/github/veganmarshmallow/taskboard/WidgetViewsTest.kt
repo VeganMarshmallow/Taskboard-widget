@@ -17,6 +17,7 @@ import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.widget.RowViews
 import io.github.veganmarshmallow.taskboard.widget.WidgetViews
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -99,7 +100,7 @@ class WidgetViewsTest {
         item(Priority.LOW, null, true).let {
             assertEquals(View.GONE, it.visibilityOf(R.id.item_badge))
             assertEquals(View.VISIBLE, it.visibilityOf(R.id.item_approve))
-            assertEquals("#7 Title", it.text(R.id.item_text))
+            assertEquals("Title", it.text(R.id.item_text))
         }
     }
 
@@ -117,6 +118,7 @@ class WidgetViewsTest {
         val v = applyRow(BoardRow.Item(BoardItem(15, FakeBoards.HEBREW_TITLE + " 👩‍💻", Priority.NORMAL, true)))
         val text = v.findViewById<TextView>(R.id.item_text)
         assertEquals(1, text.maxLines)
-        assertTrue(text.text.toString().startsWith("#15 "))
+        assertTrue(text.text.toString().startsWith(FakeBoards.HEBREW_TITLE))
+        assertFalse(text.text.toString().contains("#15"))
     }
 }

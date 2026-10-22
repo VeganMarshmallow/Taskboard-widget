@@ -125,4 +125,27 @@ class ScreenshotTest {
             assertEquals("$it '${tab.text}' is cut off at ${tab.textSize}px", 0, tab.layout.getEllipsisCount(0))
         }
     }
+
+    // --- #12 rows without issue numbers -----------------------------------------------------
+
+    private fun View.rowTexts(): List<String> {
+        val list = findViewById<android.view.ViewGroup>(R.id.board_list)
+        return (0 until list.childCount).mapNotNull { list.getChildAt(it).findViewById<TextView>(R.id.item_text)?.text?.toString() }
+    }
+
+    @Test fun rowsWithoutNumbersNeedsYou() {
+        val texts = capture("12-1-rows-needs-you", board).rowTexts()
+        assertEquals(listOf("Which charting library for the dashboard?", "Add dark mode to the portfolio site"), texts)
+    }
+
+    @Test fun rowsWithoutNumbersTodo() {
+        val texts = capture("12-2-rows-todo", board, tab = Section.TODO).rowTexts()
+        assertTrue(texts.isNotEmpty())
+        texts.forEach { assertTrue(it, !it.startsWith("#")) }
+    }
+
+    @Test fun rowsWithoutNumbersInProgressHebrew() {
+        val texts = capture("12-3-rows-in-progress-hebrew", board, tab = Section.IN_PROGRESS).rowTexts()
+        assertEquals(listOf("Android board widget", FakeBoards.HEBREW_TITLE), texts)
+    }
 }

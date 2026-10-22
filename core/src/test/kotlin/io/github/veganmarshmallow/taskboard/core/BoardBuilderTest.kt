@@ -217,7 +217,8 @@ class BoardBuilderTest {
     @Test fun displayTextAndCleanedTitle() {
         val item = build(issue(42, TODO, title = "  Fix\n\tthe   thing  ")).section(Section.TODO).items.single()
         assertEquals("Fix the thing", item.title)
-        assertEquals("#42 Fix the thing", item.displayText)
+        assertEquals("Fix the thing", item.displayText)
+        assertEquals(42, item.number)
     }
 
     @Test fun veryLongAndEmojiTitlesAreKeptSafe() {
