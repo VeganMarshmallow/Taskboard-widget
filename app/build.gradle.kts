@@ -52,6 +52,7 @@ android {
         abortOnError = true
         warningsAsErrors = false
         checkReleaseBuilds = false
+        textReport = true
         // The token note links to github.com on purpose; no other remote resources are used.
         disable += setOf("GradleDependency", "OldTargetApi", "AndroidGradlePluginVersion", "NewerVersionAvailable")
     }

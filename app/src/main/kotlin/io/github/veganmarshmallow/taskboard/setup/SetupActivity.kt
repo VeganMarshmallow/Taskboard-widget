@@ -52,11 +52,11 @@ class SetupActivity : Activity() {
         saveButton.setOnClickListener { onSave() }
         findViewById<Button>(R.id.clear).setOnClickListener { onClear() }
 
-        // When opened as the widget's configure screen, a cancelled setup must not leave a widget behind
-        // unless a token already exists.
+        // As the widget's configure screen (shown on placement before Android 12), always accept the
+        // widget: without a token it shows "No GitHub token set · tap to set up" instead of vanishing.
         if (isConfiguring()) {
-            setResult(if (tokenStore.hasToken()) RESULT_OK else RESULT_CANCELED, widgetResult())
-            if (tokenStore.hasToken()) sendBroadcast(WidgetIntents.refreshIntent(this))
+            setResult(RESULT_OK, widgetResult())
+            sendBroadcast(WidgetIntents.refreshIntent(this))
         }
         showSavedState()
     }

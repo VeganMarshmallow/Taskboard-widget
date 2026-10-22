@@ -64,6 +64,16 @@ jobs:
           if [ -f app/build/reports/lint-results-release.txt ]; then cat app/build/reports/lint-results-release.txt >> lint.log; fi
           .github/scripts/annotate-failure.sh lint.log "lint"
 
+      - name: Surface lint warnings
+        if: always() && steps.lint.outcome != 'skipped'
+        run: |
+          report=app/build/reports/lint-results-release.txt
+          [ -f "$report" ] || exit 0
+          grep -E ': (Warning|Error|Information): ' "$report" | head -n 30 | while IFS= read -r line; do
+            echo "::warning title=Lint::${line}"
+          done
+          echo "::notice title=Lint summary::$(tail -n 1 "$report")"
+
       - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
