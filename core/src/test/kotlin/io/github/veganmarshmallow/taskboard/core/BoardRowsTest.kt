@@ -28,7 +28,7 @@ class BoardRowsTest {
         val board = BoardBuilder().build(listOf(issue(3, Labels.TODO), issue(4, Labels.IN_REVIEW)), NOW)
         assertEquals(listOf("I:3"), BoardRows.of(board, Section.TODO).map { it.code() })
         assertEquals(listOf("I:4"), BoardRows.of(board, Section.NEEDS_YOU).map { it.code() })
-        assertEquals(listOf("I:4"), BoardRows.of(board, Section.IN_REVIEW).map { it.code() })
+        assertEquals(listOf("E:IN_REVIEW"), BoardRows.of(board, Section.IN_REVIEW).map { it.code() }) // Needs you only
         assertEquals(listOf("E:BLOCKED"), BoardRows.of(board, Section.BLOCKED).map { it.code() })
     }
 

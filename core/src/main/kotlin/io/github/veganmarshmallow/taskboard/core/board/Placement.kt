@@ -10,18 +10,20 @@ import io.github.veganmarshmallow.taskboard.core.model.Status
  * - Status tab, by the winning `status:` label (precedence in-review > blocked > in-progress >
  *   todo > done, see [Status]). No status label → Todo (a freshly filed task). Only `status: done`
  *   but still open → no status tab (it is about to be closed).
- * - Also Needs you when it carries `needs-owner` (a QUESTION) or its status is in-review (a REVIEW).
+ * - Needs you INSTEAD of the status tab when it carries `needs-owner` (a QUESTION) or its status is
+ *   in-review (a REVIEW). Needs you is exclusive (the owner's decision on #10): such an item is
+ *   listed and counted only there, as in the old widget. So the In review tab only ever lists
+ *   items that are not waiting for the owner, which under this rule is none of them.
  * - The Approve button shows only on Todo issues without `ready-for-claude` or `needs-owner`.
  *
  * Closed issues are never placed here; the Done tab is built from them separately.
  */
 object Placement {
+    /** At most one tab: an issue is never listed (or counted) twice. */
     fun sectionsOf(issue: Issue): Set<Section> {
         if (!issue.isOpen) return emptySet()
-        val result = LinkedHashSet<Section>(2)
-        if (needsYouReason(issue) != null) result.add(Section.NEEDS_YOU)
-        statusSection(issue)?.let(result::add)
-        return result
+        if (needsYouReason(issue) != null) return setOf(Section.NEEDS_YOU)
+        return setOfNotNull(statusSection(issue))
     }
 
     fun needsYouReason(issue: Issue): NeedsYouReason? = when {

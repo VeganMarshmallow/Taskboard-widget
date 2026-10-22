@@ -25,7 +25,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Duration
 
-/** What each of the six tabs holds: placement, overlap with Needs you, the Done list, and counts. */
+/** What each of the six tabs holds: placement, Needs you being exclusive, the Done list, and counts. */
 class TabContentsTest {
     private fun build(vararg issues: Issue): Board = BoardBuilder().build(issues.toList(), NOW)
     private fun Board.numbers(s: Section) = section(s).items.map { it.number }
@@ -37,26 +37,47 @@ class TabContentsTest {
         assertEquals(listOf(2), board.numbers(Section.TODO))
         assertEquals(listOf(3), board.numbers(Section.IN_PROGRESS))
         assertEquals(listOf(4), board.numbers(Section.BLOCKED))
-        assertEquals(listOf(5), board.numbers(Section.IN_REVIEW))
+        assertEquals(emptyList<Int>(), board.numbers(Section.IN_REVIEW)) // waiting for the owner: Needs you only
         assertEquals(listOf(5), board.numbers(Section.NEEDS_YOU))
         assertEquals(listOf(6), board.numbers(Section.DONE))
     }
 
-    @Test fun needsYouOverlapsStatusTabsButEachIssueHasOneStatusTab() {
-        val board = build(issue(2, BLOCKED, NEEDS_OWNER), issue(3, IN_REVIEW), issue(4, IN_REVIEW, NEEDS_OWNER))
+    @Test fun needsYouIsExclusive() {
+        val board = build(issue(2, BLOCKED, NEEDS_OWNER), issue(3, IN_REVIEW), issue(4, IN_REVIEW, NEEDS_OWNER), issue(5, BLOCKED))
         assertEquals(listOf(2, 3, 4), board.numbers(Section.NEEDS_YOU))
-        assertEquals(listOf(2), board.numbers(Section.BLOCKED))
-        assertEquals(listOf(3, 4), board.numbers(Section.IN_REVIEW))
+        assertEquals(listOf(5), board.numbers(Section.BLOCKED)) // 2 is a question: not here
+        assertEquals(emptyList<Int>(), board.numbers(Section.IN_REVIEW))
+        assertEquals(1, board.count(Section.BLOCKED))
+        assertEquals(0, board.count(Section.IN_REVIEW))
         val reasons = board.section(Section.NEEDS_YOU).items.associate { it.number to it.needsYouReason }
         assertEquals(mapOf(2 to NeedsYouReason.QUESTION, 3 to NeedsYouReason.REVIEW, 4 to NeedsYouReason.QUESTION), reasons)
-        // The same item carries the same badge reason in its status tab.
-        assertEquals(NeedsYouReason.QUESTION, board.section(Section.BLOCKED).items.single().needsYouReason)
+    }
+
+    @Test fun everyOpenIssueIsListedAndCountedInExactlyOneTab() {
+        val statuses = listOf(null, TODO, IN_PROGRESS, BLOCKED, IN_REVIEW)
+        val issues = (2..401).map { n ->
+            val labels = listOfNotNull(statuses[n % 5], NEEDS_OWNER.takeIf { n % 3 == 0 }, PRIORITY_HIGH.takeIf { n % 7 == 0 })
+            issue(n, *labels.toTypedArray())
+        }
+        val board = BoardBuilder(maxPerSection = 1000).build(issues, NOW)
+        val open = Section.entries.filter { it != Section.DONE }
+        val listed = open.flatMap { board.numbers(it) }
+        assertEquals(listed.size, listed.toSet().size) // never twice
+        assertEquals((2..401).toSet(), listed.toSet()) // never missing
+        assertEquals(400, open.sumOf { board.count(it) }) // counts add up to the open tasks
+        open.forEach { assertEquals("$it", board.count(it), board.numbers(it).size) }
+        // Only items in Needs you carry a Needs-you badge.
+        open.filter { it != Section.NEEDS_YOU }.forEach { tab ->
+            assertTrue("$tab", board.section(tab).items.all { it.needsYouReason == null })
+        }
     }
 
     @Test fun placementRules() {
         assertEquals(setOf(Section.TODO), Placement.sectionsOf(issue(2)))
-        assertEquals(setOf(Section.NEEDS_YOU, Section.TODO), Placement.sectionsOf(issue(2, NEEDS_OWNER)))
-        assertEquals(setOf(Section.NEEDS_YOU, Section.IN_REVIEW), Placement.sectionsOf(issue(2, IN_REVIEW)))
+        assertEquals(setOf(Section.NEEDS_YOU), Placement.sectionsOf(issue(2, NEEDS_OWNER)))
+        assertEquals(setOf(Section.NEEDS_YOU), Placement.sectionsOf(issue(2, IN_REVIEW)))
+        assertEquals(setOf(Section.NEEDS_YOU), Placement.sectionsOf(issue(2, BLOCKED, NEEDS_OWNER)))
+        assertEquals(setOf(Section.BLOCKED), Placement.sectionsOf(issue(2, BLOCKED)))
         assertEquals(emptySet<Section>(), Placement.sectionsOf(issue(2, DONE))) // open but done: about to close
         assertEquals(setOf(Section.NEEDS_YOU), Placement.sectionsOf(issue(2, DONE, NEEDS_OWNER)))
         assertEquals(emptySet<Section>(), Placement.sectionsOf(issue(2, NEEDS_OWNER, open = false)))
@@ -75,6 +96,49 @@ class TabContentsTest {
         assertEquals(listOf(11, 13, 12, 10), board.numbers(Section.DONE)) // ties: higher number first
         assertEquals(4, board.doneLast7Days)
         assertTrue(board.section(Section.DONE).items.none { it.canApprove || it.needsYouReason != null })
+    }
+
+    @Test fun doneListAtTheSevenDayBoundariesAndWithClockSkew() {
+        val week = Duration.ofDays(7)
+        val board = build(
+            issue(20, DONE, open = false, closedAt = NOW.minus(week)), // exactly 7 days: in, listed last
+            issue(21, DONE, open = false, closedAt = NOW.minus(week).minusMillis(1)), // 1 ms too old: out
+            issue(22, DONE, open = false, closedAt = NOW.minus(week).plusMillis(1)), // just inside
+            issue(23, DONE, open = false, closedAt = NOW.plusSeconds(90)), // closed "in the future": newest
+            issue(24, DONE, open = false, closedAt = null), // no close time: out
+            issue(25, BLOCKED, open = false, closedAt = NOW), // closed but not done: out
+            issue(26, DONE, NEEDS_OWNER, open = false, closedAt = NOW), // a closed question is just done
+            issue(1, DONE, open = false, closedAt = NOW), // the summary issue: never
+            issue(27, DONE, open = false, closedAt = NOW, pr = true), // a PR: never
+        )
+        assertEquals(listOf(23, 26, 22, 20), board.numbers(Section.DONE))
+        assertEquals(4, board.count(Section.DONE))
+        assertEquals(emptyList<Int>(), board.numbers(Section.NEEDS_YOU)) // closed questions leave Needs you
+    }
+
+    @Test fun doneTiesAtTheSameInstantAreNewestNumberFirstWhateverTheInputOrder() {
+        val input = listOf(5, 9, 2, 7).map { issue(it, DONE, open = false, closedAt = NOW) }
+        assertEquals(listOf(9, 7, 5, 2), build(*input.toTypedArray()).numbers(Section.DONE))
+        assertEquals(listOf(9, 7, 5, 2), build(*input.reversed().toTypedArray()).numbers(Section.DONE))
+    }
+
+    @Test fun corruptV2CachesFallBackToNothingInsteadOfAWrongDoneTab() {
+        val good = WidgetStateCodec.encode(WidgetState(build(issue(2, TODO), done(3, 1)), null, NOW))
+        listOf(
+            good.replace("\"DONE\"", "\"FINISHED\""), // a tab from another version
+            good.replace("\"v\":2", "\"v\":\"2\""), // version of the wrong type
+            good.replace("\"v\":2", "\"v\":1"), // relabelled as the old format
+            good.replace("\"total\":1", "\"total\":\"one\""), // count of the wrong type
+            good.replace("\"items\":[", "\"items\":[7,"), // an item that is not an object
+        ).forEach { assertEquals(it, WidgetState.INITIAL, WidgetStateCodec.decode(it)) }
+    }
+
+    @Test fun aCachedTotalBelowItsItemsNeverShowsANegativeMoreRow() {
+        val good = WidgetStateCodec.encode(WidgetState(build(done(3, 1), done(4, 2)), null, NOW))
+        val skewed = good.replace("\"total\":2", "\"total\":0")
+        assertFalse(skewed == good)
+        val board = WidgetStateCodec.decode(skewed).board!!
+        assertEquals(listOf("I:3", "I:4"), BoardRows.of(board, Section.DONE).map { (it as BoardRow.Item).let { r -> "I:${r.item.number}" } })
     }
 
     @Test fun doneTitlesAreCleanedAndPriorityKept() {
