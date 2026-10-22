@@ -1,0 +1,132 @@
+package io.github.veganmarshmallow.taskboard.setup
+
+import android.app.Activity
+import android.appwidget.AppWidgetManager
+import android.content.Intent
+import android.os.Bundle
+import android.view.View
+import android.widget.Button
+import android.widget.EditText
+import android.widget.TextView
+import android.widget.Toast
+import io.github.veganmarshmallow.taskboard.R
+import io.github.veganmarshmallow.taskboard.core.error.ErrorMessages
+import io.github.veganmarshmallow.taskboard.core.http.Outcome
+import io.github.veganmarshmallow.taskboard.core.token.TokenValidator
+import io.github.veganmarshmallow.taskboard.data.TokenStore
+import io.github.veganmarshmallow.taskboard.widget.TimeText
+import io.github.veganmarshmallow.taskboard.widget.WidgetIntents
+
+/**
+ * Launcher and widget-configuration screen: paste a token, test it, save it.
+ * The saved token is never displayed again; the field only shows whether one is saved.
+ */
+class SetupActivity : Activity() {
+    private lateinit var tokenStore: TokenStore
+    private lateinit var tokenField: EditText
+    private lateinit var status: TextView
+    private lateinit var testButton: Button
+    private lateinit var saveButton: Button
+    private val tester = ConnectionTester()
+    private val widgetId by lazy {
+        intent?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+            ?: AppWidgetManager.INVALID_APPWIDGET_ID
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_setup)
+        tokenStore = TokenStore(this)
+        tokenField = findViewById(R.id.token)
+        status = findViewById(R.id.status)
+        testButton = findViewById(R.id.test)
+        saveButton = findViewById(R.id.save)
+        findViewById<Button>(R.id.create_token).setOnClickListener {
+            try {
+                startActivity(WidgetIntents.viewUrl(getString(R.string.token_url)))
+            } catch (e: android.content.ActivityNotFoundException) {
+                showStatus(getString(R.string.no_browser), isError = true)
+            }
+        }
+        testButton.setOnClickListener { onTest() }
+        saveButton.setOnClickListener { onSave() }
+        findViewById<Button>(R.id.clear).setOnClickListener { onClear() }
+
+        // When opened as the widget's configure screen, a cancelled setup must not leave a widget behind
+        // unless a token already exists.
+        if (isConfiguring()) {
+            setResult(if (tokenStore.hasToken()) RESULT_OK else RESULT_CANCELED, widgetResult())
+            if (tokenStore.hasToken()) sendBroadcast(WidgetIntents.refreshIntent(this))
+        }
+        showSavedState()
+    }
+
+    override fun onDestroy() {
+        tester.shutdown()
+        super.onDestroy()
+    }
+
+    private fun onTest() {
+        val token = validatedToken() ?: return
+        setBusy(true)
+        showStatus(getString(R.string.testing), isError = false)
+        tester.test(token) { result ->
+            if (isDestroyed) return@test
+            setBusy(false)
+            when (result) {
+                is Outcome.Success -> showStatus(getString(R.string.test_ok), isError = false)
+                is Outcome.Failure -> showStatus(ErrorMessages(TimeText(this)::format).message(result.error), isError = true)
+            }
+        }
+    }
+
+    private fun onSave() {
+        val token = validatedToken() ?: return
+        tokenStore.save(token)
+        tokenField.text.clear()
+        showSavedState()
+        sendBroadcast(WidgetIntents.refreshIntent(this))
+        Toast.makeText(this, R.string.saved, Toast.LENGTH_SHORT).show()
+        if (isConfiguring()) {
+            setResult(RESULT_OK, widgetResult())
+            finish()
+        }
+    }
+
+    private fun onClear() {
+        tokenStore.clear()
+        tokenField.text.clear()
+        showSavedState()
+        sendBroadcast(WidgetIntents.refreshIntent(this))
+    }
+
+    /** Validates the field, or the saved token when the field is empty (so "Test" works after saving). */
+    private fun validatedToken(): String? {
+        val typed = tokenField.text.toString()
+        if (typed.isBlank()) tokenStore.get()?.let { return it }
+        return when (val r = TokenValidator.validate(typed)) {
+            is TokenValidator.Result.Invalid -> { showStatus(r.reason, isError = true); null }
+            is TokenValidator.Result.Valid -> { r.warning?.let { showStatus(it, isError = false) }; r.token }
+        }
+    }
+
+    private fun showSavedState() {
+        tokenField.hint = getString(if (tokenStore.hasToken()) R.string.token_hint_saved else R.string.token_hint)
+        findViewById<Button>(R.id.clear).visibility = if (tokenStore.hasToken()) View.VISIBLE else View.GONE
+    }
+
+    private fun showStatus(text: String, isError: Boolean) {
+        status.text = text
+        status.setTextColor(getColor(if (isError) R.color.error else R.color.ok))
+        status.visibility = View.VISIBLE
+    }
+
+    private fun setBusy(busy: Boolean) {
+        testButton.isEnabled = !busy
+        saveButton.isEnabled = !busy
+    }
+
+    private fun isConfiguring() = widgetId != AppWidgetManager.INVALID_APPWIDGET_ID
+
+    private fun widgetResult() = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+}
