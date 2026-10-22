@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and lower: nothing is backed up (allowBackup is false too); the token stays on the device. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="." />
+</full-backup-content>

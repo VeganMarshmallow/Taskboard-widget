@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_bg">#1E1F23</color>
+    <color name="widget_text">#ECECEE</color>
+    <color name="widget_muted">#A2A5AD</color>
+    <color name="widget_header_text">#C9CBD1</color>
+    <color name="widget_accent">#F3A46C</color>
+    <color name="widget_accent_text">#1B1C1F</color>
+    <color name="widget_error_bg">#4A1E17</color>
+    <color name="widget_error_text">#FFD2C8</color>
+    <color name="widget_badge">#F3A46C</color>
+    <color name="error">#FF8A7A</color>
+    <color name="ok">#7BD88F</color>
+</resources>

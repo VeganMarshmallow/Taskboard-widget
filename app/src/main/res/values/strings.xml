@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Claude board</string>
+    <string name="widget_title">Claude board</string>
+    <string name="widget_description">Your Claude task board: what needs you, what is in progress, and quick approvals.</string>
+    <string name="refresh">Refresh</string>
+    <string name="last_updated">last updated %1$s</string>
+    <string name="never_updated">not loaded yet</string>
+    <string name="updating">updating…</string>
+    <string name="loading">Loading…</string>
+    <string name="no_data">No board data yet</string>
+    <string name="empty_board">Nothing here — add a task</string>
+    <plurals name="more_items">
+        <item quantity="one">+%1$d more — open on GitHub</item>
+        <item quantity="other">+%1$d more — open on GitHub</item>
+    </plurals>
+    <string name="done_count">Done in the last 7 days: %1$d</string>
+    <string name="approve">Approve</string>
+    <string name="approve_title">Approve #%1$d?</string>
+    <string name="approve_message">Adds the ready-for-claude label to “%1$s”, so Claude can start on it in the next run.</string>
+    <string name="approved">Issue #%1$d is approved. Claude picks it up next run</string>
+    <string name="approve_failed">Couldn\'t approve #%1$d: %2$s</string>
+    <string name="no_browser">No app can open GitHub links</string>
+
+    <string name="setup_title">Connect to GitHub</string>
+    <string name="setup_instructions">The widget reads your task board in <b>VeganMarshmallow/claude-workspace</b>. Create a <b>fine-grained</b> personal access token:\n\n1. Resource owner: VeganMarshmallow\n2. Repository access: <b>Only select repositories</b> → claude-workspace\n3. Permissions → Repository: <b>Issues: Read and write</b> (Metadata: Read-only is added automatically)\n4. Pick an expiration, generate, and copy the token (starts with github_pat_).\n\nThe token stays on this phone, in app-private storage, and is never backed up.</string>
+    <string name="create_token">Create token on GitHub</string>
+    <string name="token_url">https://github.com/settings/personal-access-tokens/new</string>
+    <string name="token_label">Token</string>
+    <string name="token_hint">Paste token (github_pat_…)</string>
+    <string name="token_hint_saved">Token saved. Paste a new one to replace it</string>
+    <string name="test_connection">Test connection</string>
+    <string name="save">Save</string>
+    <string name="clear_token">Remove saved token</string>
+    <string name="saved">Token saved. The widget is refreshing</string>
+    <string name="testing">Testing…</string>
+    <string name="test_ok">Connected: the token can read the board. Save it to use the widget.</string>
+    <string name="preview_item_1">#7 Answer: which charting library?</string>
+    <string name="preview_item_2">#6 Android board widget</string>
+    <string name="preview_item_3">#9 Add dark mode to the site</string>
+    <string name="preview_needs_you">Needs you</string>
+    <string name="preview_in_progress">In progress</string>
+    <string name="preview_todo">Todo</string>
+</resources>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Static preview shown in the widget picker (Android 12+). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:orientation="vertical"
+    android:padding="@dimen/widget_padding">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/widget_title"
+        android:textColor="@color/widget_text"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <TextView style="@style/PreviewHeader" android:text="@string/preview_needs_you" />
+    <TextView style="@style/PreviewItem" android:text="@string/preview_item_1" />
+    <TextView style="@style/PreviewHeader" android:text="@string/preview_in_progress" />
+    <TextView style="@style/PreviewItem" android:text="@string/preview_item_2" />
+    <TextView style="@style/PreviewHeader" android:text="@string/preview_todo" />
+    <TextView style="@style/PreviewItem" android:text="@string/preview_item_3" />
+</LinearLayout>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Taskboard" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorAccent">@color/widget_accent</item>
+        <item name="android:colorPrimary">@color/widget_accent</item>
+    </style>
+    <style name="Theme.Taskboard.Trampoline" parent="android:Theme.Translucent.NoTitleBar">
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+</resources>
