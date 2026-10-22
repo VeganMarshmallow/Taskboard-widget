@@ -17,7 +17,7 @@ class RowViews(private val context: Context) {
     fun build(row: BoardRow): RemoteViews = when (row) {
         is BoardRow.Header -> header(row)
         is BoardRow.Item -> item(row.item)
-        is BoardRow.More -> note(context.getString(R.string.more_items, row.hidden), row)
+        is BoardRow.More -> note(context.resources.getQuantityString(R.plurals.more_items, row.hidden, row.hidden), row)
         BoardRow.Empty -> note(context.getString(R.string.empty_board), row)
         is BoardRow.Done -> note(context.getString(R.string.done_count, row.count), row)
     }

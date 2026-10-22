@@ -11,6 +11,7 @@ class StateStore(context: Context) {
     fun load(): WidgetState = WidgetStateCodec.decode(prefs.getString(KEY, null))
 
     /** Synchronous so the list factory reads the new state right after. Called off the main thread. */
+    @android.annotation.SuppressLint("ApplySharedPref")
     fun save(state: WidgetState) {
         prefs.edit().putString(KEY, WidgetStateCodec.encode(state)).commit()
     }
