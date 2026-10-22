@@ -59,6 +59,7 @@ class PreviewViews(private val root: View, private val messages: ErrorMessages) 
             is SummaryState.Text -> summary.showText(state.text, muted = false)
             SummaryState.NoDescription -> summary.showText(context.getString(R.string.preview_no_description), muted = true)
             SummaryState.NotLoaded -> summary.showText(context.getString(R.string.loading), muted = true)
+            SummaryState.Unavailable -> summary.showText(null)
         }
     }
 

@@ -15,10 +15,9 @@ object ClaudeComments {
     private val MARKERS = listOf("🤖", "✅", "⛔")
     private const val IGNORABLE_PREFIX = "\uFEFF\u200B‌‍\u2060\u200E\u200F"
 
-    fun isFromClaude(body: String): Boolean {
-        val start = body.trimStart { it.isWhitespace() || it in IGNORABLE_PREFIX }
-        return MARKERS.any { start.startsWith(it) }
-    }
+    fun isFromClaude(body: String): Boolean = MARKERS.any { withoutPrefix(body).startsWith(it) }
+
+    private fun withoutPrefix(body: String) = body.trimStart { it.isWhitespace() || it in IGNORABLE_PREFIX }
 
     /**
      * The newest Claude comment: latest [IssueComment.createdAt], ties (and missing times) broken
@@ -32,7 +31,7 @@ object ClaudeComments {
 
     /** The latest Claude comment as one line of plain text, or null when there is none. */
     fun latestLine(comments: List<IssueComment>, maxLength: Int = MAX_LENGTH): String? =
-        latest(comments)?.let { TitleCleaner.sanitize(PlainText.of(it.body)) }
+        latest(comments)?.let { TitleCleaner.sanitize(PlainText.of(withoutPrefix(it.body))) }
             ?.takeIf(TaskSummary::isVisible)
             ?.let { TextCap.cap(it, maxLength) }
 }
