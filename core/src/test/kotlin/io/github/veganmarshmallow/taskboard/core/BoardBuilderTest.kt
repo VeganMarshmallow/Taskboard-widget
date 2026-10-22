@@ -38,8 +38,8 @@ class BoardBuilderTest {
         )
         assertEquals(listOf(5, 6), board.numbers(Section.NEEDS_YOU))
         assertEquals(listOf(3), board.numbers(Section.IN_PROGRESS))
-        assertEquals(listOf(4, 6), board.numbers(Section.BLOCKED)) // 6 also needs you, but is still blocked
-        assertEquals(listOf(5), board.numbers(Section.IN_REVIEW))
+        assertEquals(listOf(4), board.numbers(Section.BLOCKED)) // 6 needs you, so it is only there
+        assertEquals(emptyList<Int>(), board.numbers(Section.IN_REVIEW)) // 5 waits for the owner: Needs you only
         assertEquals(listOf(2), board.numbers(Section.TODO))
     }
 
@@ -48,17 +48,15 @@ class BoardBuilderTest {
         assertEquals(listOf("Needs you", "Todo", "In progress", "Blocked", "In review", "Done"), Section.entries.map { it.title })
     }
 
-    @Test fun needsOwnerIsAQuestionWhateverItsStatusAndKeepsItsStatusTab() {
+    @Test fun needsOwnerIsAQuestionWhateverItsStatusAndLeavesItsStatusTab() {
         val statuses = listOf(TODO, IN_PROGRESS, BLOCKED, IN_REVIEW)
         val issues = statuses.mapIndexed { i, s -> issue(10 + i, s, NEEDS_OWNER) } + issue(20, NEEDS_OWNER)
         val board = builder.build(issues, NOW)
         assertEquals(listOf(10, 11, 12, 13, 20), board.numbers(Section.NEEDS_YOU))
         assertTrue(board.section(Section.NEEDS_YOU).items.all { it.needsYouReason == NeedsYouReason.QUESTION })
-        assertEquals(listOf(10, 20), board.numbers(Section.TODO))
-        assertEquals(listOf(11), board.numbers(Section.IN_PROGRESS))
-        assertEquals(listOf(12), board.numbers(Section.BLOCKED))
-        assertEquals(listOf(13), board.numbers(Section.IN_REVIEW))
-        assertEquals(board.statusTabs().size, board.statusTabs().toSet().size) // one status tab each
+        assertEquals(emptyList<Int>(), board.statusTabs()) // Needs you is exclusive
+        assertEquals(5, board.count(Section.NEEDS_YOU))
+        statusTabSections.forEach { assertEquals("$it", 0, board.count(it)) }
     }
 
     @Test fun inReviewGoesToNeedsYouWithReviewReason() {
@@ -115,7 +113,7 @@ class BoardBuilderTest {
         assertEquals(listOf(3), board.numbers(Section.IN_PROGRESS))
         assertEquals(listOf(4), board.numbers(Section.NEEDS_YOU))
         assertEquals(Priority.HIGH, board.section(Section.TODO).items.single { it.number == 5 }.priority)
-        assertEquals(listOf(5, 4), board.numbers(Section.TODO)) // high first; no status label: Todo, even with a question
+        assertEquals(listOf(5), board.numbers(Section.TODO)) // 4 is a question: Needs you only
     }
 
     @Test fun issueWithNoLabelsIsTodoAndApprovable() {
@@ -134,7 +132,7 @@ class BoardBuilderTest {
             issue(6, TODO, IN_PROGRESS, BLOCKED, IN_REVIEW, DONE),
         )
         assertEquals(listOf(4, 6), board.numbers(Section.NEEDS_YOU))
-        assertEquals(listOf(4, 6), board.numbers(Section.IN_REVIEW))
+        assertEquals(emptyList<Int>(), board.numbers(Section.IN_REVIEW))
         assertEquals(listOf(3), board.numbers(Section.BLOCKED))
         assertEquals(listOf(2), board.numbers(Section.IN_PROGRESS))
         assertEquals(listOf(5), board.numbers(Section.TODO))

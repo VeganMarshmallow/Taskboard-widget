@@ -33,6 +33,15 @@ object FakeBoards {
         NOW,
     )
 
+    /** Counts past the tab cap: Needs you 1500 (1000 PRs + 500 questions), Todo 1200, In progress 999, nothing blocked or done. */
+    fun busy(): Board = BoardBuilder().build(
+        (100 until 1100).map { issue(it, "Review PR $it", Labels.IN_REVIEW) } +
+            (1100 until 1600).map { issue(it, "Question $it", Labels.TODO, Labels.NEEDS_OWNER) } +
+            (1600 until 2800).map { issue(it, "Task $it", Labels.TODO) } +
+            (2800 until 3799).map { issue(it, "Working on $it", Labels.IN_PROGRESS) },
+        NOW,
+    )
+
     fun emptyWithDone(): Board = BoardBuilder().build(
         listOf(issue(4, "Set up CI", Labels.DONE, open = false, closedAt = NOW.minusSeconds(3_600))),
         NOW,

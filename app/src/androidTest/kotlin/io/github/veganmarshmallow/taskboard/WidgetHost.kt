@@ -31,7 +31,11 @@ class WidgetHost(private val context: Context) {
         tab: Section = TabSelection.default(state.board),
     ): Rendered {
         val density = context.resources.displayMetrics.density
-        val frame = FrameLayout(context).apply { setBackgroundColor(WALLPAPER) }
+        val frame = FrameLayout(context).apply {
+            setBackgroundColor(WALLPAPER)
+            // A detached view tree cannot inherit a direction, so take the context's (RTL for Hebrew).
+            layoutDirection = context.resources.configuration.layoutDirection
+        }
         val pad = (16 * density).toInt()
         frame.setPadding(pad, pad, pad, pad)
         val widget = WidgetViews(context).build(state, WIDGET_ID, tab).apply(context, frame)

@@ -5,4 +5,5 @@
     <dimen name="header_text">12sp</dimen>
     <dimen name="tab_height">26dp</dimen>
     <dimen name="tab_text">12sp</dimen>
+    <dimen name="tab_text_min">8dp</dimen>
 </resources>

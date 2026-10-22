@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Six status tabs in two rows of three: one row of six is unreadable on a narrow (180dp) widget. -->
+<!--
+  Six status tabs in two rows of three: one row of six is unreadable on a narrow (180dp) widget.
+  Each slot holds two labels, plain and highlighted, and the app shows one of them. The colours
+  therefore come from resources the launcher resolves, so they follow a light/dark switch at once
+  (a colour set from code would stay in the old theme until the next redraw).
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/tabs"
     android:layout_width="match_parent"
@@ -13,9 +18,20 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal">
 
-        <TextView android:id="@+id/tab_needs_you" style="@style/WidgetTab" />
-        <TextView android:id="@+id/tab_todo" style="@style/WidgetTab" />
-        <TextView android:id="@+id/tab_in_progress" style="@style/WidgetTab" />
+        <FrameLayout android:id="@+id/tab_needs_you" style="@style/WidgetTabSlot">
+            <TextView android:id="@+id/tab_needs_you_label" style="@style/WidgetTab" />
+            <TextView android:id="@+id/tab_needs_you_selected" style="@style/WidgetTab.Selected" />
+        </FrameLayout>
+
+        <FrameLayout android:id="@+id/tab_todo" style="@style/WidgetTabSlot">
+            <TextView android:id="@+id/tab_todo_label" style="@style/WidgetTab" />
+            <TextView android:id="@+id/tab_todo_selected" style="@style/WidgetTab.Selected" />
+        </FrameLayout>
+
+        <FrameLayout android:id="@+id/tab_in_progress" style="@style/WidgetTabSlot">
+            <TextView android:id="@+id/tab_in_progress_label" style="@style/WidgetTab" />
+            <TextView android:id="@+id/tab_in_progress_selected" style="@style/WidgetTab.Selected" />
+        </FrameLayout>
     </LinearLayout>
 
     <LinearLayout
@@ -24,8 +40,19 @@
         android:layout_marginTop="4dp"
         android:orientation="horizontal">
 
-        <TextView android:id="@+id/tab_blocked" style="@style/WidgetTab" />
-        <TextView android:id="@+id/tab_in_review" style="@style/WidgetTab" />
-        <TextView android:id="@+id/tab_done" style="@style/WidgetTab" />
+        <FrameLayout android:id="@+id/tab_blocked" style="@style/WidgetTabSlot">
+            <TextView android:id="@+id/tab_blocked_label" style="@style/WidgetTab" />
+            <TextView android:id="@+id/tab_blocked_selected" style="@style/WidgetTab.Selected" />
+        </FrameLayout>
+
+        <FrameLayout android:id="@+id/tab_in_review" style="@style/WidgetTabSlot">
+            <TextView android:id="@+id/tab_in_review_label" style="@style/WidgetTab" />
+            <TextView android:id="@+id/tab_in_review_selected" style="@style/WidgetTab.Selected" />
+        </FrameLayout>
+
+        <FrameLayout android:id="@+id/tab_done" style="@style/WidgetTabSlot">
+            <TextView android:id="@+id/tab_done_label" style="@style/WidgetTab" />
+            <TextView android:id="@+id/tab_done_selected" style="@style/WidgetTab.Selected" />
+        </FrameLayout>
     </LinearLayout>
 </LinearLayout>
