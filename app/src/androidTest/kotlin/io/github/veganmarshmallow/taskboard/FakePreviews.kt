@@ -77,4 +77,9 @@ object FakePreviews {
         )
 
     fun justApproved(): PreviewScreen = todoLoaded().approveStarted().approveSucceeded()
+
+    /** The task was deleted or moved since the widget loaded: stale row kept, no Approve. */
+    fun issueGone(): PreviewScreen = cachedWhileLoading().issueFailed(BoardError.IssueGone(17))
+
+    fun expiredToken(): PreviewScreen = cachedWhileLoading().issueFailed(BoardError.BadToken(401))
 }

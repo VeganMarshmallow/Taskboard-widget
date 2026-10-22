@@ -158,13 +158,72 @@ class PreviewScreenTest {
     }
 
     @Test fun approveFailureShowsErrorAndButtonAgain() {
-        val s = PreviewScreen.initial(2, null).issueLoaded(details(2, Labels.TODO)).approveStarted().approveFailed(BoardError.IssueGone(2))
-        assertEquals(PreviewError.Approve(BoardError.IssueGone(2)), s.error)
+        val s = PreviewScreen.initial(2, null).issueLoaded(details(2, Labels.TODO)).approveStarted().approveFailed(BoardError.Network)
+        assertEquals(PreviewError.Approve(BoardError.Network), s.error)
         assertTrue(s.showApprove)
         assertFalse(s.justApproved)
     }
 
+    // --- review of #11: races, and issues that changed or vanished since the board loaded ---
+
+    @Test fun approveOfAVanishedIssueHidesTheButton() {
+        val s = PreviewScreen.initial(2, null).issueLoaded(details(2, Labels.TODO)).approveStarted().approveFailed(BoardError.IssueGone(2))
+        assertEquals(PreviewError.Approve(BoardError.IssueGone(2)), s.error)
+        assertFalse(s.showApprove) // approving again can only fail the same way
+    }
+
+    @Test fun deletedOrTransferredIssueKeepsTheCachedRowButNoApprove() {
+        val cached = PreviewScreen.initial(2, TaskPreview.fromBoard(board, 2))
+        assertTrue(cached.task!!.canApprove)
+        val gone = cached.issueFailed(BoardError.IssueGone(2))
+        assertEquals("Todo task", gone.task!!.title)
+        assertFalse(gone.showApprove)
+        assertEquals(PreviewError.Load(BoardError.IssueGone(2)), gone.error)
+        // Other failures say nothing about the issue itself: the cached rule still applies.
+        listOf(BoardError.Network, BoardError.BadToken(401), BoardError.RateLimited(null), BoardError.Server(502)).forEach {
+            assertTrue("$it", cached.issueFailed(it).showApprove)
+        }
+    }
+
+    @Test fun issueClosedSinceTheBoardLoadedShowsClosedWithoutApprove() {
+        val cached = PreviewScreen.initial(2, TaskPreview.fromBoard(board, 2))
+        val closed = cached.issueLoaded(details(2, Labels.TODO, open = false))
+        assertEquals(PreviewStatus.CLOSED, closed.task!!.status)
+        assertFalse(closed.showApprove)
+        assertEquals(PreviewStatus.DONE, cached.issueLoaded(details(2, Labels.DONE, open = false)).task!!.status)
+    }
+
+    @Test fun approvedBySomeoneElseMeanwhileHidesTheButtonOnLoad() {
+        val cached = PreviewScreen.initial(2, TaskPreview.fromBoard(board, 2))
+        assertFalse(cached.issueLoaded(details(2, Labels.TODO, Labels.READY_FOR_CLAUDE)).showApprove)
+        // Picked up by a run in the meantime: no longer Todo either.
+        assertFalse(cached.issueLoaded(details(2, Labels.IN_PROGRESS, Labels.READY_FOR_CLAUDE)).showApprove)
+    }
+
+    @Test fun staleReloadRightAfterApprovingDoesNotBringTheButtonBack() {
+        val done = PreviewScreen.initial(2, null).issueLoaded(details(2, Labels.TODO)).approveStarted().approveSucceeded()
+        val stale = done.loadStarted().issueLoaded(details(2, Labels.TODO)) // label not visible yet
+        assertFalse(stale.showApprove)
+        assertTrue(stale.justApproved)
+    }
+
+    @Test fun commentsArrivingAfterAFailedReloadStillShow() {
+        val s = PreviewScreen.initial(2, null).issueLoaded(details(2, Labels.TODO)).loadStarted().issueFailed(BoardError.Network)
+            .commentsLoaded(listOf(IssueComment(1, "✅ Done", null)))
+        assertEquals("✅ Done", s.claudeLine)
+        assertEquals("T2", s.task!!.title)
+    }
+
     @Test fun approveSucceededWithoutTaskDoesNotCrash() {
         assertNull(PreviewScreen.initial(2, null).approveSucceeded().task)
+    }
+
+    @Test fun recreatedAfterProcessDeathKeepsTheApprovedConfirmation() {
+        val restored = PreviewScreen.initial(2, TaskPreview.fromBoard(board, 2), approvedEarlier = true)
+        assertTrue(restored.justApproved)
+        assertFalse(restored.task!!.canApprove) // the cached row predates the approval
+        assertFalse(restored.issueLoaded(details(2, Labels.TODO)).showApprove)
+        assertNull(PreviewScreen.initial(2, null, approvedEarlier = true).task)
+        assertFalse(PreviewScreen.initial(2, TaskPreview.fromBoard(board, 2)).justApproved)
     }
 }

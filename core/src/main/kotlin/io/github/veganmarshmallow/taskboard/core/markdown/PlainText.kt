@@ -4,8 +4,12 @@ package io.github.veganmarshmallow.taskboard.core.markdown
  * Joins Markdown blocks into one line of plain text. Blocks that already end in punctuation are
  * joined with a space; otherwise a list item is followed by "; " and other blocks by ". ", so a
  * bullet list reads as a sentence. Rules and code blocks are skipped.
+ *
+ * Callers show one short line, so no further blocks are read once the output reaches [MAX_OUTPUT]
+ * characters (each block is itself bounded by [MarkdownInline.strip]).
  */
 object PlainText {
+    const val MAX_OUTPUT = 2_000
     private const val ENDS_SENTENCE = ".!?:;,…—–-׃"
     private const val CLOSERS = "\"')]}»”’"
 
@@ -13,6 +17,7 @@ object PlainText {
         val out = StringBuilder()
         var previousWasItem = false
         for (block in blocks) {
+            if (out.length >= MAX_OUTPUT) break
             val text = when (block) {
                 is MarkdownBlock.Heading -> block.text
                 is MarkdownBlock.Paragraph -> block.text

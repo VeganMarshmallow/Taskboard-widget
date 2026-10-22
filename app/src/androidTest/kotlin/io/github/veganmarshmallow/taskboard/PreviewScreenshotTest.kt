@@ -16,10 +16,16 @@ class PreviewScreenshotTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
 
-    private fun capture(name: String, screen: PreviewScreen, heightDp: Int = 420): View {
+    private fun capture(
+        name: String,
+        screen: PreviewScreen,
+        heightDp: Int = 420,
+        widthDp: Int = 380,
+        host: () -> PreviewHost = { PreviewHost(context) },
+    ): View {
         lateinit var sheet: View
         instrumentation.runOnMainSync {
-            val rendered = PreviewHost(context).render(screen, heightDp = heightDp)
+            val rendered = host().render(screen, widthDp = widthDp, heightDp = heightDp)
             sheet = rendered.sheet
             Screenshots.save(context, name, WidgetHost.toBitmap(rendered.root))
         }
@@ -71,5 +77,51 @@ class PreviewScreenshotTest {
         val v = capture("11-6-preview-approved", FakePreviews.justApproved())
         assertTrue(v.visible(R.id.preview_approved))
         assertTrue(!v.visible(R.id.preview_approve))
+    }
+
+    // --- added in review ---
+
+    @Test fun issueDeletedOrMoved() {
+        val v = capture("11-7-preview-issue-gone", FakePreviews.issueGone(), heightDp = 340)
+        assertTrue(v.text(R.id.preview_error).contains("not found"))
+        assertTrue(!v.visible(R.id.preview_approve)) // approving a vanished issue can only fail
+        assertTrue(v.text(R.id.preview_title).startsWith("Weekly digest email"))
+    }
+
+    @Test fun expiredTokenOffersSetUp() {
+        val v = capture("11-8-preview-expired-token", FakePreviews.expiredToken(), heightDp = 360)
+        assertEquals(context.getString(R.string.preview_set_up), v.text(R.id.preview_retry))
+    }
+
+    @Test fun darkMode() {
+        val v = capture("11-9-preview-dark", FakePreviews.blockedWithClaudeLine(), host = { PreviewHost(context, night = true) })
+        val bg = (v.background as? android.graphics.drawable.GradientDrawable)?.color?.defaultColor
+        if (bg != null) assertTrue("sheet is dark in night mode", android.graphics.Color.luminance(bg) < 0.2f)
+        assertTrue(v.visible(R.id.preview_claude))
+        // The chip keeps readable text at night (it used to turn dark-on-dark).
+        val chip = v.findViewById<TextView>(R.id.preview_status)
+        assertTrue(contrast(chip.currentTextColor, chip.backgroundTintList!!.defaultColor) >= 4.5)
+    }
+
+    private fun contrast(a: Int, b: Int): Double {
+        val la = android.graphics.Color.luminance(a).toDouble()
+        val lb = android.graphics.Color.luminance(b).toDouble()
+        return (maxOf(la, lb) + 0.05) / (minOf(la, lb) + 0.05)
+    }
+
+    @Test fun smallScreenWithLargestFontStillReachesEveryButton() {
+        val v = capture(
+            "11-10-preview-small-screen-font-200", FakePreviews.todoLoaded(),
+            widthDp = 300, heightDp = 460, host = { PreviewHost(context, fontScale = 2.0f) },
+        )
+        val frameHeight = (v.parent as View).height
+        assertTrue("sheet fits the screen", v.height <= frameHeight)
+        val scroll = v as android.widget.ScrollView
+        val content = scroll.getChildAt(0)
+        // Everything is either on screen or reachable by scrolling the sheet.
+        assertTrue(content.height <= v.height || scroll.canScrollVertically(1))
+        assertTrue(v.visible(R.id.preview_approve))
+        assertTrue(v.visible(R.id.preview_open))
+        assertEquals(4, v.findViewById<TextView>(R.id.preview_title).maxLines)
     }
 }

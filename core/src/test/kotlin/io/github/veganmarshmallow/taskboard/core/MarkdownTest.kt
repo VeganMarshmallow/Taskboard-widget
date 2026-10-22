@@ -86,8 +86,9 @@ class MarkdownTest {
         assertEquals(listOf(Paragraph("quoted nested"), Heading(2, "Q")), MarkdownBlocks.parse("> quoted\n>> nested\n\n> ## Q"))
     }
 
-    @Test fun tablesBecomeCommaJoinedRows() {
-        assertEquals(listOf(Paragraph("A, B a1, b1")), MarkdownBlocks.parse("| A | B |\n|---|:-:|\n| a1 | b1 |"))
+    @Test fun tablesBecomeOneParagraphPerRow() {
+        assertEquals(listOf(Paragraph("A, B"), Paragraph("a1, b1")), MarkdownBlocks.parse("| A | B |\n|---|:-:|\n| a1 | b1 |"))
+        assertEquals("Field, Value. name, שם", PlainText.of("Intro:\n| Field | Value |\n|:--|--:|\n| name | שם |").removePrefix("Intro: "))
     }
 
     @Test fun htmlCommentsAndReferenceDefinitionsAreDropped() {

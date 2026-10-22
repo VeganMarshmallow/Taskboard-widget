@@ -17,6 +17,8 @@
     <color name="status_blocked">#B42318</color>
     <color name="status_todo">#62656D</color>
     <color name="status_done">#1F7A3A</color>
+    <!-- Chip text on every status colour, day and night (all status colours are dark enough for white). -->
+    <color name="status_text">#FFFFFF</color>
     <color name="icon_bg">#1B1C1F</color>
     <color name="icon_fg">#F3A46C</color>
 </resources>

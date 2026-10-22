@@ -98,4 +98,22 @@ class PreviewViewsTest {
             ClaudeComments.latestLine(listOf(IssueComment(1, "🤖 a", null), IssueComment(2, "\u200B⛔ **Blocked**: why", null), IssueComment(3, "ok", null))),
         )
     }
+
+    /** Hostile Markdown on Android's ICU regex engine: no stack overflow, no near-minute stall (review of #11). */
+    @Test fun hostileMarkdownOnAndroidRuntime() {
+        val start = android.os.SystemClock.uptimeMillis()
+        assertEquals("See design", TaskSummary.of("### What should be done\nSee [design](https://x.y/?q=" + "a".repeat(30_000) + ")"))
+        assertEquals("x", TaskSummary.of("x\n\n" + "- ".repeat(20_000) + "\nfooter"))
+        assertEquals("a, b. 1, 2", TaskSummary.of("| a | b |\n" + "|-".repeat(10_000) + "|\n| 1 | 2 |"))
+        assertTrue(TaskSummary.of("*a" + " *b".repeat(20_000))!!.length <= TaskSummary.MAX_LENGTH)
+        assertEquals("x", TaskSummary.of(">".repeat(30_000) + " x"))
+        assertEquals("Strip <!-- markers, then render.", TaskSummary.of("### What should be done\nStrip `<!--` markers, then render.\n\n### Repo\nx/y"))
+        assertEquals("a [b] c", TaskSummary.of("[a [b] c](https://x.y)"))
+        assertEquals(
+            "🤖 Screenshot x attached",
+            ClaudeComments.latestLine(listOf(IssueComment(1, "🤖 Screenshot [x](data:image/png;base64," + "A".repeat(40_000) + ") attached", null))),
+        )
+        val ms = android.os.SystemClock.uptimeMillis() - start
+        assertTrue("took $ms ms", ms < 10_000)
+    }
 }

@@ -1,6 +1,7 @@
 package io.github.veganmarshmallow.taskboard
 
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Color
 import android.view.ContextThemeWrapper
 import android.view.Gravity
@@ -14,9 +15,10 @@ import io.github.veganmarshmallow.taskboard.preview.PreviewViews
 /**
  * Inflates the real preview layout with the preview's theme and binds a [PreviewScreen], the way
  * TaskPreviewActivity does, at the bottom of a dimmed "home screen". Must run on the main thread.
+ * [fontScale] and [night] override the device settings (large text, dark mode); null keeps them.
  */
-class PreviewHost(context: Context) {
-    private val themed = ContextThemeWrapper(context, R.style.Theme_Taskboard_Preview)
+class PreviewHost(context: Context, fontScale: Float? = null, night: Boolean? = null) {
+    private val themed = ContextThemeWrapper(configured(context, fontScale, night), R.style.Theme_Taskboard_Preview)
 
     class Rendered(val root: View, val sheet: View, val views: PreviewViews)
 
@@ -36,5 +38,16 @@ class PreviewHost(context: Context) {
 
     private companion object {
         val DIMMED_WALLPAPER: Int = Color.rgb(0x2E, 0x36, 0x40)
+
+        fun configured(context: Context, fontScale: Float?, night: Boolean?): Context {
+            if (fontScale == null && night == null) return context
+            val config = Configuration(context.resources.configuration)
+            fontScale?.let { config.fontScale = it }
+            night?.let {
+                val mode = if (it) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO
+                config.uiMode = (config.uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or mode
+            }
+            return context.createConfigurationContext(config)
+        }
     }
 }

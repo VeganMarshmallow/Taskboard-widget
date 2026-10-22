@@ -13,6 +13,8 @@ import io.github.veganmarshmallow.taskboard.core.markdown.TextCap
 object ClaudeComments {
     const val MAX_LENGTH = 160
     private val MARKERS = listOf("🤖", "✅", "⛔")
+    /** Comments beyond this are cut before parsing; one line never needs more. */
+    private const val MAX_INPUT = 64 * 1024
     private const val IGNORABLE_PREFIX = "\uFEFF\u200B‌‍\u2060\u200E\u200F"
 
     fun isFromClaude(body: String): Boolean = MARKERS.any { withoutPrefix(body).startsWith(it) }
@@ -31,7 +33,7 @@ object ClaudeComments {
 
     /** The latest Claude comment as one line of plain text, or null when there is none. */
     fun latestLine(comments: List<IssueComment>, maxLength: Int = MAX_LENGTH): String? =
-        latest(comments)?.let { TitleCleaner.sanitize(PlainText.of(withoutPrefix(it.body))) }
+        latest(comments)?.let { TitleCleaner.sanitize(PlainText.of(withoutPrefix(it.body).take(MAX_INPUT))) }
             ?.takeIf(TaskSummary::isVisible)
             ?.let { TextCap.cap(it, maxLength) }
 }

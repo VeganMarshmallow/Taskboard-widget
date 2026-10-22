@@ -136,8 +136,8 @@ class TaskSummaryTest {
             Final *line*\_here
         """.trimIndent()
         assertEquals(
-            // The quote is a paragraph (". "), list items join with "; ", the table lines continue item 2.
-            "Note: see docs/README.md and img. Add --flag to the CLI; Remove old code & tests Col, Val a, 1; Final line_here",
+            // The quote is a paragraph (". "), list items join with "; ", each table row is its own sentence.
+            "Note: see docs/README.md and img. Add --flag to the CLI; Remove old code & tests; Col, Val. a, 1. Final line_here",
             summary(body),
         )
     }

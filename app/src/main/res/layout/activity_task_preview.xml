@@ -34,7 +34,7 @@
                 android:background="@drawable/preview_status_background"
                 android:paddingHorizontal="10dp"
                 android:paddingVertical="3dp"
-                android:textColor="@color/widget_accent_text"
+                android:textColor="@color/status_text"
                 android:textSize="12sp"
                 android:textStyle="bold" />
 
