@@ -6,6 +6,7 @@ import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.StateStore
+import io.github.veganmarshmallow.taskboard.update.UpdateController
 
 /** Blocking refresh/approve steps. Always called on [BackgroundWork]'s thread. */
 class WidgetRefresher(private val context: Context) {
@@ -17,6 +18,7 @@ class WidgetRefresher(private val context: Context) {
         val state = BoardLoader(AppGraph.clock).refresh(store.load(), AppGraph.apiOrNull(context))
         store.save(state)
         renderer.render(state)
+        UpdateController.checkInBackgroundIfDue(context) // queued on its own thread; never delays the board
     }
 
     /** Adds `ready-for-claude`, then refreshes. Returns the failure, if any, for the caller to report. */

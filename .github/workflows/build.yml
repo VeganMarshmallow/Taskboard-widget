@@ -93,6 +93,10 @@ jobs:
           set -euo pipefail
           apk="app/build/outputs/apk/release/app-release.apk"
           cp "$apk" taskboard-widget.apk
+          # Read by the app's in-app updater (core/update/VersionJsonParser.kt). versionName matches app/build.gradle.kts.
+          printf '{"versionCode":%s,"versionName":"0.1.%s","sha":"%s","apkSha256":"%s","apkSize":%s}\n' \
+            "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_NUMBER" "$GITHUB_SHA" \
+            "$(sha256sum taskboard-widget.apk | cut -d' ' -f1)" "$(stat -c %s taskboard-widget.apk)" > version.json
           notes="Built from ${GITHUB_SHA::7} on ${BRANCH} (build ${GITHUB_RUN_NUMBER}, versionCode ${GITHUB_RUN_NUMBER})."
           tag="$(.github/scripts/release-tag.sh "$BRANCH")"
           if [ "$tag" = "latest" ]; then
@@ -103,7 +107,7 @@ jobs:
           # Recreate so the release always points at this commit and holds only the newest APK.
           gh release delete "$tag" --cleanup-tag --yes 2>/dev/null || true
           git push origin ":refs/tags/$tag" 2>/dev/null || true
-          gh release create "$tag" taskboard-widget.apk --target "$GITHUB_SHA" --title "$title" --notes "$notes" $pre
+          gh release create "$tag" taskboard-widget.apk version.json --target "$GITHUB_SHA" --title "$title" --notes "$notes" $pre
           url="$(gh release view "$tag" --json url --jq .url)"
           echo "::notice title=Release published::$url"
           echo "### 📦 APK published: [$tag]($url)" >> "$GITHUB_STEP_SUMMARY"

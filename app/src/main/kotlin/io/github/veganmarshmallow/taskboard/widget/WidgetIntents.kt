@@ -17,6 +17,7 @@ object WidgetIntents {
     private const val RC_SETUP = 2
     private const val RC_ROW_TEMPLATE = 3
     private const val RC_OPEN_BOARD = 4
+    private const val RC_UPDATES = 14
 
     private const val IMMUTABLE = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
@@ -32,6 +33,13 @@ object WidgetIntents {
     fun setup(context: Context): PendingIntent = PendingIntent.getActivity(
         context, RC_SETUP,
         Intent(context, SetupActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), IMMUTABLE,
+    )
+
+    /** Opens the app scrolled to the "App updates" card (the widget's update dot). */
+    fun updates(context: Context): PendingIntent = PendingIntent.getActivity(
+        context, RC_UPDATES,
+        Intent(context, SetupActivity::class.java).setAction(SetupActivity.ACTION_SHOW_UPDATES).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        IMMUTABLE,
     )
 
     fun openUrl(context: Context, url: String): PendingIntent = PendingIntent.getActivity(

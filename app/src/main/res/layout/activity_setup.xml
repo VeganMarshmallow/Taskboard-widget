@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/setup_scroll"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
@@ -92,5 +93,7 @@
             android:layout_marginTop="8dp"
             android:text="@string/clear_token"
             android:visibility="gone" />
+
+        <include layout="@layout/section_update" />
     </LinearLayout>
 </ScrollView>
