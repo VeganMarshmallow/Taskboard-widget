@@ -40,7 +40,10 @@ class CoreOnDeviceTest {
         val api = GitHubApi(http, "github_pat_X", Clock.fixed(FakeBoards.NOW, ZoneOffset.UTC))
         val issues = (api.fetchIssues() as Outcome.Success).value
         val board = BoardBuilder().build(issues, FakeBoards.NOW)
-        assertEquals(2, board.sections.sumOf { it.totalCount })
+        assertEquals(1, board.count(Section.TODO))
+        assertEquals(1, board.count(Section.IN_PROGRESS))
+        assertEquals(0, board.count(Section.NEEDS_YOU))
+        assertEquals(3, board.sections.sumOf { it.totalCount }) // two open + one done
         assertEquals(1, board.doneLast7Days)
         assertTrue(BoardRows.of(board, Section.DONE).single() is BoardRow.Item)
         assertEquals(TabSelection.resolve(null, board), TabSelection.parse(TabSelection.key(TabSelection.default(board))))
