@@ -97,8 +97,16 @@ class NetworkEdgeCasesTest {
         assertFalse(messages.opensSetup(BoardError.IssueGone(77)))
     }
 
-    @Test fun timeoutsDnsAndTlsFailuresAreNetworkErrors() {
-        listOf(SocketTimeoutException("Read timed out"), UnknownHostException("api.github.com"), SSLHandshakeException("cert")).forEach { e ->
+    @Test fun socketTimeoutsAreTimeoutErrors() {
+        listOf(SocketTimeoutException("Read timed out"), SocketTimeoutException("connect timed out")).forEach { e ->
+            val http = FakeHttp().on({ true }) { throw e }
+            assertEquals(BoardError.Timeout, api(http).fetchIssues().error())
+            assertEquals(BoardError.Timeout, api(http).approve(3).error())
+        }
+    }
+
+    @Test fun dnsAndTlsFailuresAreNetworkErrors() {
+        listOf(UnknownHostException("api.github.com"), SSLHandshakeException("cert")).forEach { e ->
             val http = FakeHttp().on({ true }) { throw e }
             assertEquals(e.javaClass.simpleName, BoardError.Network, api(http).fetchIssues().error())
         }
@@ -109,7 +117,7 @@ class NetworkEdgeCasesTest {
         val http = FakeHttp()
             .on({ "page=2" in it.url }) { throw SocketTimeoutException("timeout") }
             .onUrlContaining("state=open", ok(page(issueJson(2)), "Link" to "<$next>; rel=\"next\""))
-        assertEquals(BoardError.Network, api(http).fetchIssues().error())
+        assertEquals(BoardError.Timeout, api(http).fetchIssues().error())
     }
 
     @Test fun unexpectedRuntimeExceptionFromTheHttpStackIsReportedNotThrown() {

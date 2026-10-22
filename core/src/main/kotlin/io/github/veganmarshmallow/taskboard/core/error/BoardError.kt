@@ -22,6 +22,9 @@ sealed class BoardError {
     /** The request never got a response. */
     data object Network : BoardError()
 
+    /** The request or the whole refresh took too long (a hanging connection, or a refresh killed mid-way). */
+    data object Timeout : BoardError()
+
     /** 5xx from GitHub. */
     data class Server(val status: Int) : BoardError()
 

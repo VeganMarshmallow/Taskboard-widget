@@ -9,6 +9,7 @@ import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.model.Issue
 import io.github.veganmarshmallow.taskboard.core.model.Repo
 import java.io.IOException
+import java.net.SocketTimeoutException
 import java.time.Clock
 import java.time.Duration
 
@@ -52,7 +53,9 @@ class GitHubApi(
         classify: (HttpResponse) -> BoardError? = { ErrorClassifier.classify(it, clock.instant()) },
     ): Outcome<HttpResponse> {
         val response = try {
-            http.execute(request) // timeouts (SocketTimeoutException) are IOExceptions too
+            http.execute(request)
+        } catch (e: SocketTimeoutException) {
+            return Outcome.Failure(BoardError.Timeout) // connected, or tried to, but GitHub never answered in time
         } catch (e: IOException) {
             return Outcome.Failure(BoardError.Network)
         } catch (e: RuntimeException) {
