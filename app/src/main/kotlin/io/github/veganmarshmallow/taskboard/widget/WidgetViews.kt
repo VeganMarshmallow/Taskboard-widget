@@ -1,9 +1,11 @@
 package io.github.veganmarshmallow.taskboard.widget
 
+import android.app.PendingIntent
 import android.content.Context
 import android.view.View
 import android.widget.RemoteViews
 import io.github.veganmarshmallow.taskboard.R
+import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 
@@ -70,7 +72,10 @@ class WidgetViews(private val context: Context) {
         }
         views.setViewVisibility(R.id.error, View.VISIBLE)
         views.setTextViewText(R.id.error, messages.widgetMessage(error))
-        val tap = if (messages.opensSetup(error)) WidgetIntents.setup(context) else WidgetIntents.refresh(context)
-        views.setOnClickPendingIntent(R.id.error, tap)
+        views.setOnClickPendingIntent(R.id.error, errorTap(error))
     }
+
+    /** What tapping the error banner does: open setup for token problems, otherwise retry. The widget's only path to setup. */
+    fun errorTap(error: BoardError): PendingIntent =
+        if (messages.opensSetup(error)) WidgetIntents.setup(context) else WidgetIntents.refresh(context)
 }
