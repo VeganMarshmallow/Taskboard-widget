@@ -26,6 +26,13 @@
             </intent-filter>
         </activity>
 
+        <!-- The New task form, opened from the widget's + button. -->
+        <activity
+            android:name=".newtask.NewTaskActivity"
+            android:exported="false"
+            android:label="@string/task_new_title"
+            android:windowSoftInputMode="adjustResize|stateVisible" />
+
         <!-- Invisible trampoline for list-row taps: opens the issue, or confirms an approval. -->
         <activity
             android:name=".widget.RowActionActivity"

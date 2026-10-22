@@ -50,6 +50,31 @@ class ScreenshotTest {
         instrumentation.runOnMainSync { activity.finish() }
     }
 
+    @Test fun newTaskForm() {
+        val intent = Intent(context, io.github.veganmarshmallow.taskboard.newtask.NewTaskActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        io.github.veganmarshmallow.taskboard.newtask.NewTaskController.session.draft =
+            io.github.veganmarshmallow.taskboard.core.task.TaskDraft(
+                title = "Weekly digest email of finished tasks",
+                goal = "Every Sunday, email a summary of tasks done that week.\n- Group by repo\n- Link each PR",
+                doneWhen = "A test email arrives with last week's tasks",
+                repo = "VeganMarshmallow/digest",
+                approveNow = true,
+            )
+        val activity: Activity = instrumentation.startActivitySync(intent)
+        instrumentation.waitForIdleSync()
+        var bitmap: Bitmap? = null
+        instrumentation.runOnMainSync {
+            val root = activity.window.decorView
+            assertTrue(root.findViewById<View>(R.id.task_submit).isShown)
+            bitmap = WidgetHost.toBitmap(root)
+        }
+        Screenshots.save(context, "9-new-task-form", bitmap!!)
+        instrumentation.runOnMainSync { activity.finish() }
+        io.github.veganmarshmallow.taskboard.newtask.NewTaskController.session.draft =
+            io.github.veganmarshmallow.taskboard.core.task.TaskDraft.EMPTY
+    }
+
     @Test fun widgetWithBoard() {
         val widget = capture("2-widget-board", WidgetState(FakeBoards.realistic(), null, FakeBoards.NOW), heightDp = 470)
         assertTrue(widget.visible(R.id.board_list))

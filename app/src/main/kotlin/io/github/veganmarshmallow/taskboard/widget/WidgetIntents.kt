@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import io.github.veganmarshmallow.taskboard.newtask.NewTaskActivity
 import io.github.veganmarshmallow.taskboard.setup.SetupActivity
 
 /** Every Intent / PendingIntent the widget uses, in one place so request codes never collide. */
@@ -17,6 +18,7 @@ object WidgetIntents {
     private const val RC_SETUP = 2
     private const val RC_ROW_TEMPLATE = 3
     private const val RC_OPEN_BOARD = 4
+    private const val RC_NEW_TASK = 5
 
     private const val IMMUTABLE = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
@@ -32,6 +34,14 @@ object WidgetIntents {
     fun setup(context: Context): PendingIntent = PendingIntent.getActivity(
         context, RC_SETUP,
         Intent(context, SetupActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), IMMUTABLE,
+    )
+
+    /** The + button. NEW_TASK + CLEAR_TOP: one form at a time, brought back if already open. */
+    fun newTask(context: Context): PendingIntent = PendingIntent.getActivity(
+        context, RC_NEW_TASK,
+        Intent(context, NewTaskActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        IMMUTABLE,
     )
 
     fun openUrl(context: Context, url: String): PendingIntent = PendingIntent.getActivity(
