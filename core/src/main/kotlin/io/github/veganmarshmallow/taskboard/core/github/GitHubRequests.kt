@@ -5,6 +5,7 @@ import io.github.veganmarshmallow.taskboard.core.http.QueryEncoding.encode
 import io.github.veganmarshmallow.taskboard.core.json.JsonWriter
 import io.github.veganmarshmallow.taskboard.core.model.Labels
 import io.github.veganmarshmallow.taskboard.core.model.Repo
+import io.github.veganmarshmallow.taskboard.core.task.NewIssue
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -45,6 +46,17 @@ class GitHubRequests(private val repo: Repo, private val token: String) {
             body = JsonWriter.write(mapOf("labels" to listOf(Labels.READY_FOR_CLAUDE))),
         )
     }
+
+    /** Creates an issue (task #9). Labels the token may not apply are dropped by GitHub, not refused. */
+    fun createIssue(issue: NewIssue): HttpRequest = HttpRequest(
+        method = "POST",
+        url = "$API/repos/${repo.fullName}/issues",
+        headers = headers() + ("Content-Type" to "application/json; charset=utf-8"),
+        body = JsonWriter.write(mapOf("title" to issue.title, "body" to issue.body, "labels" to issue.labels)),
+    )
+
+    /** The newest issues in any state, with their bodies: where the New task form finds repo suggestions. */
+    fun recentIssues(): HttpRequest = get(issuesUrl("state" to "all"))
 
     private fun get(url: String) = HttpRequest("GET", url, headers())
 
