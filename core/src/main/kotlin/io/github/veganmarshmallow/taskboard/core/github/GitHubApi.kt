@@ -16,11 +16,11 @@ import java.time.Duration
 class GitHubApi(
     private val http: HttpClient,
     token: String,
-    private val clock: Clock = Clock.systemUTC(),
+    internal val clock: Clock = Clock.systemUTC(),
     repo: Repo = Repo.BOARD,
     private val maxPages: Int = PagedFetcher.DEFAULT_MAX_PAGES,
 ) {
-    private val requests = GitHubRequests(repo, token)
+    internal val requests = GitHubRequests(repo, token)
 
     /** Open issues plus issues closed as done within [doneWindow]. PRs are still included here; the board drops them. */
     fun fetchIssues(doneWindow: Duration = Duration.ofDays(7)): Outcome<List<Issue>> =
@@ -47,7 +47,7 @@ class GitHubApi(
         }
     }
 
-    private fun send(
+    internal fun send(
         request: HttpRequest,
         classify: (HttpResponse) -> BoardError? = { ErrorClassifier.classify(it, clock.instant()) },
     ): Outcome<HttpResponse> {
