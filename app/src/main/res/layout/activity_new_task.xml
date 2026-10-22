@@ -19,7 +19,6 @@
 
         <TextView
             style="@style/FormLabel"
-            android:labelFor="@+id/task_title"
             android:text="@string/task_title_label" />
 
         <EditText
@@ -34,7 +33,6 @@
 
         <TextView
             style="@style/FormLabel"
-            android:labelFor="@+id/task_goal"
             android:text="@string/task_goal_label" />
 
         <EditText
@@ -50,7 +48,6 @@
 
         <TextView
             style="@style/FormLabel"
-            android:labelFor="@+id/task_done_when"
             android:text="@string/task_done_when_label" />
 
         <EditText
@@ -65,7 +62,6 @@
 
         <TextView
             style="@style/FormLabel"
-            android:labelFor="@+id/task_repo"
             android:text="@string/task_repo_label" />
 
         <AutoCompleteTextView
@@ -81,7 +77,6 @@
 
         <TextView
             style="@style/FormLabel"
-            android:labelFor="@+id/task_type"
             android:text="@string/task_type_label" />
 
         <Spinner

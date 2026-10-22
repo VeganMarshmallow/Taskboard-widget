@@ -61,7 +61,7 @@
     <string name="task_cancel">Discard</string>
     <string name="task_submit">Create task</string>
     <string name="task_submitting">Creating…</string>
-    <string name="task_created">Task #%1$d created</string>
+    <string name="task_created">Created task #%1$d</string>
     <string name="task_created_no_number">Task created</string>
     <string name="task_labels_missing">GitHub didn\'t add these labels (token may lack permission): %1$s</string>
     <string name="task_failed">Couldn\'t create the task: %1$s</string>
