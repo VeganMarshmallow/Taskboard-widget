@@ -26,7 +26,7 @@ class ErrorClassifierTest {
     }
 
     @Test fun forbiddenWithPrimaryRateLimit() {
-        val reset = 1_792_000_000L
+        val reset = 1_792_671_300L
         assertEquals(
             BoardError.RateLimited(Instant.ofEpochSecond(reset)),
             classify(status(403, "X-RateLimit-Remaining" to "0", "X-RateLimit-Reset" to "$reset")),
@@ -50,7 +50,7 @@ class ErrorClassifierTest {
 
     @Test fun tooManyRequests() {
         assertEquals(BoardError.RateLimited(null), classify(status(429)))
-        val reset = 1_792_000_100L
+        val reset = 1_792_671_400L
         assertEquals(
             BoardError.RateLimited(Instant.ofEpochSecond(reset)),
             classify(status(429, "x-ratelimit-remaining" to "0", "x-ratelimit-reset" to "$reset")),

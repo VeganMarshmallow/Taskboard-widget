@@ -1,6 +1,6 @@
 package io.github.veganmarshmallow.taskboard.core.board
 
-import io.github.veganmarshmallow.taskboard.core.github.GitHubRequests.Companion.encode
+import io.github.veganmarshmallow.taskboard.core.http.QueryEncoding.encode
 import io.github.veganmarshmallow.taskboard.core.model.Labels
 import io.github.veganmarshmallow.taskboard.core.model.Repo
 

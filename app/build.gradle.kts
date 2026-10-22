@@ -22,6 +22,7 @@ android {
         targetSdk = 35
         versionCode = ciVersionCode
         versionName = "0.1.$ciVersionCode"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -64,4 +65,9 @@ kotlin {
 
 dependencies {
     implementation(project(":core"))
+
+    // Instrumented tests only (emulator job in CI): view checks and the PR screenshots.
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("junit:junit:4.13.2")
 }

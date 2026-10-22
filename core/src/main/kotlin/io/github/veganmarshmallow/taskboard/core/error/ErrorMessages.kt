@@ -17,6 +17,7 @@ class ErrorMessages(private val formatTime: (Instant) -> String) {
         is BoardError.RateLimited ->
             error.retryAt?.let { "Rate-limited by GitHub, retry after ${formatTime(it)}" }
                 ?: "Rate-limited by GitHub, retry in a few minutes"
+        is BoardError.IssueGone -> "Issue #${error.number} not found: deleted, moved, or no longer visible"
         BoardError.Network -> "No network: can't reach GitHub"
         is BoardError.Server -> "GitHub error (${error.status}), try again later"
         is BoardError.Unexpected -> "Unexpected response from GitHub (${error.detail})"

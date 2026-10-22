@@ -10,11 +10,10 @@ import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import io.github.veganmarshmallow.taskboard.R
-import io.github.veganmarshmallow.taskboard.core.error.ErrorMessages
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.token.TokenValidator
+import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.TokenStore
-import io.github.veganmarshmallow.taskboard.widget.TimeText
 import io.github.veganmarshmallow.taskboard.widget.WidgetIntents
 
 /**
@@ -75,7 +74,7 @@ class SetupActivity : Activity() {
             setBusy(false)
             when (result) {
                 is Outcome.Success -> showStatus(getString(R.string.test_ok), isError = false)
-                is Outcome.Failure -> showStatus(ErrorMessages(TimeText(this)::format).message(result.error), isError = true)
+                is Outcome.Failure -> showStatus(AppGraph.messages(this).message(result.error), isError = true)
             }
         }
     }

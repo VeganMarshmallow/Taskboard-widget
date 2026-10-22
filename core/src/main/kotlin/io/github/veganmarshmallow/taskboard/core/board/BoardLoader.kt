@@ -15,7 +15,14 @@ class BoardLoader(
     fun refresh(previous: WidgetState, api: GitHubApi?): WidgetState {
         val now = clock.instant()
         if (api == null) return WidgetState(null, BoardError.NoToken, now)
-        return when (val result = api.fetchIssues()) {
+        val result = try {
+            api.fetchIssues()
+        } catch (e: RuntimeException) {
+            // A bug or an odd platform exception must not crash the widget's process or leave it
+            // stuck on "updating…"; report it like any other failed refresh.
+            Outcome.Failure(BoardError.Unexpected("internal error: ${e.javaClass.simpleName}"))
+        }
+        return when (result) {
             is Outcome.Success -> previous.withBoard(builder.build(result.value, now))
             is Outcome.Failure -> previous.withError(result.error, now)
         }

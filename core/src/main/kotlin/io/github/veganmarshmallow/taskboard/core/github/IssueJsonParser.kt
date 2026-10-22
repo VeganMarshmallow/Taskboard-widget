@@ -8,6 +8,7 @@ import io.github.veganmarshmallow.taskboard.core.json.string
 import io.github.veganmarshmallow.taskboard.core.model.Issue
 import io.github.veganmarshmallow.taskboard.core.model.Labels
 import java.time.Instant
+import java.time.OffsetDateTime
 import java.time.format.DateTimeParseException
 
 /** Thrown when a response body is not the JSON shape we expect. */
@@ -17,7 +18,7 @@ class MalformedResponseException(message: String, cause: Throwable? = null) : Ex
 object IssueJsonParser {
     fun parsePage(body: String): List<Issue> {
         val root = try {
-            JsonParser.parse(body)
+            JsonParser.parse(body.removePrefix("\uFEFF")) // tolerate a byte-order mark
         } catch (e: JsonParseException) {
             throw MalformedResponseException("Response is not valid JSON", e)
         }
@@ -38,7 +39,7 @@ object IssueJsonParser {
             labels = parseLabels(obj.list("labels")),
             isOpen = state.equals("open", ignoreCase = true),
             closedAt = parseInstant(obj.string("closed_at"), number),
-            isPullRequest = obj["pull_request"] != null,
+            isPullRequest = obj["pull_request"] is Map<*, *>,
         )
     }
 
@@ -51,9 +52,10 @@ object IssueJsonParser {
         }
     }.map(Labels::normalize).filter { it.isNotEmpty() }.toSet()
 
+    /** GitHub sends UTC ("...Z"); an explicit offset is accepted too (older Android Instant.parse rejects it). */
     private fun parseInstant(raw: String?, number: Int): Instant? = raw?.let {
         try {
-            Instant.parse(it)
+            OffsetDateTime.parse(it).toInstant()
         } catch (e: DateTimeParseException) {
             throw MalformedResponseException("Issue #$number has an invalid closed_at", e)
         }

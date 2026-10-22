@@ -89,6 +89,7 @@ object WidgetStateCodec {
         is BoardError.BadToken -> mapOf("k" to "BadToken", "status" to error.status.toLong())
         BoardError.NoAccess -> mapOf("k" to "NoAccess")
         is BoardError.RateLimited -> mapOf("k" to "RateLimited", "retryAt" to error.retryAt?.toEpochMilli())
+        is BoardError.IssueGone -> mapOf("k" to "IssueGone", "n" to error.number.toLong())
         BoardError.Network -> mapOf("k" to "Network")
         is BoardError.Server -> mapOf("k" to "Server", "status" to error.status.toLong())
         is BoardError.Unexpected -> mapOf("k" to "Unexpected", "detail" to error.detail)
@@ -99,6 +100,7 @@ object WidgetStateCodec {
         "BadToken" -> BoardError.BadToken(m.long("status")!!.toInt())
         "NoAccess" -> BoardError.NoAccess
         "RateLimited" -> BoardError.RateLimited(m.long("retryAt")?.let(Instant::ofEpochMilli))
+        "IssueGone" -> BoardError.IssueGone(m.long("n")!!.toInt())
         "Network" -> BoardError.Network
         "Server" -> BoardError.Server(m.long("status")!!.toInt())
         "Unexpected" -> BoardError.Unexpected(m.string("detail") ?: "")

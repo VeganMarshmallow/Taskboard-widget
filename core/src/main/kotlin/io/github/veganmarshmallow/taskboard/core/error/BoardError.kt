@@ -16,6 +16,9 @@ sealed class BoardError {
     /** Primary or secondary rate limit. [retryAt] is null when GitHub did not say. */
     data class RateLimited(val retryAt: Instant?) : BoardError()
 
+    /** Approving failed because issue [number] was deleted, transferred, or is no longer visible. */
+    data class IssueGone(val number: Int) : BoardError()
+
     /** The request never got a response. */
     data object Network : BoardError()
 

@@ -8,6 +8,7 @@ package io.github.veganmarshmallow.taskboard.core.json
  */
 object JsonParser {
     private const val MAX_DEPTH = 200
+    private const val HEX_DIGITS = "0123456789abcdef"
 
     fun parse(text: String): Any? {
         val reader = Reader(text)
@@ -121,8 +122,13 @@ object JsonParser {
 
         private fun readHex4(): Char {
             if (pos + 4 > text.length) fail("Truncated unicode escape")
-            val hex = text.substring(pos, pos + 4)
-            val code = hex.toIntOrNull(16) ?: fail("Invalid unicode escape")
+            var code = 0
+            repeat(4) {
+                // Char.digitToIntOrNull would accept non-ASCII digits; toIntOrNull(16) would accept a sign.
+                val digit = HEX_DIGITS.indexOf(text[pos + it].lowercaseChar())
+                if (digit < 0) fail("Invalid unicode escape")
+                code = code * 16 + digit
+            }
             pos += 4
             return code.toChar()
         }

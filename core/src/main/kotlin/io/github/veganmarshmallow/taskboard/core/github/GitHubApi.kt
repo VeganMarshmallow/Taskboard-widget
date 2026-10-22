@@ -23,22 +23,17 @@ class GitHubApi(
     private val requests = GitHubRequests(repo, token)
 
     /** Open issues plus issues closed as done within [doneWindow]. PRs are still included here; the board drops them. */
-    fun fetchIssues(doneWindow: Duration = Duration.ofDays(7)): Outcome<List<Issue>> {
-        val open = fetchAll(requests.openIssues())
-        if (open is Outcome.Failure) return open
-        val done = fetchAll(requests.recentlyDone(clock.instant().minus(doneWindow)))
-        if (done is Outcome.Failure) return done
-        return Outcome.Success((open as Outcome.Success).value + (done as Outcome.Success).value)
-    }
+    fun fetchIssues(doneWindow: Duration = Duration.ofDays(7)): Outcome<List<Issue>> =
+        fetchAll(requests.openIssues()).flatMap { open ->
+            fetchAll(requests.recentlyDone(clock.instant().minus(doneWindow))).map { done -> open + done }
+        }
 
-    fun approve(issueNumber: Int): Outcome<Unit> = send(requests.approve(issueNumber)).map { }
+    fun approve(issueNumber: Int): Outcome<Unit> =
+        send(requests.approve(issueNumber)) { ErrorClassifier.classifyApprove(it, clock.instant(), issueNumber) }.map { }
 
     /** Checks the token can read the repository and its issues. */
-    fun testConnection(): Outcome<Unit> {
-        val repoCheck = send(requests.repository())
-        if (repoCheck is Outcome.Failure) return repoCheck
-        return send(requests.openIssues()).map { }
-    }
+    fun testConnection(): Outcome<Unit> =
+        send(requests.repository()).flatMap { send(requests.openIssues()) }.map { }
 
     private fun fetchAll(first: HttpRequest): Outcome<List<Issue>> =
         PagedFetcher(maxPages, requests::page, ::sendPage).fetchAll(first).map { it.issues }
@@ -52,13 +47,18 @@ class GitHubApi(
         }
     }
 
-    private fun send(request: HttpRequest): Outcome<HttpResponse> {
+    private fun send(
+        request: HttpRequest,
+        classify: (HttpResponse) -> BoardError? = { ErrorClassifier.classify(it, clock.instant()) },
+    ): Outcome<HttpResponse> {
         val response = try {
-            http.execute(request)
+            http.execute(request) // timeouts (SocketTimeoutException) are IOExceptions too
         } catch (e: IOException) {
             return Outcome.Failure(BoardError.Network)
+        } catch (e: RuntimeException) {
+            // e.g. SecurityException or a platform bug inside the HTTP stack; never crash the caller.
+            return Outcome.Failure(BoardError.Unexpected("request failed: ${e.javaClass.simpleName}"))
         }
-        return ErrorClassifier.classify(response, clock.instant())?.let { Outcome.Failure(it) }
-            ?: Outcome.Success(response)
+        return classify(response)?.let { Outcome.Failure(it) } ?: Outcome.Success(response)
     }
 }

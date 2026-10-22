@@ -9,10 +9,7 @@ import io.github.veganmarshmallow.taskboard.data.StateStore
 class BoardWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {
         val app = context.applicationContext
-        val pending = goAsync()
-        BackgroundWork.run(pending) {
-            WidgetRenderer(app).render(StateStore(app).load(), appWidgetIds)
-            WidgetRefresher(app).refresh()
-        }
+        // New widget ids always get the cached board, even when a refresh is already queued.
+        BackgroundWork.refresh(goAsync(), app) { WidgetRenderer(app).render(StateStore(app).load(), appWidgetIds) }
     }
 }

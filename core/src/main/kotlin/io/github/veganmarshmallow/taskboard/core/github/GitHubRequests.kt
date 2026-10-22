@@ -1,10 +1,10 @@
 package io.github.veganmarshmallow.taskboard.core.github
 
 import io.github.veganmarshmallow.taskboard.core.http.HttpRequest
+import io.github.veganmarshmallow.taskboard.core.http.QueryEncoding.encode
 import io.github.veganmarshmallow.taskboard.core.json.JsonWriter
 import io.github.veganmarshmallow.taskboard.core.model.Labels
 import io.github.veganmarshmallow.taskboard.core.model.Repo
-import java.net.URLEncoder
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -66,8 +66,5 @@ class GitHubRequests(private val repo: Repo, private val token: String) {
         const val PER_PAGE = 100
 
         fun isApiUrl(url: String) = url.startsWith("$API/")
-
-        /** Form-style encoding, but with %20 for spaces as GitHub expects in query strings. */
-        fun encode(value: String): String = URLEncoder.encode(value, Charsets.UTF_8).replace("+", "%20")
     }
 }

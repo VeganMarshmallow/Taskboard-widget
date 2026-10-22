@@ -79,7 +79,7 @@ class GitHubApiTest {
     @Test fun errorOnDoneListingFailsTheWholeFetch() {
         val http = FakeHttp()
             .onUrlContaining("state=open", ok("[]"))
-            .onUrlContaining("state=closed", status(403, "x-ratelimit-remaining" to "0", "x-ratelimit-reset" to "1792000000"))
+            .onUrlContaining("state=closed", status(403, "x-ratelimit-remaining" to "0", "x-ratelimit-reset" to "1792671300"))
         assertTrue(api(http).fetchIssues().error() is BoardError.RateLimited)
     }
 
@@ -119,7 +119,7 @@ class GitHubApiTest {
         val denied = FakeHttp().onUrlContaining("labels", status(403))
         assertEquals(BoardError.BadToken(403), api(denied).approve(6).error())
         val gone = FakeHttp().onUrlContaining("labels", status(404))
-        assertEquals(BoardError.NoAccess, api(gone).approve(6).error())
+        assertEquals(BoardError.IssueGone(6), api(gone).approve(6).error())
     }
 
     @Test fun testConnectionChecksRepoThenIssues() {

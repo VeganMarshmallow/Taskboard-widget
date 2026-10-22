@@ -2,7 +2,7 @@ package io.github.veganmarshmallow.taskboard.core.github
 
 /** Parses RFC 8288 `Link` headers as GitHub sends them for pagination. */
 object LinkHeader {
-    private val entry = Regex("""^\s*<([^>]*)>\s*(.*)$""")
+    private val entry = Regex("""^\s*<([^<>]*)>\s*(.*)$""") // a URL never contains < or >
     private val relParam = Regex("""(?i)(?:^|;)\s*rel\s*=\s*"?([^";]*)"?""")
 
     /** URL of the `rel="next"` page, or null when there is none or the header is malformed. */
