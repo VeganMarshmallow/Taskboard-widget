@@ -47,8 +47,14 @@ class TaskPreviewActivity : Activity() {
         findViewById<View>(R.id.preview_approve).setOnClickListener { confirmApprove() }
         findViewById<View>(R.id.preview_retry).setOnClickListener { onRetry() }
 
-        update(PreviewScreen.initial(number, TaskPreview.fromBoard(StateStore(this).load().board, number)))
+        val cached = TaskPreview.fromBoard(StateStore(this).load().board, number)
+        update(PreviewScreen.initial(number, cached, approvedEarlier = savedInstanceState?.getBoolean(STATE_APPROVED) == true))
         load()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        if (::screen.isInitialized) outState.putBoolean(STATE_APPROVED, screen.justApproved)
     }
 
     override fun onDestroy() {
@@ -112,6 +118,7 @@ class TaskPreviewActivity : Activity() {
 
     companion object {
         private const val EXTRA_ISSUE = "issue"
+        private const val STATE_APPROVED = "approved"
 
         fun intent(context: Context, issue: Int): Intent =
             Intent(context, TaskPreviewActivity::class.java)

@@ -34,9 +34,18 @@ data class PreviewScreen(
 
     fun loadStarted() = copy(loading = true, error = null)
 
-    fun issueLoaded(details: IssueDetails) = copy(task = TaskPreview.fromIssue(details), loading = false, error = null)
+    /**
+     * Once approved here, a reload that still lacks `ready-for-claude` (a stale read right after the
+     * write) must not bring the Approve button back.
+     */
+    fun issueLoaded(details: IssueDetails) = copy(
+        task = TaskPreview.fromIssue(details).let { if (justApproved) it.copy(canApprove = false) else it },
+        loading = false,
+        error = null,
+    )
 
-    fun issueFailed(error: BoardError) = copy(loading = false, error = PreviewError.Load(error))
+    /** A deleted or transferred issue keeps its stale row for context, but can no longer be approved. */
+    fun issueFailed(error: BoardError) = copy(loading = false, error = PreviewError.Load(error), task = taskAfter(error))
 
     fun commentsLoaded(comments: List<IssueComment>) = copy(claudeLine = ClaudeComments.latestLine(comments))
 
@@ -49,10 +58,22 @@ data class PreviewScreen(
         task = task?.copy(canApprove = false),
     )
 
-    fun approveFailed(error: BoardError) = copy(approving = false, error = PreviewError.Approve(error))
+    fun approveFailed(error: BoardError) = copy(approving = false, error = PreviewError.Approve(error), task = taskAfter(error))
+
+    private fun taskAfter(error: BoardError): TaskPreview? =
+        if (error is BoardError.IssueGone) task?.copy(canApprove = false) else task
 
     companion object {
-        fun initial(number: Int, cached: TaskPreview?) = PreviewScreen(number, cached, loading = true)
+        /**
+         * The first screen: the cached row while loading. [approvedEarlier] restores a confirmation
+         * after the process was killed and the activity recreated, so Approve isn't offered again.
+         */
+        fun initial(number: Int, cached: TaskPreview?, approvedEarlier: Boolean = false) = PreviewScreen(
+            number,
+            if (approvedEarlier) cached?.copy(canApprove = false) else cached,
+            loading = true,
+            justApproved = approvedEarlier,
+        )
     }
 }
 

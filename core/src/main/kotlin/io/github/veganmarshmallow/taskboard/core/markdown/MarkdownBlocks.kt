@@ -6,25 +6,21 @@ package io.github.veganmarshmallow.taskboard.core.markdown
  *
  * Handles ATX and setext headings, paragraphs, bullet / numbered / task-list items with lazy
  * continuation lines, block quotes (markers dropped), fenced code (content dropped, an unclosed fence
- * runs to the end), thematic breaks, table rows (cells joined with ", ", separator rows dropped),
- * link reference definitions (dropped) and HTML comments (dropped, an unclosed one runs to the end).
+ * runs to the end), thematic breaks, table rows (one paragraph per row, cells joined with ", ",
+ * separator rows dropped), link reference definitions (dropped) and HTML comments (dropped outside
+ * code, see [HtmlComments]). Line shapes that would need a repeated regex group are in [LineShapes].
  */
 object MarkdownBlocks {
     private val ATX = Regex("""^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$""")
-    private val RULE = Regex("""^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$""")
     private val SETEXT_H1 = Regex("""^ {0,3}=+[ \t]*$""")
     private val SETEXT_H2 = Regex("""^ {0,3}-+[ \t]*$""")
-    private val FENCE = Regex("""^ {0,3}(`{3,}|~{3,})(.*)$""")
     private val LIST_ITEM = Regex("""^[ \t]*(?:[-*+]|\d{1,9}[.)])(?:[ \t]+(.*))?$""")
     private val TASK_BOX = Regex("""^\[[ xX]][ \t]+""")
-    private val QUOTE = Regex("""^[ \t]{0,3}>[ \t]?""")
-    private val TABLE_SEPARATOR = Regex("""^[ \t]*\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)+\|?[ \t]*$|^[ \t]*\|[ \t]*:?-+:?[ \t]*\|[ \t]*$""")
     private val REFERENCE_DEFINITION = Regex("""^ {0,3}\[[^\]]+]:[ \t]*\S.*$""")
-    private val HTML_COMMENT = Regex("""<!--.*?(?:-->|$)""", RegexOption.DOT_MATCHES_ALL)
     private val LINE_BREAK = Regex("""\r\n|\r|\n""")
 
     fun parse(markdown: String): List<MarkdownBlock> {
-        val lines = HTML_COMMENT.replace(markdown, "").split(LINE_BREAK)
+        val lines = HtmlComments.strip(markdown.split(LINE_BREAK))
         return Scanner().apply { lines.forEach(::line) }.finish()
     }
 
@@ -36,41 +32,36 @@ object MarkdownBlocks {
 
         fun line(raw: String) {
             fence?.let { open ->
-                if (closesFence(raw, open)) fence = null
+                if (CodeFence.closes(raw, open)) fence = null
                 return
             }
-            FENCE.find(raw)?.let { m ->
-                val marker = m.groupValues[1]
-                // A backtick fence's info string may not contain backticks (then it is inline code).
-                if (marker[0] == '~' || '`' !in m.groupValues[2]) {
-                    flush()
-                    blocks.add(MarkdownBlock.Code)
-                    fence = marker
-                    return
-                }
+            CodeFence.opening(raw)?.let { marker ->
+                flush()
+                blocks.add(MarkdownBlock.Code)
+                fence = marker
+                return
             }
-            var line = raw
-            while (QUOTE.containsMatchIn(line)) line = QUOTE.replaceFirst(line, "")
+            val line = LineShapes.withoutQuoteMarkers(raw)
             if (line.isBlank()) { flush(); return }
             if (current.isNotEmpty() && !currentIsItem) {
                 if (SETEXT_H1.matches(line)) { heading(1); return }
                 if (SETEXT_H2.matches(line)) { heading(2); return }
             }
             when {
-                RULE.matches(line) -> { flush(); blocks.add(MarkdownBlock.Rule) }
+                LineShapes.isRule(line) -> { flush(); blocks.add(MarkdownBlock.Rule) }
                 ATX.matches(line) -> {
                     flush()
                     val m = ATX.find(line)!!
                     blocks.add(MarkdownBlock.Heading(m.groupValues[1].length, m.groupValues[2].trim()))
                 }
-                TABLE_SEPARATOR.matches(line) || REFERENCE_DEFINITION.matches(line) -> Unit
+                LineShapes.isTableSeparator(line) || REFERENCE_DEFINITION.matches(line) -> Unit
                 LIST_ITEM.matches(line) -> {
                     flush()
                     val text = LIST_ITEM.find(line)!!.groupValues[1]
                     current.append(TASK_BOX.replaceFirst(text.trim(), ""))
                     currentIsItem = true
                 }
-                else -> append(tableRow(line) ?: line.trim())
+                else -> tableRow(line)?.let(::row) ?: append(line.trim())
             }
         }
 
@@ -82,6 +73,12 @@ object MarkdownBlocks {
         private fun append(text: String) {
             if (current.isNotEmpty()) current.append(' ')
             current.append(text)
+        }
+
+        /** A table row is a paragraph of its own, so rows read as separate sentences. */
+        private fun row(text: String) {
+            flush()
+            if (text.isNotEmpty()) blocks.add(MarkdownBlock.Paragraph(text))
         }
 
         private fun heading(level: Int) {
@@ -96,11 +93,6 @@ object MarkdownBlocks {
             }
             current.clear()
             currentIsItem = false
-        }
-
-        private fun closesFence(line: String, open: String): Boolean {
-            val t = line.trim()
-            return t.length >= open.length && t.all { it == open[0] } && line.length - line.trimStart().length <= 3
         }
 
         /** `| a | b |` → `a, b`; null when the line is not a table row. */

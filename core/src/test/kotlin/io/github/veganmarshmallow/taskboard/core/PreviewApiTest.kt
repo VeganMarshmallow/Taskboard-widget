@@ -6,6 +6,7 @@ import io.github.veganmarshmallow.taskboard.core.github.MalformedResponseExcepti
 import io.github.veganmarshmallow.taskboard.core.http.HttpResponse
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.json.JsonWriter
+import io.github.veganmarshmallow.taskboard.core.preview.ClaudeComments
 import io.github.veganmarshmallow.taskboard.core.preview.IssueComment
 import io.github.veganmarshmallow.taskboard.core.preview.IssueDetails
 import io.github.veganmarshmallow.taskboard.core.preview.PreviewApi
@@ -127,6 +128,86 @@ class PreviewApiTest {
         }
         assertEquals(BoardError.Unexpected("bad pagination link"), preview(http).fetchRecentComments(7).error())
         assertTrue(http.requests.none { "evil" in it.url })
+    }
+
+    @Test fun nextWithoutLastUsesTheFirstPageOnly() {
+        val http = FakeHttp().on({ true }) { ok(commentsJson("a"), "link" to "<https://api.github.com/x?page=2>; rel=\"next\"") }
+        assertEquals(listOf("a"), (preview(http).fetchRecentComments(7) as Outcome.Success).value.map { it.body })
+        assertEquals(1, http.requests.size)
+    }
+
+    @Test fun twoPagesWhereNextIsLast() {
+        val second = "https://api.github.com/repositories/1/issues/7/comments?per_page=100&page=2"
+        val http = FakeHttp()
+            .on({ it.url == second }) { ok(commentsJson("⛔ newest")) }
+            .on({ true }) { ok(commentsJson("🤖 old"), "link" to "<$second>; rel=\"next\", <$second>; rel=\"last\"") }
+        val comments = (preview(http).fetchRecentComments(7) as Outcome.Success).value
+        assertEquals("⛔ newest", ClaudeComments.latestLine(comments))
+        assertEquals(2, http.requests.size)
+    }
+
+    @Test fun relationsInAnyOrderAndCase() {
+        val last = "https://api.github.com/repositories/1/issues/7/comments?page=9"
+        val http = FakeHttp()
+            .on({ it.url == last }) { ok(commentsJson("✅ z")) }
+            .on({ true }) { ok(commentsJson("a"), "Link" to "<$last>; REL=\"last\", <https://api.github.com/p?page=2>; rel=next") }
+        assertEquals(listOf("a", "✅ z"), (preview(http).fetchRecentComments(7) as Outcome.Success).value.map { it.body })
+    }
+
+    @Test fun emptyLastPageOrEmptyFirstPage() {
+        val last = "https://api.github.com/repositories/1/issues/7/comments?page=3"
+        val http = FakeHttp()
+            .on({ it.url == last }) { ok("[]") }
+            .on({ true }) { ok(commentsJson("🤖 a"), "link" to "<https://api.github.com/p?page=2>; rel=\"next\", <$last>; rel=\"last\"") }
+        assertEquals(listOf("🤖 a"), (preview(http).fetchRecentComments(7) as Outcome.Success).value.map { it.body })
+        val empty = FakeHttp().on({ true }) { ok("[]") }
+        assertEquals(emptyList<IssueComment>(), (preview(empty).fetchRecentComments(7) as Outcome.Success).value)
+    }
+
+    @Test fun failedOrMalformedLastPageFailsTheComments() {
+        // The first page alone could show an outdated "latest" Claude line, so a broken last page shows none.
+        val last = "https://api.github.com/repositories/1/issues/7/comments?page=3"
+        fun withLast(response: () -> io.github.veganmarshmallow.taskboard.core.http.HttpResponse) = FakeHttp()
+            .on({ it.url == last }) { response() }
+            .on({ true }) { ok(commentsJson("🤖 old"), "link" to "<https://api.github.com/p?page=2>; rel=\"next\", <$last>; rel=\"last\"") }
+        assertEquals(BoardError.Server(503), preview(withLast { status(503) }).fetchRecentComments(7).error())
+        assertTrue(preview(withLast { ok("{\"not\":\"a list\"}") }).fetchRecentComments(7).error() is BoardError.Unexpected)
+        assertTrue(preview(withLast { throw IOException("reset") }).fetchRecentComments(7).error() == BoardError.Network)
+    }
+
+    @Test fun expiredTokenOrRateLimitOnComments() {
+        assertEquals(BoardError.BadToken(401), preview(FakeHttp().on({ true }) { status(401) }).fetchRecentComments(7).error())
+        assertTrue(preview(FakeHttp().on({ true }) { status(429) }).fetchRecentComments(7).error() is BoardError.RateLimited)
+    }
+
+    @Test fun transferredIssueRedirectIsNeverFollowed() {
+        val http = FakeHttp().on({ true }) { status(301, "location" to "https://api.github.com/repositories/9/issues/1") }
+        assertEquals(BoardError.IssueGone(5), preview(http).fetchIssue(5).error())
+        assertEquals(1, http.requests.size)
+    }
+
+    @Test fun approvingAnAlreadyApprovedIssueSucceeds() {
+        // GitHub answers 200 with the label list when the label is already there.
+        val http = FakeHttp().on({ it.method == "POST" }) { ok("[{\"name\":\"ready-for-claude\"}]") }
+        assertTrue(GitHubApi(http, TOKEN, FIXED_CLOCK).approve(5) is Outcome.Success)
+        val gone = FakeHttp().on({ true }) { status(410) }
+        assertEquals(BoardError.IssueGone(5), GitHubApi(gone, TOKEN, FIXED_CLOCK).approve(5).error())
+    }
+
+    @Test fun loaderWithExpiredTokenReportsBadTokenAndSkipsComments() {
+        val http = FakeHttp().on({ true }) { status(401) }
+        val r = load(GitHubApi(http, TOKEN, FIXED_CLOCK))
+        assertEquals(BoardError.BadToken(401), r.issues.single().error())
+        assertTrue(r.comments.isEmpty())
+    }
+
+    @Test fun loaderWithInvalidNumberReportsAnErrorInsteadOfThrowing() {
+        listOf(0, -5, Int.MIN_VALUE).forEach { n ->
+            val http = FakeHttp()
+            val r = load(GitHubApi(http, TOKEN, FIXED_CLOCK), n)
+            assertTrue(r.issues.single().error() is BoardError.Unexpected)
+            assertTrue(http.requests.isEmpty())
+        }
     }
 
     @Test fun commentsFailures() {
