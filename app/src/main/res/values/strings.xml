@@ -41,4 +41,28 @@
     <string name="preview_needs_you">Needs you</string>
     <string name="preview_in_progress">In progress</string>
     <string name="preview_todo">Todo</string>
+
+    <string name="new_task">New task</string>
+    <string name="task_new_title">New task</string>
+    <string name="task_title_label">Title</string>
+    <string name="task_title_hint">What\'s the task? (required)</string>
+    <string name="task_goal_label">What should be done</string>
+    <string name="task_goal_hint">The outcome you want. Bullet points are fine.</string>
+    <string name="task_done_when_label">Done when</string>
+    <string name="task_done_when_hint">How you\'ll know it\'s finished (optional)</string>
+    <string name="task_repo_label">Project repo</string>
+    <string name="task_repo_hint">owner/name, or just a name (optional)</string>
+    <string name="task_type_label">Type</string>
+    <string name="task_priority_label">Priority</string>
+    <string name="priority_normal">Normal</string>
+    <string name="priority_high">High</string>
+    <string name="priority_low">Low</string>
+    <string name="task_approve">Approve now (adds ready-for-claude, so Claude starts it next run)</string>
+    <string name="task_cancel">Discard</string>
+    <string name="task_submit">Create task</string>
+    <string name="task_submitting">Creating…</string>
+    <string name="task_created">Task #%1$d created</string>
+    <string name="task_created_no_number">Task created</string>
+    <string name="task_labels_missing">GitHub didn\'t add these labels (token may lack permission): %1$s</string>
+    <string name="task_failed">Couldn\'t create the task: %1$s</string>
 </resources>

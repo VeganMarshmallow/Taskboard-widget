@@ -8,6 +8,11 @@ import io.github.veganmarshmallow.taskboard.core.http.HttpResponse
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.model.Issue
 import io.github.veganmarshmallow.taskboard.core.model.Repo
+import io.github.veganmarshmallow.taskboard.core.task.CreateErrors
+import io.github.veganmarshmallow.taskboard.core.task.CreatedIssue
+import io.github.veganmarshmallow.taskboard.core.task.IssueResponseParser
+import io.github.veganmarshmallow.taskboard.core.task.NewIssue
+import io.github.veganmarshmallow.taskboard.core.task.RepoSuggestions
 import java.io.IOException
 import java.time.Clock
 import java.time.Duration
@@ -30,6 +35,15 @@ class GitHubApi(
 
     fun approve(issueNumber: Int): Outcome<Unit> =
         send(requests.approve(issueNumber)) { ErrorClassifier.classifyApprove(it, clock.instant(), issueNumber) }.map { }
+
+    /** Creates a task issue. Never retried: a lost response may still mean the issue exists. */
+    fun createIssue(issue: NewIssue): Outcome<CreatedIssue> =
+        send(requests.createIssue(issue)) { CreateErrors.classify(it, clock.instant()) }
+            .map { IssueResponseParser.created(it.body, issue.labels) }
+
+    /** Repo suggestions from the newest 100 issues' bodies (one request, no pagination). */
+    fun repoSuggestions(): Outcome<List<String>> =
+        send(requests.recentIssues()).map { RepoSuggestions.fromBodies(IssueResponseParser.issueBodies(it.body)) }
 
     /** Checks the token can read the repository and its issues. */
     fun testConnection(): Outcome<Unit> =
