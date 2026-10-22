@@ -23,3 +23,16 @@ done
   printf '%s' "$rows"
 } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
 echo "::notice title=$label::$tests run, $failures failed, $errors errors, $skipped skipped"
+
+# One error annotation per failed test case, with the first lines of its failure message.
+for f in "$dir"/TEST-*.xml; do
+  python3 - "$f" <<'PY'
+import sys, xml.etree.ElementTree as ET
+for case in ET.parse(sys.argv[1]).getroot().iter("testcase"):
+    for fail in list(case.findall("failure")) + list(case.findall("error")):
+        text = (fail.get("message") or "") + "\n" + (fail.text or "")
+        lines = [l for l in text.strip().splitlines() if l.strip()][:14]
+        msg = "%0A".join(l.replace("%", "%25") for l in lines)
+        print(f"::error title=Test failed: {case.get('classname','').split('.')[-1]}.{case.get('name')}::{msg}")
+PY
+done
