@@ -32,8 +32,12 @@ object ApkSigners {
     private fun flags(): Int =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
 
+    /** versionCode as a Long on every API level (longVersionCode is API 28+). */
+    fun versionCode(info: PackageInfo): Long =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode else legacyCode(info)
+
     private fun identity(info: PackageInfo): ApkIdentity {
-        val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode else legacyCode(info)
+        val code = versionCode(info)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             val signing = info.signingInfo
                 ?: return ApkIdentity(info.packageName, code, emptySet())
