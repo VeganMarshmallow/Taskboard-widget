@@ -99,7 +99,7 @@ class RefreshJobTest {
         fun header(updating: Boolean): String {
             var text = ""
             instrumentation.runOnMainSync {
-                val v = WidgetViews(context).build(state, 1, updating).apply(context, FrameLayout(context))
+                val v = WidgetViews(context).build(state, 1, updating = updating).apply(context, FrameLayout(context))
                 text = v.findViewById<TextView>(R.id.updated).text.toString()
             }
             return text

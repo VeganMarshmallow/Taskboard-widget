@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- One tab's tappable slot. Three share the first row, two the second. -->
+    <style name="WidgetTabSlot">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">@dimen/tab_height</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_marginHorizontal">1.5dp</item>
+    </style>
+
+    <!--
+      A tab's label. The text shrinks to fit, and may wrap onto a second line ("Needs you" / "999+")
+      on narrow widgets. The floor is in dp, not sp, so a large system font scale (up to 2x) still
+      fits a 180dp-wide widget instead of being cut to "Nee…"; above the floor the text scales as usual.
+    -->
+    <style name="WidgetTab">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:background">@drawable/tab_background</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:gravity">center</item>
+        <item name="android:importantForAccessibility">no</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:maxLines">2</item>
+        <item name="android:paddingHorizontal">2dp</item>
+        <item name="android:textColor">@color/widget_header_text</item>
+        <item name="android:textSize">@dimen/tab_text</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:autoSizeTextType">uniform</item>
+        <item name="android:autoSizeMinTextSize">@dimen/tab_text_min</item>
+        <item name="android:autoSizeMaxTextSize">@dimen/tab_text</item>
+        <item name="android:autoSizeStepGranularity">1dp</item>
+    </style>
+
+    <!-- The selected tab's label: accent background. Hidden until the app shows it. -->
+    <style name="WidgetTab.Selected">
+        <item name="android:background">@drawable/tab_selected_background</item>
+        <item name="android:textColor">@color/widget_accent_text</item>
+        <item name="android:visibility">gone</item>
+    </style>
+</resources>

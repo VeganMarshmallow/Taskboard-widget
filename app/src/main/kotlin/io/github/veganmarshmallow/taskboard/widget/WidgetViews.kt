@@ -5,24 +5,36 @@ import android.content.Context
 import android.view.View
 import android.widget.RemoteViews
 import io.github.veganmarshmallow.taskboard.R
+import io.github.veganmarshmallow.taskboard.core.board.Section
+import io.github.veganmarshmallow.taskboard.core.board.TabSelection
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 
 /**
- * Builds the widget's outer RemoteViews (header, error banner, list container) from a [WidgetState].
+ * Builds the widget's outer RemoteViews (header, tabs, error banner, list container) from a [WidgetState].
  * Pure view mapping: no AppWidgetManager, so it can be rendered directly in tests and screenshots.
  * The list rows themselves come from [RowViews] via [BoardListFactory].
  */
 class WidgetViews(private val context: Context) {
     private val time = TimeText(context)
     private val messages = AppGraph.messages(context)
+    private val tabs = TabViews(context)
 
-    /** [updating]: a refresh is running right now (never true for a dead one; see RefreshTracker). */
-    fun build(state: WidgetState, widgetId: Int, updating: Boolean = false): RemoteViews {
+    /**
+     * [selected] is the tab to show; [WidgetRenderer] reads it from TabStore for each widget.
+     * [updating]: a refresh is running right now (never true for a dead one; see RefreshTracker).
+     */
+    fun build(
+        state: WidgetState,
+        widgetId: Int,
+        selected: Section = TabSelection.default(state.board),
+        updating: Boolean = false,
+    ): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_board)
         bindHeader(views, state)
         if (updating) views.setTextViewText(R.id.updated, context.getString(R.string.updating))
+        tabs.bind(views, state.board, selected, widgetId)
         bindList(views, state, widgetId)
         bindError(views, state)
         return views

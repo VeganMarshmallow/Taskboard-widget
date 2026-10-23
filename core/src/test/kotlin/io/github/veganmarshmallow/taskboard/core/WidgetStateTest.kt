@@ -37,17 +37,17 @@ class WidgetStateTest {
     }
 
     @Test fun decodeNeverThrowsOnGarbage() {
-        listOf(null, "", "garbage", "[]", "{}", "{\"v\":2}", "{\"v\":1,\"board\":{\"sections\":7}}",
-            "{\"v\":1,\"error\":{\"k\":\"Martian\"}}").forEach {
+        listOf(null, "", "garbage", "[]", "{}", "{\"v\":1}", "{\"v\":2}", "{\"v\":4}", "{\"v\":3,\"board\":{\"sections\":7}}",
+            "{\"v\":3,\"error\":{\"k\":\"Martian\"}}").forEach {
             assertEquals(WidgetState.INITIAL, WidgetStateCodec.decode(it))
         }
     }
 
     @Test fun decodeFillsMissingSections() {
-        val text = """{"v":1,"board":{"fetchedAt":0,"done":2,"sections":[]},"error":null,"attemptedAt":null}"""
+        val text = """{"v":3,"board":{"fetchedAt":0,"sections":[]},"error":null,"attemptedAt":null}"""
         val decoded = WidgetStateCodec.decode(text).board!!
         assertEquals(Section.entries.toList(), decoded.sections.map { it.section })
-        assertEquals(2, decoded.doneLast7Days)
+        assertEquals(0, decoded.doneLast7Days)
     }
 
     @Test fun loaderWithoutTokenReportsNoToken() {

@@ -6,19 +6,21 @@ import android.widget.RemoteViewsService
 import io.github.veganmarshmallow.taskboard.core.board.BoardRow
 import io.github.veganmarshmallow.taskboard.core.board.BoardRows
 import io.github.veganmarshmallow.taskboard.data.StateStore
+import io.github.veganmarshmallow.taskboard.data.TabStore
 
 /**
- * Reads the cached board in onDataSetChanged (which runs on a binder thread, so disk access is fine)
+ * Reads the cached board and this widget's selected tab in onDataSetChanged (which runs on a binder thread, so disk access is fine)
  * and turns rows into views via [RowViews]. It never touches the network; [WidgetRefresher] does.
  */
-class BoardListFactory(private val context: Context) : RemoteViewsService.RemoteViewsFactory {
+class BoardListFactory(private val context: Context, private val widgetId: Int) : RemoteViewsService.RemoteViewsFactory {
     private var rows: List<BoardRow> = emptyList()
     private val rowViews = RowViews(context)
 
     override fun onCreate() = Unit
 
     override fun onDataSetChanged() {
-        rows = StateStore(context).load().board?.let(BoardRows::of).orEmpty()
+        val board = StateStore(context).load().board
+        rows = board?.let { BoardRows.of(it, TabStore(context).selected(widgetId, it)) }.orEmpty()
     }
 
     override fun onDestroy() {

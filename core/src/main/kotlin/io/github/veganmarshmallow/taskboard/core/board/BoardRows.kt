@@ -1,21 +1,14 @@
 package io.github.veganmarshmallow.taskboard.core.board
 
 /**
- * Flattens a [Board] into list rows: for each non-empty section a header, its items and a
- * "+N more" row if capped; an [BoardRow.Empty] row when nothing is open; and always a final
- * [BoardRow.Done] count row.
+ * The list rows for one tab: its items and a "+N more" row if the tab is capped, or a single
+ * [BoardRow.Empty] row when the tab has nothing in it.
  */
 object BoardRows {
-    fun of(board: Board): List<BoardRow> {
-        val rows = ArrayList<BoardRow>()
-        for (content in board.sections) {
-            if (content.totalCount == 0) continue
-            rows.add(BoardRow.Header(content.section, content.totalCount))
-            content.items.mapTo(rows) { BoardRow.Item(it) }
-            if (content.hiddenCount > 0) rows.add(BoardRow.More(content.section, content.hiddenCount))
-        }
-        if (rows.isEmpty()) rows.add(BoardRow.Empty)
-        rows.add(BoardRow.Done(board.doneLast7Days))
-        return rows
+    fun of(board: Board, tab: Section): List<BoardRow> {
+        val content = board.section(tab)
+        if (content.totalCount <= 0 && content.items.isEmpty()) return listOf(BoardRow.Empty(tab))
+        val rows: List<BoardRow> = content.items.map { BoardRow.Item(it) }
+        return if (content.hiddenCount > 0) rows + BoardRow.More(tab, content.hiddenCount) else rows
     }
 }
