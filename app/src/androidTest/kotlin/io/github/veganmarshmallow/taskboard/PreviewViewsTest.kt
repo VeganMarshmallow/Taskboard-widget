@@ -1,0 +1,121 @@
+package io.github.veganmarshmallow.taskboard
+
+import android.content.Intent
+import android.view.View
+import android.widget.Button
+import android.widget.TextView
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import io.github.veganmarshmallow.taskboard.core.error.BoardError
+import io.github.veganmarshmallow.taskboard.core.preview.PreviewScreen
+import io.github.veganmarshmallow.taskboard.core.preview.TaskSummary
+import io.github.veganmarshmallow.taskboard.core.preview.ClaudeComments
+import io.github.veganmarshmallow.taskboard.core.preview.IssueComment
+import io.github.veganmarshmallow.taskboard.widget.RowAction
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+
+/** The preview layout bound with every kind of state on a device, plus core preview logic on Android's runtime. */
+@RunWith(AndroidJUnit4::class)
+class PreviewViewsTest {
+    private val instrumentation = InstrumentationRegistry.getInstrumentation()
+    private val context = instrumentation.targetContext
+
+    private fun bind(screen: PreviewScreen): View {
+        var sheet: View? = null
+        instrumentation.runOnMainSync { sheet = PreviewHost(context).render(screen).sheet }
+        return sheet!!
+    }
+
+    private fun View.text(id: Int) = findViewById<TextView>(id).text.toString()
+    private fun View.visibility(id: Int) = findViewById<View>(id).visibility
+
+    @Test fun nothingKnownShowsFallbackTitleAndLoading() {
+        val v = bind(PreviewScreen.initial(42, null))
+        assertEquals("Task #42", v.text(R.id.preview_title))
+        assertEquals(View.GONE, v.visibility(R.id.preview_status))
+        assertEquals(View.VISIBLE, v.visibility(R.id.preview_progress))
+        assertEquals(View.GONE, v.visibility(R.id.preview_error))
+        assertEquals(View.GONE, v.visibility(R.id.preview_claude))
+    }
+
+    @Test fun noDescriptionIsShownOnceLoaded() {
+        val v = bind(FakePreviews.noDescription())
+        assertEquals(context.getString(R.string.preview_no_description), v.text(R.id.preview_summary))
+        assertEquals(View.GONE, v.visibility(R.id.preview_approve)) // already approved
+        assertEquals(View.GONE, v.visibility(R.id.preview_progress))
+    }
+
+    @Test fun summaryIsLimitedToThreeLinesAndClaudeLineToOne() {
+        val v = bind(FakePreviews.hebrewInProgress())
+        assertEquals(3, v.findViewById<TextView>(R.id.preview_summary).maxLines)
+        assertEquals(1, v.findViewById<TextView>(R.id.preview_claude).maxLines)
+    }
+
+    @Test fun noTokenOffersSetUp() {
+        val v = bind(FakePreviews.failedNoToken())
+        assertEquals(View.VISIBLE, v.visibility(R.id.preview_retry))
+        assertEquals(context.getString(R.string.preview_set_up), v.findViewById<Button>(R.id.preview_retry).text.toString())
+    }
+
+    @Test fun approvingDisablesTheButton() {
+        val v = bind(FakePreviews.todoLoaded().approveStarted())
+        val approve = v.findViewById<Button>(R.id.preview_approve)
+        assertEquals(View.VISIBLE, approve.visibility)
+        assertTrue(!approve.isEnabled)
+        assertEquals(context.getString(R.string.preview_approving), approve.text.toString())
+    }
+
+    @Test fun approveFailureNamesTheIssue() {
+        val v = bind(FakePreviews.todoLoaded().approveStarted().approveFailed(BoardError.IssueGone(11)))
+        assertTrue(v.text(R.id.preview_error).startsWith("Couldn't approve #11"))
+        assertEquals(View.GONE, v.visibility(R.id.preview_retry)) // retrying an approval is the Approve button itself
+        assertEquals(View.GONE, v.visibility(R.id.preview_approve)) // the issue is gone: approving again can only fail
+        val net = bind(FakePreviews.todoLoaded().approveStarted().approveFailed(BoardError.Network))
+        assertEquals(View.VISIBLE, net.visibility(R.id.preview_approve)) // other failures: Approve is the retry
+    }
+
+    @Test fun previewRowActionRoundTripsAndRejectsBadNumbers() {
+        val preview = RowAction.Preview(11)
+        assertEquals(preview, RowAction.from(preview.toFillIn()))
+        listOf(0, -1).forEach { assertNull(RowAction.from(Intent().putExtra("row_kind", "preview").putExtra("row_issue", it))) }
+        assertNull(RowAction.from(Intent().putExtra("row_kind", "preview")))
+    }
+
+    /** Android's regex engine is ICU, not the JDK's: run the Markdown rules on it. */
+    @Test fun summaryAndClaudeLineOnAndroidRuntime() {
+        assertTrue(TaskSummary.of(FakePreviews.TODO_BODY)!!.startsWith("Tapping a task opens a preview inside the app"))
+        assertEquals(
+            "Note: see docs/README.md and img. Add --flag to the CLI; Remove old code & tests; Final line_here",
+            TaskSummary.of("### What should be done\n> **Note:** see `docs/README.md` and ![img](x.png)\n1. [ ] Add `--flag` to the <kbd>CLI</kbd>\n2. [x] ~~Remove~~ *old* code &amp; tests\n\nFinal *line*\\_here"),
+        )
+        assertEquals("לבנות דף נחיתה בעברית", TaskSummary.of("**לבנות** _דף_ [נחיתה](https://x.y) `בעברית`"))
+        assertEquals("ready_for_claude a*b", TaskSummary.of("ready_for_claude a*b"))
+        assertNull(TaskSummary.of("### Repo\nx/y\n\n---\nfooter"))
+        assertEquals(
+            "⛔ Blocked: why",
+            ClaudeComments.latestLine(listOf(IssueComment(1, "🤖 a", null), IssueComment(2, "\u200B⛔ **Blocked**: why", null), IssueComment(3, "ok", null))),
+        )
+    }
+
+    /** Hostile Markdown on Android's ICU regex engine: no stack overflow, no near-minute stall (review of #11). */
+    @Test fun hostileMarkdownOnAndroidRuntime() {
+        val start = android.os.SystemClock.uptimeMillis()
+        assertEquals("See design", TaskSummary.of("### What should be done\nSee [design](https://x.y/?q=" + "a".repeat(30_000) + ")"))
+        assertEquals("x", TaskSummary.of("x\n\n" + "- ".repeat(20_000) + "\nfooter"))
+        assertEquals("a, b. 1, 2", TaskSummary.of("| a | b |\n" + "|-".repeat(10_000) + "|\n| 1 | 2 |"))
+        assertTrue(TaskSummary.of("*a" + " *b".repeat(20_000))!!.length <= TaskSummary.MAX_LENGTH)
+        assertEquals("x", TaskSummary.of(">".repeat(30_000) + " x"))
+        assertEquals("Strip <!-- markers, then render.", TaskSummary.of("### What should be done\nStrip `<!--` markers, then render.\n\n### Repo\nx/y"))
+        assertEquals("a [b] c", TaskSummary.of("[a [b] c](https://x.y)"))
+        assertEquals(
+            "🤖 Screenshot x attached",
+            ClaudeComments.latestLine(listOf(IssueComment(1, "🤖 Screenshot [x](data:image/png;base64," + "A".repeat(40_000) + ") attached", null))),
+        )
+        val ms = android.os.SystemClock.uptimeMillis() - start
+        assertTrue("took $ms ms", ms < 10_000)
+    }
+}

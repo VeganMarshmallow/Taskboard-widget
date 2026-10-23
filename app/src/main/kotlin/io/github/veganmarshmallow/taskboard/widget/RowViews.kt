@@ -31,7 +31,7 @@ class RowViews(private val context: Context) {
         val badge = badge(item)
         setTextViewText(R.id.item_badge, badge)
         setViewVisibility(R.id.item_badge, if (badge.isEmpty()) View.GONE else View.VISIBLE)
-        setOnClickFillInIntent(R.id.item_root, RowAction.Open(links.issue(item.number)).toFillIn())
+        setOnClickFillInIntent(R.id.item_root, RowAction.Preview(item.number).toFillIn())
         if (item.canApprove) {
             setViewVisibility(R.id.item_approve, View.VISIBLE)
             setOnClickFillInIntent(R.id.item_approve, RowAction.Approve(item.number, item.title).toFillIn())
