@@ -62,6 +62,7 @@ object WidgetStateCodec {
         "p" to item.priority.name,
         "a" to item.canApprove,
         "r" to item.needsYouReason?.name,
+        "m" to item.canMerge,
     )
 
     private fun boardFromMap(map: Map<*, *>): Board {
@@ -81,6 +82,7 @@ object WidgetStateCodec {
         priority = Priority.valueOf(m.string("p")!!),
         canApprove = m["a"] as Boolean,
         needsYouReason = m.string("r")?.let(NeedsYouReason::valueOf),
+        canMerge = m["m"] == true, // absent in boards saved before #30: no Merge until the next refresh
     )
 
     private fun errorToMap(error: BoardError): Map<String, Any?> = when (error) {
