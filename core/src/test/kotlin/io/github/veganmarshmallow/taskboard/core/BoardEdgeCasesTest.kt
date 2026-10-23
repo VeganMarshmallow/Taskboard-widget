@@ -172,7 +172,7 @@ class BoardEdgeCasesTest {
         assertTrue(items[0].title.startsWith("לבנות ווידג׳ט"))
         assertTrue(items[0].title.endsWith("…"))
         assertEquals("👩‍💻 Fix ✅ the 🇮🇱 build", items[1].title)
-        assertEquals("#3 👩‍💻 Fix ✅ the 🇮🇱 build", items[1].displayText)
+        assertEquals("👩‍💻 Fix ✅ the 🇮🇱 build", items[1].displayText)
     }
 
     @Test fun closedIssueWithoutDoneNeverShowsAnywhere() {

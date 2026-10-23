@@ -54,9 +54,9 @@
     <string name="saved">Token saved. The widget is refreshing</string>
     <string name="testing">Testing…</string>
     <string name="test_ok">Connected: the token can read the board. Save it to use the widget.</string>
-    <string name="preview_item_1">#7 Answer: which charting library?</string>
-    <string name="preview_item_2">#6 Android board widget</string>
-    <string name="preview_item_3">#9 Add dark mode to the site</string>
+    <string name="preview_item_1">Answer: which charting library?</string>
+    <string name="preview_item_2">Android board widget</string>
+    <string name="preview_item_3">Add dark mode to the site</string>
     <string name="preview_needs_you">Needs you</string>
     <string name="preview_in_progress">In progress</string>
     <string name="preview_todo">Todo</string>
