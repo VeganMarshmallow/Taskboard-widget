@@ -26,15 +26,18 @@ object BoardJobs {
     private const val BACKOFF_MS = 30_000L
 
     /**
-     * Asks for a refresh. Manual ones always go ahead, replacing a running (possibly stuck) refresh.
-     * Offline, a manual refresh shows "No network" at once and an automatic one waits for the network.
+     * Asks for a refresh. Manual ones always go ahead, replacing a running (possibly stuck) refresh,
+     * and restart the retry backoff (someone is waiting). Offline, a manual refresh shows
+     * "No network" at once and leaves a retry that runs once the network is back; an automatic one
+     * simply waits for the network.
      */
     fun refresh(context: Context, trigger: RefreshTrigger) {
         val app = context.applicationContext
         if (!RefreshPolicy.shouldSchedule(trigger, AppGraph.refreshTracker(app).status())) return
+        if (trigger == RefreshTrigger.MANUAL) AppGraph.retryPlanner(app).reset()
         if (trigger == RefreshTrigger.MANUAL && !Connectivity.isOnline(app)) {
-            WidgetRefresher(app).recordOffline()
-            schedule(app, BoardJob.Refresh(RefreshTrigger.AUTOMATIC)) // runs once the network is back
+            val state = WidgetRefresher(app).recordOffline()
+            RetryScheduler.afterRefresh(app, state.error, finished = null)
             return
         }
         schedule(app, BoardJob.Refresh(trigger))
@@ -71,8 +74,9 @@ object BoardJobs {
     fun jobInfo(context: Context, job: BoardJob, expedited: Boolean): JobInfo {
         val extras = PersistableBundle().apply { job.toExtras().forEach { (k, v) -> putString(k, v) } }
         val builder = JobInfo.Builder(job.jobId, ComponentName(context, BoardJobService::class.java)).setExtras(extras)
-        if (job.needsNetwork) requireNetwork(builder, validated = job.needsValidatedNetwork)
+        if (job.needsNetwork) requireNetwork(builder)
         if (!job.minLatency.isZero) builder.setMinimumLatency(job.minLatency.toMillis())
+        if (job.persisted) builder.setPersisted(true)
         if (!expedited) job.runAnywayAfter?.let { builder.setOverrideDeadline(it.toMillis()) }
         if (job is BoardJob.Refresh) builder.setBackoffCriteria(BACKOFF_MS, JobInfo.BACKOFF_POLICY_EXPONENTIAL)
         if (expedited && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) builder.setExpedited(true)
@@ -80,12 +84,12 @@ object BoardJobs {
     }
 
     /**
-     * NETWORK_TYPE_ANY also requires a *validated* network from Android 9. For urgent jobs ask
-     * only for a network with internet: validation over a VPN or hotspot can lag, and a tap must
-     * not wait silently for it (see BoardJob.needsValidatedNetwork).
+     * NETWORK_TYPE_ANY also requires a *validated* network from Android 9. Ask only for a network
+     * with internet, a VPN included: validation over a VPN or hotspot can lag or never come, and
+     * a refresh or retry must not wait for it (#29; see BoardJob).
      */
-    private fun requireNetwork(builder: JobInfo.Builder, validated: Boolean) {
-        if (!validated && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+    private fun requireNetwork(builder: JobInfo.Builder) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             builder.setRequiredNetwork(
                 NetworkRequest.Builder()
                     .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)

@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Network-constrained jobs need it (required from Android 14), and so does the offline check. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Required for persisted jobs: a pending retry survives a reboot and runs once the network is up. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- No backup or device transfer: the GitHub token must never leave this device. -->
     <application

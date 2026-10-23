@@ -31,5 +31,6 @@ object CreateErrors {
      * trying again, since creates are never retried automatically.
      */
     fun mayAlreadyExist(error: BoardError): Boolean =
-        error is BoardError.Network || error is BoardError.Timeout || error is BoardError.Server
+        error is BoardError.Network || error is BoardError.Unreachable || error is BoardError.Timeout ||
+            error is BoardError.Server
 }

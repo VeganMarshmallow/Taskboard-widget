@@ -19,13 +19,15 @@ sealed class BoardJob {
     /** Earliest start, counted from scheduling. */
     open val minLatency: Duration get() = Duration.ZERO
 
-    /**
-     * Wait for a network the system has *validated* (Android 9+ requires that for plain network
-     * constraints). Urgent jobs don't: on a VPN or a phone hotspot validation can lag or flap, and
-     * a tap must not wait silently for it. If the network really is down, the request fails fast
-     * and the widget says so.
+    /*
+     * No job waits for a *validated* network (what a plain network constraint means from Android 9).
+     * On a VPN or a phone hotspot validation can lag, flap or never happen, and a refresh waiting for
+     * it left the widget on "No network" after the network was back (#29). Any network with internet
+     * will do, a VPN included; if it does not pass traffic, the request fails fast and is retried.
      */
-    val needsValidatedNetwork: Boolean get() = needsNetwork && !urgent
+
+    /** Keep the job across reboots, so a pending retry still runs after the phone restarts. */
+    open val persisted: Boolean get() = false
 
     /**
      * For urgent jobs that are not expedited (Android 8–11, or out of expedited quota): run after
@@ -36,12 +38,26 @@ sealed class BoardJob {
 
     abstract fun toExtras(): Map<String, String>
 
-    /** One job id for every refresh, so scheduling a refresh replaces a pending or running one. */
-    data class Refresh(val trigger: RefreshTrigger) : BoardJob() {
+    /**
+     * One job id for every refresh, so scheduling a refresh replaces a pending or running one.
+     * [delay]: wait at least this long first (a retry's backoff); it also waits for a network.
+     * Background refreshes are persisted; a tap's is not (it runs at once or not at all).
+     */
+    data class Refresh(val trigger: RefreshTrigger, val delay: Duration = Duration.ZERO) : BoardJob() {
+        init {
+            require(!delay.isNegative) { "delay must not be negative" }
+        }
+
         override val jobId get() = REFRESH_ID
         override val urgent get() = trigger == RefreshTrigger.MANUAL
         override val needsNetwork get() = true
-        override fun toExtras() = mapOf(KIND to KIND_REFRESH, TRIGGER to trigger.name)
+        override val minLatency: Duration get() = delay
+        override val persisted get() = !urgent
+        override fun toExtras() = buildMap {
+            put(KIND, KIND_REFRESH)
+            put(TRIGGER, trigger.name)
+            if (!delay.isZero) put(DELAY_MS, delay.toMillis().toString())
+        }
     }
 
     /** One job per issue, so approving two tasks quickly runs both. */
@@ -79,16 +95,23 @@ sealed class BoardJob {
         private const val KIND = "kind"
         private const val TRIGGER = "trigger"
         private const val ISSUE = "issue"
+        private const val DELAY_MS = "delayMs"
         private const val KIND_REFRESH = "refresh"
         private const val KIND_APPROVE = "approve"
         private const val KIND_SWEEP = "sweep"
 
         /** Reads [toExtras]' output back. Null for anything unknown or malformed (e.g. a job from another app version). */
         fun fromExtras(get: (String) -> String?): BoardJob? = when (get(KIND)) {
-            KIND_REFRESH -> RefreshTrigger.entries.firstOrNull { it.name == get(TRIGGER) }?.let(::Refresh)
+            KIND_REFRESH -> refreshFromExtras(get)
             KIND_APPROVE -> get(ISSUE)?.toIntOrNull()?.takeIf { it in 1..MAX_ISSUE }?.let(::Approve)
             KIND_SWEEP -> Sweep
             else -> null
+        }
+
+        private fun refreshFromExtras(get: (String) -> String?): Refresh? {
+            val trigger = RefreshTrigger.entries.firstOrNull { it.name == get(TRIGGER) } ?: return null
+            val delayMs = get(DELAY_MS)?.let { it.toLongOrNull()?.takeIf { ms -> ms >= 0 } ?: return null } ?: 0L
+            return Refresh(trigger, Duration.ofMillis(delayMs))
         }
     }
 }

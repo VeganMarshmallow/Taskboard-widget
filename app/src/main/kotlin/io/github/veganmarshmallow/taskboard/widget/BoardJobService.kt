@@ -4,9 +4,7 @@ import android.app.job.JobParameters
 import android.app.job.JobService
 import android.util.Log
 import io.github.veganmarshmallow.taskboard.core.work.BoardJob
-import io.github.veganmarshmallow.taskboard.core.work.RefreshPolicy
 import io.github.veganmarshmallow.taskboard.core.work.RefreshRunner
-import io.github.veganmarshmallow.taskboard.core.work.RefreshTrigger
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -32,26 +30,26 @@ class BoardJobService : JobService() {
 
     /**
      * Stopped by the system (lost network, replaced by a newer refresh, time limit). The thread
-     * finishes on its own within its budget; a superseded run's result is dropped. Only automatic
+     * finishes on its own within its budget; a superseded run's result is dropped. Background
      * refreshes ask to run again.
      */
     override fun onStopJob(params: JobParameters): Boolean =
-        (BoardJob.fromExtras(params.extras::getString) as? BoardJob.Refresh)?.trigger == RefreshTrigger.AUTOMATIC
+        (BoardJob.fromExtras(params.extras::getString) as? BoardJob.Refresh)?.let { !it.urgent } ?: false
 
-    /** Returns whether the job should be retried later. */
-    private fun perform(job: BoardJob, refresher: WidgetRefresher): Boolean = when (job) {
-        is BoardJob.Refresh -> when (val result = refresher.refresh()) {
-            is RefreshRunner.Result.Committed -> RefreshPolicy.shouldRetry(job.trigger, result.state)
-            RefreshRunner.Result.Superseded -> false
+    /**
+     * Returns whether JobScheduler should retry the job. Always false: failed refreshes schedule
+     * their own retry with the app's backoff ([RetryScheduler]), not the scheduler's.
+     */
+    private fun perform(job: BoardJob, refresher: WidgetRefresher): Boolean {
+        when (job) {
+            is BoardJob.Refresh -> when (val result = refresher.refresh()) {
+                is RefreshRunner.Result.Committed -> RetryScheduler.afterRefresh(applicationContext, result.state.error, job)
+                RefreshRunner.Result.Superseded -> Unit // the newer run plans its own retry
+            }
+            is BoardJob.Approve -> ApproveToast.show(applicationContext, job.issue, refresher.approve(job.issue))
+            BoardJob.Sweep -> refresher.sweep()?.let { RetryScheduler.afterRefresh(applicationContext, it.error, finished = null) }
         }
-        is BoardJob.Approve -> {
-            ApproveToast.show(applicationContext, job.issue, refresher.approve(job.issue))
-            false
-        }
-        BoardJob.Sweep -> {
-            refresher.sweep()
-            false
-        }
+        return false
     }
 
     private companion object {

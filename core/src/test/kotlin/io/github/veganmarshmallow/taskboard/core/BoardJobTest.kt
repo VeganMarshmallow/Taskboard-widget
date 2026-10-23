@@ -14,6 +14,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Duration
 
 class BoardJobTest {
     private fun roundTrip(job: BoardJob) = BoardJob.fromExtras(job.toExtras()::get)
@@ -21,6 +22,7 @@ class BoardJobTest {
     @Test fun everyJobRoundTripsThroughItsExtras() {
         listOf(
             BoardJob.Refresh(RefreshTrigger.MANUAL), BoardJob.Refresh(RefreshTrigger.AUTOMATIC),
+            BoardJob.Refresh(RefreshTrigger.RETRY), BoardJob.Refresh(RefreshTrigger.RETRY, Duration.ofMinutes(30)),
             BoardJob.Approve(1), BoardJob.Approve(17), BoardJob.Approve(BoardJob.MAX_ISSUE), BoardJob.Sweep,
         ).forEach { assertEquals(it, roundTrip(it)) }
     }
@@ -49,7 +51,7 @@ class BoardJobTest {
     }
 
     @Test fun everyJobHasAConstraintAndUrgencyFollowsTheTrigger() {
-        listOf(BoardJob.Refresh(RefreshTrigger.MANUAL), BoardJob.Refresh(RefreshTrigger.AUTOMATIC), BoardJob.Approve(3), BoardJob.Sweep)
+        listOf(BoardJob.Refresh(RefreshTrigger.MANUAL), BoardJob.Refresh(RefreshTrigger.AUTOMATIC), BoardJob.Refresh(RefreshTrigger.RETRY), BoardJob.Approve(3), BoardJob.Sweep)
             .forEach { assertTrue("$it", it.needsNetwork || !it.minLatency.isZero) }
         assertTrue(BoardJob.Refresh(RefreshTrigger.MANUAL).urgent)
         assertFalse(BoardJob.Refresh(RefreshTrigger.AUTOMATIC).urgent)
@@ -59,17 +61,13 @@ class BoardJobTest {
         assertTrue("the sweep runs after a run has gone stale", BoardJob.Sweep.minLatency > RefreshTracker.STALE_AFTER)
     }
 
-    @Test fun urgentJobsNeitherWaitForValidationNorWaitForever() {
+    @Test fun urgentJobsNeverWaitForever() {
         val manual = BoardJob.Refresh(RefreshTrigger.MANUAL)
         val auto = BoardJob.Refresh(RefreshTrigger.AUTOMATIC)
         val approve = BoardJob.Approve(5)
-        listOf(manual, approve).forEach {
-            assertFalse("$it: a tap on a VPN/hotspot must not wait for validation", it.needsValidatedNetwork)
-            assertEquals("$it", BoardJob.URGENT_DEADLINE, it.runAnywayAfter)
-        }
-        assertTrue("background refreshes can wait for a validated network", auto.needsValidatedNetwork)
+        listOf(manual, approve).forEach { assertEquals("$it", BoardJob.URGENT_DEADLINE, it.runAnywayAfter) }
         assertNull(auto.runAnywayAfter)
-        assertFalse("no network at all", BoardJob.Sweep.needsValidatedNetwork)
+        assertNull(BoardJob.Refresh(RefreshTrigger.RETRY, Duration.ofMinutes(5)).runAnywayAfter)
         assertNull(BoardJob.Sweep.runAnywayAfter)
         assertTrue("a tap ends in well under the stale limit", BoardJob.URGENT_DEADLINE < RefreshTracker.STALE_AFTER)
     }
@@ -81,14 +79,43 @@ class BoardJobTest {
         assertFalse(RefreshPolicy.shouldSchedule(RefreshTrigger.AUTOMATIC, Status.RUNNING))
     }
 
-    @Test fun onlyAutomaticTransientFailuresRetry() {
-        fun state(e: BoardError?) = WidgetState(null, e, NOW)
-        listOf(BoardError.Network, BoardError.Timeout, BoardError.Server(502)).forEach {
-            assertTrue("$it", RefreshPolicy.shouldRetry(RefreshTrigger.AUTOMATIC, state(it)))
-            assertFalse("$it", RefreshPolicy.shouldRetry(RefreshTrigger.MANUAL, state(it)))
+    @Test fun onlyTransientFailuresAutoRetry() {
+        listOf(BoardError.Network, BoardError.Unreachable, BoardError.Timeout, BoardError.Server(500), BoardError.Server(502), BoardError.Server(599))
+            .forEach { assertTrue("$it", RefreshPolicy.shouldAutoRetry(it)) }
+        listOf(
+            null, BoardError.NoToken, BoardError.BadToken(401), BoardError.BadToken(403), BoardError.NoAccess,
+            BoardError.RateLimited(null), BoardError.RateLimited(NOW), BoardError.IssueGone(3), BoardError.Unexpected("x"),
+        ).forEach { assertFalse("$it", RefreshPolicy.shouldAutoRetry(it)) }
+    }
+
+    @Test fun retryJobsCarryTheirDelayAndArePersisted() {
+        val retry = BoardJob.Refresh(RefreshTrigger.RETRY, Duration.ofMinutes(5))
+        assertEquals(retry, roundTrip(retry))
+        assertEquals(Duration.ofMinutes(5), retry.minLatency)
+        assertTrue("waits for a network too", retry.needsNetwork)
+        assertFalse(retry.urgent)
+        assertTrue("survives a reboot", retry.persisted)
+        assertEquals(BoardJob.REFRESH_ID, retry.jobId)
+        assertTrue(BoardJob.Refresh(RefreshTrigger.AUTOMATIC).persisted)
+        assertFalse("a tap runs now or not at all", BoardJob.Refresh(RefreshTrigger.MANUAL).persisted)
+        assertFalse(BoardJob.Approve(2).persisted)
+        assertFalse(BoardJob.Sweep.persisted)
+        assertEquals(Duration.ZERO, BoardJob.Refresh(RefreshTrigger.AUTOMATIC).minLatency)
+        assertEquals(BoardJob.Refresh(RefreshTrigger.RETRY, Duration.ofMillis(1)), roundTrip(BoardJob.Refresh(RefreshTrigger.RETRY, Duration.ofMillis(1))))
+    }
+
+    @Test fun refreshDelaysAreValidated() {
+        assertTrue(runCatching { BoardJob.Refresh(RefreshTrigger.RETRY, Duration.ofSeconds(-1)) }.exceptionOrNull() is IllegalArgumentException)
+        listOf("-5", "x", "", "1.5", "99999999999999999999").forEach {
+            assertNull(it, BoardJob.fromExtras(mapOf("kind" to "refresh", "trigger" to "RETRY", "delayMs" to it)::get))
         }
-        listOf(null, BoardError.NoToken, BoardError.BadToken(401), BoardError.NoAccess, BoardError.RateLimited(null), BoardError.Unexpected("x"))
-            .forEach { assertFalse("$it", RefreshPolicy.shouldRetry(RefreshTrigger.AUTOMATIC, state(it))) }
+        assertEquals(
+            "a job without a delay (from an older version) has none",
+            BoardJob.Refresh(RefreshTrigger.RETRY), BoardJob.fromExtras(mapOf("kind" to "refresh", "trigger" to "RETRY")::get),
+        )
+        assertEquals(
+            "a refresh without a delay stores no delay extra", setOf("kind", "trigger"), BoardJob.Refresh(RefreshTrigger.AUTOMATIC).toExtras().keys,
+        )
     }
 
     @Test fun timeoutErrorIsStoredAndExplained() {
