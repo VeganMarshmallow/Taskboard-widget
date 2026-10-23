@@ -90,7 +90,7 @@ class UpdateScreenshotTest {
 
     @Test fun missingTokenAccess() {
         val v = card("14-3-error-no-repo-access", UpdateStatus(FakeBoards.NOW, null, UpdateError.NoRepoAccess), Activity.Idle)
-        assertTrue(v.text(R.id.update_status).contains("Contents: Read-only"))
+        assertTrue(v.text(R.id.update_status).contains("Contents to Read-only"))
         assertTrue(!v.visible(R.id.update_install))
     }
 

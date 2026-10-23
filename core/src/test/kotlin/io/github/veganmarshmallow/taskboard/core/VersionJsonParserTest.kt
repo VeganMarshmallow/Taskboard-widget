@@ -11,6 +11,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 
+/** The required checksum and size, to prefix test objects that are about other fields. */
+private const val REQ = "\"apkSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"apkSize\":1,"
+
 class VersionJsonParserTest {
     private val sha = "a".repeat(64)
 
@@ -31,26 +34,34 @@ class VersionJsonParserTest {
         assertEquals("v0.1.42", v.label)
     }
 
-    @Test fun onlyVersionCodeIsRequired() {
-        val v = VersionJsonParser.parse("""{"versionCode":7}""")
+    @Test fun versionCodeChecksumAndSizeAreRequired() {
+        val v = VersionJsonParser.parse("""{"versionCode":7,"apkSha256":"$sha","apkSize":9}""")
         assertEquals(7L, v.versionCode)
         assertEquals("7", v.versionName)
-        assertNull(v.commitSha); assertNull(v.apkSha256); assertNull(v.apkSize)
+        assertNull(v.commitSha)
+        assertEquals(sha, v.apkSha256); assertEquals(9L, v.apkSize)
+        // Without a checksum the download can't be verified, so the release isn't usable.
+        rejects("""{"versionCode":7}""")
+        rejects("""{"versionCode":7,"apkSize":9}""")
+        rejects("""{"versionCode":7,"apkSha256":"$sha"}""")
+        rejects("""{"versionCode":7,"apkSha256":null,"apkSize":9}""")
+        rejects("""{"versionCode":7,"apkSha256":"$sha","apkSize":null}""")
+        rejects("""{"versionCode":7,"apkSha256":"","apkSize":9}""")
     }
 
-    @Test fun explicitNullsAreTheSameAsMissing() {
-        val v = VersionJsonParser.parse("""{"versionCode":7,"versionName":null,"sha":null,"apkSha256":null,"apkSize":null}""")
+    @Test fun explicitNullOptionalFieldsAreTheSameAsMissing() {
+        val v = VersionJsonParser.parse("""{"versionCode":7,"versionName":null,"sha":null,"apkSha256":"$sha","apkSize":9}""")
         assertEquals("7", v.versionName)
-        assertNull(v.apkSha256)
+        assertNull(v.commitSha)
     }
 
     @Test fun acceptsIntegralDoublesAndBomAndWhitespaceAndUnknownFields() {
-        assertEquals(42L, VersionJsonParser.parse("﻿ \n{\"versionCode\":42.0,\"extra\":{\"a\":[1,2]}}\n").versionCode)
-        assertEquals(42L, VersionJsonParser.parse("""{"versionCode":4.2e1}""").versionCode)
+        assertEquals(42L, VersionJsonParser.parse("﻿ \n{$REQ\"versionCode\":42.0,\"extra\":{\"a\":[1,2]}}\n").versionCode)
+        assertEquals(42L, VersionJsonParser.parse("""{$REQ"versionCode":4.2e1}""").versionCode)
     }
 
     @Test fun normalisesChecksumAndCommitToLowerCase() {
-        val v = VersionJsonParser.parse("""{"versionCode":1,"sha":"ABCDEF1","apkSha256":"${"AB".repeat(32)}"}""")
+        val v = VersionJsonParser.parse("""{"versionCode":1,"sha":"ABCDEF1","apkSha256":"${"AB".repeat(32)}","apkSize":3}""")
         assertEquals("abcdef1", v.commitSha)
         assertEquals("ab".repeat(32), v.apkSha256)
     }
@@ -70,7 +81,7 @@ class VersionJsonParserTest {
     }
 
     @Test fun maxIntVersionCodeIsAccepted() {
-        assertEquals(Int.MAX_VALUE.toLong(), VersionJsonParser.parse("""{"versionCode":2147483647}""").versionCode)
+        assertEquals(Int.MAX_VALUE.toLong(), VersionJsonParser.parse("""{$REQ"versionCode":2147483647}""").versionCode)
     }
 
     @Test fun rejectsNonObjectsAndBrokenJson() {
@@ -104,19 +115,19 @@ class VersionJsonParserTest {
     }
 
     @Test fun badVersionNamesFallBackToTheCode() {
-        assertEquals("5", VersionJsonParser.parse("""{"versionCode":5,"versionName":""}""").versionName)
-        assertEquals("5", VersionJsonParser.parse("""{"versionCode":5,"versionName":"  "}""").versionName)
-        assertEquals("5", VersionJsonParser.parse("""{"versionCode":5,"versionName":"a\nb"}""").versionName)
-        assertEquals("5", VersionJsonParser.parse("""{"versionCode":5,"versionName":"${"9".repeat(65)}"}""").versionName)
-        assertEquals("5", VersionJsonParser.parse("""{"versionCode":5,"versionName":12}""").versionName)
-        assertEquals("5", VersionJsonParser.parse("""{"versionCode":5,"versionName":"\u0007x"}""").versionName)
+        assertEquals("5", VersionJsonParser.parse("""{$REQ"versionCode":5,"versionName":""}""").versionName)
+        assertEquals("5", VersionJsonParser.parse("""{$REQ"versionCode":5,"versionName":"  "}""").versionName)
+        assertEquals("5", VersionJsonParser.parse("""{$REQ"versionCode":5,"versionName":"a\nb"}""").versionName)
+        assertEquals("5", VersionJsonParser.parse("""{$REQ"versionCode":5,"versionName":"${"9".repeat(65)}"}""").versionName)
+        assertEquals("5", VersionJsonParser.parse("""{$REQ"versionCode":5,"versionName":12}""").versionName)
+        assertEquals("5", VersionJsonParser.parse("""{$REQ"versionCode":5,"versionName":"\u0007x"}""").versionName)
         // Bidi controls would reorder "Update available (v…)".
-        assertEquals("5", VersionJsonParser.parse("""{"versionCode":5,"versionName":"1.0\u202e"}""").versionName)
-        assertEquals("5", VersionJsonParser.parse("""{"versionCode":5,"versionName":"\u2066x"}""").versionName)
+        assertEquals("5", VersionJsonParser.parse("""{$REQ"versionCode":5,"versionName":"1.0\u202e"}""").versionName)
+        assertEquals("5", VersionJsonParser.parse("""{$REQ"versionCode":5,"versionName":"\u2066x"}""").versionName)
     }
 
     @Test fun unicodeVersionNameIsKept() {
-        assertEquals("1.0-בטא", VersionJsonParser.parse("""{"versionCode":5,"versionName":"1.0-בטא"}""").versionName)
+        assertEquals("1.0-בטא", VersionJsonParser.parse("""{$REQ"versionCode":5,"versionName":"1.0-בטא"}""").versionName)
     }
 
     @Test fun comparisonUsesVersionCodeOnly() {

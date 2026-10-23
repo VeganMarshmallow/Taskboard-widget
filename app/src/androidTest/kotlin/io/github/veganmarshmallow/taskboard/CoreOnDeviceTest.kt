@@ -64,6 +64,8 @@ class CoreOnDeviceTest {
         val bytes = byteArrayOf(0x50, 0x4B, 0x03, 0x04)
         // SHA-256 of PK\x03\x04
         val sha = java.security.MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it.toInt() and 0xFF) }
+        // Core's own hex encoder must agree with String.format on Android's class library.
+        assertEquals(sha, io.github.veganmarshmallow.taskboard.core.update.Sha256.of(bytes))
         val verifier = DownloadVerifier(4, sha)
         verifier.update(bytes, 4)
         assertEquals(null, verifier.problem())

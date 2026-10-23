@@ -17,7 +17,8 @@ class CacheDownloadTarget(
     private val freeSpace: (File) -> Long = { it.usableSpace },
 ) : DownloadTarget {
     val apk = File(dir, APK_NAME)
-    private val part = File(dir, "$APK_NAME.part")
+    /** The partial file; after core verified its checksum, [ApkPackageCheck] reads it before commit. */
+    val part = File(dir, "$APK_NAME.part")
 
     override fun availableBytes(): Long {
         dir.mkdirs()

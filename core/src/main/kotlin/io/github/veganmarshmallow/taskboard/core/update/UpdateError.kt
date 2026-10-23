@@ -35,6 +35,15 @@ sealed class UpdateError {
     /** The downloaded file is incomplete or not the published one (size, SHA-256, or not an APK). */
     data class Corrupt(val detail: String) : UpdateError()
 
+    /**
+     * The downloaded APK passed its checksum but is not an update of this app: a different package,
+     * or not signed with the installed app's key. It is deleted, never installed.
+     */
+    data class Untrusted(val detail: String) : UpdateError()
+
+    /** The user hasn't allowed this app to install apps ("Install unknown apps"). */
+    data object InstallNotAllowed : UpdateError()
+
     /** Not enough free space for the download. */
     data class LowStorage(val neededBytes: Long, val availableBytes: Long) : UpdateError()
 

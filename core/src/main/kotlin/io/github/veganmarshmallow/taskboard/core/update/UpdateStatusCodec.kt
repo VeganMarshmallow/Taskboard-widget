@@ -68,6 +68,8 @@ object UpdateStatusCodec {
         is UpdateError.Server -> mapOf("k" to "Server", "status" to e.status.toLong())
         is UpdateError.Malformed -> mapOf("k" to "Malformed", "d" to e.detail)
         is UpdateError.Corrupt -> mapOf("k" to "Corrupt", "d" to e.detail)
+        is UpdateError.Untrusted -> mapOf("k" to "Untrusted", "d" to e.detail)
+        UpdateError.InstallNotAllowed -> mapOf("k" to "InstallNotAllowed")
         is UpdateError.LowStorage -> mapOf("k" to "LowStorage", "need" to e.neededBytes, "free" to e.availableBytes)
         is UpdateError.Unexpected -> mapOf("k" to "Unexpected", "d" to e.detail)
     }
@@ -84,6 +86,8 @@ object UpdateStatusCodec {
         "Server" -> UpdateError.Server(m.long("status")!!.toInt())
         "Malformed" -> UpdateError.Malformed(m.string("d").orEmpty())
         "Corrupt" -> UpdateError.Corrupt(m.string("d").orEmpty())
+        "Untrusted" -> UpdateError.Untrusted(m.string("d").orEmpty())
+        "InstallNotAllowed" -> UpdateError.InstallNotAllowed
         "LowStorage" -> UpdateError.LowStorage(m.long("need")!!, m.long("free")!!)
         "Unexpected" -> UpdateError.Unexpected(m.string("d").orEmpty())
         else -> null

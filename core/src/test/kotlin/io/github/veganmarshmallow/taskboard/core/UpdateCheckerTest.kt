@@ -40,11 +40,10 @@ class UpdateCheckerTest {
         assertEquals("application/octet-stream", http.requests[1].headers["Accept"])
     }
 
-    @Test fun fallsBackToReleaseNotesWithoutVersionJson() {
+    @Test fun releaseWithoutVersionJsonIsNotOffered() {
+        // The notes still say "versionCode 9", but without version.json there is no checksum to verify.
         val http = FakeStreamingHttp().standard(apk, version = null)
-        val update = (check(http) as UpdateResult.Ok).value
-        assertEquals(9L, update.version.versionCode) // from "versionCode 9" in the notes
-        assertEquals(null, update.version.apkSha256)
+        assertTrue(check(http).error() is UpdateError.Malformed)
         assertEquals(1, http.requests.size)
     }
 
@@ -143,10 +142,14 @@ class UpdateCheckerTest {
     }
 
     @Test fun hebrewAndUnicodeInReleaseNotesAreFine() {
-        val http = FakeStreamingHttp().on(LATEST_URL) {
-            streamed(200, releaseJson(assetJson(APK_ID, "taskboard-widget.apk", 10), notes = "גרסה חדשה 🎉 versionCode 77 ‏"))
+        val http = FakeStreamingHttp().standard(apk, code = 77).on(LATEST_URL) {
+            streamed(200, releaseJson(
+                assetJson(APK_ID, "taskboard-widget.apk", apk.size.toLong()),
+                assetJson(VERSION_ID, "version.json", versionJson(77, apk).length.toLong()),
+                notes = "גרסה חדשה 🎉 versionCode 12 ‏",
+            ))
         }
-        assertEquals(77L, (check(http) as UpdateResult.Ok).value.version.versionCode)
+        assertEquals(77L, (check(http) as UpdateResult.Ok).value.version.versionCode) // version.json wins
     }
 
     @Test fun redirectLoopAndUnsafeRedirectsStop() {

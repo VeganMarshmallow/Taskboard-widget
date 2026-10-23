@@ -5,7 +5,6 @@ import io.github.veganmarshmallow.taskboard.core.update.Release
 import io.github.veganmarshmallow.taskboard.core.update.ReleaseAsset
 import io.github.veganmarshmallow.taskboard.core.update.ReleaseAssets
 import io.github.veganmarshmallow.taskboard.core.update.ReleaseJsonParser
-import io.github.veganmarshmallow.taskboard.core.update.ReleaseNotesVersion
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -95,20 +94,5 @@ class ReleaseParsingTest {
     @Test fun emptyRelease() {
         val sel = ReleaseAssets.select(Release("latest", null, emptyList()))
         assertNull(sel.apk); assertNull(sel.versionJson)
-    }
-
-    @Test fun releaseNotesFallback() {
-        assertEquals(9L, ReleaseNotesVersion.parse("Built from 776dc5f on main (build 9, versionCode 9).")!!.versionCode)
-        assertEquals("0.1.9", ReleaseNotesVersion.parse("versionCode 9")!!.versionName)
-        assertNull(ReleaseNotesVersion.parse(null))
-        assertNull(ReleaseNotesVersion.parse(""))
-        assertNull(ReleaseNotesVersion.parse("versionCode 0"))
-        assertNull(ReleaseNotesVersion.parse("versionCode x"))
-        assertNull(ReleaseNotesVersion.parse("versionCode 12345678901")) // too many digits
-        assertNull(ReleaseNotesVersion.parse("myversionCode 9"))
-        assertNull(ReleaseNotesVersion.parse("versionCode -9"))
-        assertNull(ReleaseNotesVersion.parse("versionCode 9a"))
-        assertNull(ReleaseNotesVersion.parse("x".repeat(100_000)))
-        assertEquals(3L, ReleaseNotesVersion.parse("first versionCode 3, then versionCode 4")!!.versionCode)
     }
 }

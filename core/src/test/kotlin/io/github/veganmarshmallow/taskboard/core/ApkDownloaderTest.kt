@@ -24,7 +24,7 @@ class ApkDownloaderTest {
         AvailableUpdate(VersionInfo(42, "0.1.42", null, sha, size), ReleaseAsset(APK_ID, "taskboard-widget.apk", assetSize, assetUrl(APK_ID)))
 
     private fun download(http: FakeStreamingHttp, target: MemoryTarget, u: AvailableUpdate = update(), progress: MutableList<DownloadProgress>? = null) =
-        Updater(http, TOKEN, FIXED_CLOCK).download(u, target, { progress?.add(it) })
+        Updater(http, TOKEN, FIXED_CLOCK).download(u, target, TRUSTED, { progress?.add(it) })
 
     private fun UpdateResult<*>.error() = (this as UpdateResult.Err).error
 
@@ -54,10 +54,15 @@ class ApkDownloaderTest {
         assertFalse(storage.headers.values.any { TOKEN in it })
     }
 
-    @Test fun worksWithoutAChecksum() {
-        val target = MemoryTarget()
-        assertEquals(UpdateResult.Ok(Unit), download(FakeStreamingHttp().standard(apk), target, update(sha = null, size = null)))
-        assertArrayEquals(apk, target.committed)
+    @Test fun refusesToDownloadWithoutAChecksumOrSize() {
+        // E.g. an update cached by an older build, before version.json was required.
+        for (u in listOf(update(sha = null), update(size = null), update(sha = null, size = null))) {
+            val http = FakeStreamingHttp().standard(apk)
+            val target = MemoryTarget()
+            assertTrue(download(http, target, u).error() is UpdateError.Malformed)
+            assertTrue(http.requests.isEmpty())
+            assertNull(target.committed)
+        }
     }
 
     @Test fun truncatedDownloadIsCorruptAndDiscarded() {
@@ -100,7 +105,7 @@ class ApkDownloaderTest {
     @Test fun notAnApkIsCorrupt() {
         val html = "<html>".toByteArray() + ByteArray(apk.size - 6)
         val http = FakeStreamingHttp().standard(apk).on(STORAGE) { streamed(200, html) }
-        val error = download(http, MemoryTarget(), update(bytes = html, sha = null)).error() as UpdateError.Corrupt
+        val error = download(http, MemoryTarget(), update(bytes = html)).error() as UpdateError.Corrupt
         assertTrue(error.detail.contains("not an APK"))
     }
 
@@ -172,26 +177,26 @@ class ApkDownloaderTest {
 
     @Test fun cancellationDiscards() {
         val target = MemoryTarget()
-        val result = Updater(FakeStreamingHttp().standard(apk), TOKEN, FIXED_CLOCK).download(update(), target, {}, { true })
+        val result = Updater(FakeStreamingHttp().standard(apk), TOKEN, FIXED_CLOCK).download(update(), target, TRUSTED, {}, { true })
         assertTrue(result.error() is UpdateError.Unexpected)
         assertEquals(1, target.discards)
     }
 
     @Test fun downloadLatestRechecksFirst() {
         val target = MemoryTarget()
-        val result = Updater(FakeStreamingHttp().standard(apk, code = 50), TOKEN, FIXED_CLOCK).downloadLatest(49, target)
+        val result = Updater(FakeStreamingHttp().standard(apk, code = 50), TOKEN, FIXED_CLOCK).downloadLatest(49, target, TRUSTED)
         assertEquals(50L, (result as UpdateResult.Ok).value.version.versionCode)
         assertArrayEquals(apk, target.committed)
-        val current = Updater(FakeStreamingHttp().standard(apk, code = 50), TOKEN, FIXED_CLOCK).downloadLatest(50, MemoryTarget())
+        val current = Updater(FakeStreamingHttp().standard(apk, code = 50), TOKEN, FIXED_CLOCK).downloadLatest(50, MemoryTarget(), TRUSTED)
         assertEquals(UpdateError.UpToDate, current.error())
         val noAccess = FakeStreamingHttp().on(LATEST_URL) { streamed(403, "{}") }
-        assertEquals(UpdateError.NoRepoAccess, Updater(noAccess, TOKEN, FIXED_CLOCK).downloadLatest(1, MemoryTarget()).error())
+        assertEquals(UpdateError.NoRepoAccess, Updater(noAccess, TOKEN, FIXED_CLOCK).downloadLatest(1, MemoryTarget(), TRUSTED).error())
     }
 
     @Test(expected = IllegalArgumentException::class)
     fun refusesToSendTheTokenToANonApiAssetUrl() {
-        val evil = AvailableUpdate(VersionInfo(2, "x"), ReleaseAsset(1, "taskboard-widget.apk", 10, "https://evil.example/assets/1"))
-        Updater(FakeStreamingHttp(), TOKEN, FIXED_CLOCK).download(evil, MemoryTarget())
+        val evil = AvailableUpdate(VersionInfo(2, "x", null, "a".repeat(64), 10), ReleaseAsset(1, "taskboard-widget.apk", 10, "https://evil.example/assets/1"))
+        Updater(FakeStreamingHttp(), TOKEN, FIXED_CLOCK).download(evil, MemoryTarget(), TRUSTED)
     }
 
     @Test fun progressPercent() {
@@ -218,7 +223,7 @@ class ApkDownloaderTest {
         val target = object : io.github.veganmarshmallow.taskboard.core.update.DownloadTarget by MemoryTarget() {
             override fun availableBytes(): Long = throw IllegalStateException("statfs")
         }
-        assertEquals(UpdateResult.Ok(Unit), Updater(FakeStreamingHttp().standard(apk), TOKEN, FIXED_CLOCK).download(update(), target))
+        assertEquals(UpdateResult.Ok(Unit), Updater(FakeStreamingHttp().standard(apk), TOKEN, FIXED_CLOCK).download(update(), target, TRUSTED))
     }
 
     @Test fun ioExceptionFromTheStreamClosingIsHarmless() {

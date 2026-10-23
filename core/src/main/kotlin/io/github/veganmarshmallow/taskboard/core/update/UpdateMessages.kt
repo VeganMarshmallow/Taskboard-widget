@@ -20,6 +20,8 @@ class UpdateMessages(private val formatTime: (Instant) -> String) {
         is UpdateError.Server -> "GitHub error (${error.status}), try again later"
         is UpdateError.Malformed -> "Couldn't read the release (${error.detail})"
         is UpdateError.Corrupt -> "Download damaged (${error.detail}). Try again"
+        is UpdateError.Untrusted -> "Update blocked: the downloaded build isn't this app signed with its key (${error.detail}). It was deleted, not installed"
+        UpdateError.InstallNotAllowed -> "Install not allowed. In Settings → Install unknown apps, turn on \"Allow from this source\" for Claude board, then tap Update"
         is UpdateError.LowStorage ->
             "Not enough free space: needs ${megabytes(error.neededBytes)}, " +
                 (if (error.availableBytes >= 0) "${megabytes(error.availableBytes)} free" else "free space unknown")
@@ -28,9 +30,10 @@ class UpdateMessages(private val formatTime: (Instant) -> String) {
 
     companion object {
         const val TOKEN_ACCESS_HELP =
-            "The token can't read Taskboard-widget releases. On GitHub, edit the token: " +
-                "Repository access → add VeganMarshmallow/Taskboard-widget, then " +
-                "Permissions → Contents: Read-only. Save it; the same token keeps working."
+            "The token can't read Taskboard-widget releases. On GitHub, open Settings → Developer settings → " +
+                "Fine-grained tokens and edit this token: under Repository access → Only select repositories, " +
+                "add VeganMarshmallow/Taskboard-widget; under Permissions → Repository permissions, set " +
+                "Contents to Read-only. Save it; the token itself doesn't change."
 
         /** "12.3 MB", in decimal megabytes like Android's storage settings. */
         fun megabytes(bytes: Long): String {

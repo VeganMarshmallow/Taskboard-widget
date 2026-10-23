@@ -5,6 +5,7 @@ import io.github.veganmarshmallow.taskboard.core.http.StreamingHttpClient
 import io.github.veganmarshmallow.taskboard.core.http.StreamingResponse
 import io.github.veganmarshmallow.taskboard.core.json.JsonWriter
 import io.github.veganmarshmallow.taskboard.core.update.DownloadTarget
+import io.github.veganmarshmallow.taskboard.core.update.PackageCheck
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -20,6 +21,9 @@ const val VERSION_ID = 222L
 const val STORAGE = "https://objects.githubusercontent.com/github-production-release-asset/1?sig=abc"
 
 fun assetUrl(id: Long) = "$APP_API/releases/assets/$id"
+
+/** A package check that accepts every APK (signature checks have their own tests). */
+val TRUSTED = PackageCheck { null }
 
 /** A fake APK: ZIP magic plus [size] - 4 filler bytes. */
 fun fakeApk(size: Int = 5000): ByteArray = ByteArray(size) { i ->
@@ -39,16 +43,14 @@ fun assetJson(id: Long, name: String, size: Long, state: String = "uploaded"): M
 fun releaseJson(vararg assets: Map<String, Any?>, notes: String? = "Built from abc1234 on main (build 9, versionCode 9)."): String =
     JsonWriter.write(mapOf("tag_name" to "latest", "body" to notes, "assets" to assets.toList(), "prerelease" to false))
 
-fun versionJson(code: Long, apk: ByteArray? = null, name: String = "0.1.$code"): String = JsonWriter.write(
-    buildMap {
-        put("versionCode", code)
-        put("versionName", name)
-        put("sha", "776dc5f6623ab408acd13439f7f081a22c508fd4")
-        if (apk != null) {
-            put("apkSha256", sha256(apk))
-            put("apkSize", apk.size.toLong())
-        }
-    },
+fun versionJson(code: Long, apk: ByteArray, name: String = "0.1.$code"): String = JsonWriter.write(
+    mapOf(
+        "versionCode" to code,
+        "versionName" to name,
+        "sha" to "776dc5f6623ab408acd13439f7f081a22c508fd4",
+        "apkSha256" to sha256(apk),
+        "apkSize" to apk.size.toLong(),
+    ),
 )
 
 fun streamed(status: Int, body: ByteArray = ByteArray(0), vararg headers: Pair<String, String>, onClose: () -> Unit = {}) =

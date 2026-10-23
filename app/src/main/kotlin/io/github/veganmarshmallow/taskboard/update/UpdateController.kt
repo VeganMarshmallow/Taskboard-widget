@@ -31,6 +31,12 @@ object UpdateController {
     var activity: Activity = Activity.Idle
         private set
 
+    /**
+     * Set when the user was sent to the "install unknown apps" setting; the update continues on
+     * return. Kept here, not in the activity, so it survives the activity being recreated.
+     */
+    var waitingForPermission = false
+
     /** Called with the downloaded update when it is ready for the installer. Main thread. */
     var onReadyToInstall: ((AvailableUpdate) -> Unit)? = null
 
@@ -54,14 +60,17 @@ object UpdateController {
     /** The check when the app opens, skipped if one ran in the last minute (e.g. a screen rotation). */
     fun checkOnOpen(context: Context) {
         if (!TokenStore(context).hasToken()) return // the token card above already says what to do
-        if (AppGraph.updateOnOpen.isDue(UpdateStore(context).load().checkedAt, AppGraph.clock.instant())) check(context)
+        if (AppGraph.updateOnOpen.isDue(UpdateStore(context).load(), AppGraph.clock.instant())) check(context)
     }
 
-    /** Background check during a widget refresh: at most once a day, silent, never on the refresh thread. */
+    /**
+     * Background check during a widget refresh: once a day, or an hour after a failed check (e.g. one
+     * that ran offline). Silent, never on the refresh thread.
+     */
     fun checkInBackgroundIfDue(context: Context) {
         val app = context.applicationContext
         executor.execute {
-            if (AppGraph.updateSchedule.isDue(UpdateStore(app).load().checkedAt, AppGraph.clock.instant())) runCheck(app)
+            if (AppGraph.updateSchedule.isDue(UpdateStore(app).load(), AppGraph.clock.instant())) runCheck(app)
         }
     }
 
@@ -104,7 +113,8 @@ object UpdateController {
         val updater = updater(app) ?: return UpdateResult.Err(UpdateError.NoToken)
         val installed = InstalledVersion.of(app).versionCode
         var lastPercent = -1
-        val result = updater.downloadLatest(installed, CacheDownloadTarget.of(app), { progress ->
+        val target = CacheDownloadTarget.of(app)
+        val result = updater.downloadLatest(installed, target, ApkPackageCheck(app, target.part), { progress ->
             if (progress.percent != lastPercent) { // one UI update per percent, not per 64 KB chunk
                 lastPercent = progress.percent
                 main.post { (activity as? Activity.Downloading)?.let { set(Activity.Downloading(it.version, progress)) } }

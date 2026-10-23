@@ -19,9 +19,6 @@ class UpdateSection(private val activity: Activity) {
     private val presenter = UpdatePresenter(UpdateMessages(TimeText(activity)::format))
     private val installer = ApkInstaller(activity)
 
-    /** Set when the user was sent to the "install unknown apps" setting; resumes the update on return. */
-    private var waitingForPermission = false
-
     fun onOpen() {
         card.checkButton.setOnClickListener { UpdateController.check(activity) }
         card.updateButton.setOnClickListener { onUpdateTapped() }
@@ -36,12 +33,20 @@ class UpdateSection(private val activity: Activity) {
     }
 
     fun onResume() {
-        if (waitingForPermission && installer.canInstall()) {
-            waitingForPermission = false
-            UpdateController.download(activity)
+        if (UpdateController.waitingForPermission) {
+            UpdateController.waitingForPermission = false
+            if (installer.canInstall()) continueAfterPermission() else UpdateController.fail(UpdateError.InstallNotAllowed)
         }
         render()
     }
+
+    /** Back from Settings with the permission on: install what is already downloaded, else download. */
+    private fun continueAfterPermission() {
+        if (hasDownloadedApk()) launchInstaller() else UpdateController.download(activity)
+    }
+
+    private fun hasDownloadedApk() =
+        UpdateController.activity is UpdatePresenter.Activity.ReadyToInstall && CacheDownloadTarget.of(activity).apk.isFile
 
     /** A new token may grant access that the last check lacked. */
     fun onTokenChanged() = UpdateController.check(activity)
@@ -57,12 +62,9 @@ class UpdateSection(private val activity: Activity) {
     }
 
     private fun onUpdateTapped() {
-        if (UpdateController.activity is UpdatePresenter.Activity.ReadyToInstall && CacheDownloadTarget.of(activity).apk.isFile) {
-            launchInstaller()
-            return
-        }
+        // The permission can be revoked after the download, so it is checked before both steps.
         if (installer.canInstall()) {
-            UpdateController.download(activity)
+            continueAfterPermission()
             return
         }
         AlertDialog.Builder(activity)
@@ -75,10 +77,10 @@ class UpdateSection(private val activity: Activity) {
 
     private fun openPermissionSettings() {
         try {
-            waitingForPermission = true
+            UpdateController.waitingForPermission = true
             activity.startActivity(installer.permissionSettings())
         } catch (e: ActivityNotFoundException) {
-            waitingForPermission = false
+            UpdateController.waitingForPermission = false
             UpdateController.fail(UpdateError.Unexpected("can't open the install permission setting"))
         }
     }
@@ -93,10 +95,14 @@ class UpdateSection(private val activity: Activity) {
         }
     }
 
-    /** A cached APK that is not newer than what runs (it was installed, or is outdated) is deleted. */
+    /**
+     * Runs only when nothing is downloading: a partial file is left over from a download the process
+     * didn't finish (e.g. it was killed), so it is deleted. A finished APK that is not newer than
+     * what runs (it was installed, or is outdated) is deleted too.
+     */
     private fun dropStaleDownload() {
-        if (UpdateStore(activity).load().offer(InstalledVersion.of(activity).versionCode) == null) {
-            CacheDownloadTarget.of(activity).clear()
-        }
+        val target = CacheDownloadTarget.of(activity)
+        target.discard()
+        if (UpdateStore(activity).load().offer(InstalledVersion.of(activity).versionCode) == null) target.clear()
     }
 }

@@ -44,7 +44,7 @@ class UpdatePresenterTest {
     @Test fun failedCheckWithoutKnownUpdateIsAnError() {
         val m = presenter.present(UpdateStatus(NOW, null, UpdateError.NoRepoAccess), installed, Activity.Idle)
         assertTrue(m.isError)
-        assertTrue(m.status.contains("Contents: Read-only"))
+        assertTrue(m.status.contains("Contents to Read-only"))
         assertFalse(m.showUpdate)
     }
 

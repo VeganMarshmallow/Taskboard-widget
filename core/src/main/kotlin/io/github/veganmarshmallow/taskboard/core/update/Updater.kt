@@ -13,9 +13,10 @@ class Updater(http: StreamingHttpClient, token: String, clock: Clock = Clock.sys
     fun download(
         update: AvailableUpdate,
         target: DownloadTarget,
+        packageCheck: PackageCheck,
         onProgress: (DownloadProgress) -> Unit = {},
         isCancelled: () -> Boolean = { false },
-    ): UpdateResult<Unit> = ApkDownloader(fetcher, requests).download(update, target, onProgress, isCancelled)
+    ): UpdateResult<Unit> = ApkDownloader(fetcher, requests).download(update, target, packageCheck, onProgress, isCancelled)
 
     /**
      * Re-checks first and downloads what the release holds right now. CI recreates the release on
@@ -26,10 +27,11 @@ class Updater(http: StreamingHttpClient, token: String, clock: Clock = Clock.sys
     fun downloadLatest(
         installedVersionCode: Long,
         target: DownloadTarget,
+        packageCheck: PackageCheck,
         onProgress: (DownloadProgress) -> Unit = {},
         isCancelled: () -> Boolean = { false },
     ): UpdateResult<AvailableUpdate> = check().flatMap { update ->
         if (!update.isNewerThan(installedVersionCode)) UpdateResult.Err(UpdateError.UpToDate)
-        else download(update, target, onProgress, isCancelled).map { update }
+        else download(update, target, packageCheck, onProgress, isCancelled).map { update }
     }
 }

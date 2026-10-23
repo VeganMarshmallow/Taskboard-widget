@@ -46,7 +46,7 @@ class UpdateStatusTest {
             UpdateError.NoRelease, UpdateError.ReleaseChanged, UpdateError.UpToDate,
             UpdateError.RateLimited(null), UpdateError.RateLimited(NOW), UpdateError.Server(503),
             UpdateError.Malformed("x \"y\" ✓"), UpdateError.Corrupt("SHA-256 mismatch"), UpdateError.LowStorage(10, -1),
-            UpdateError.Unexpected("עברית"), null,
+            UpdateError.Unexpected("עברית"), UpdateError.Untrusted("signed with a different key"), UpdateError.InstallNotAllowed, null,
         )
         for (e in errors) {
             val s = UpdateStatus(NOW, update, e)
@@ -72,21 +72,43 @@ class UpdateStatusTest {
         assertNull(UpdateStatusCodec.decode(tampered).available)
     }
 
-    @Test fun scheduleIsOncePerDay() {
+    private fun checked(at: java.time.Instant, error: UpdateError? = null) = UpdateStatus(at, update, error)
+
+    @Test fun scheduleIsOncePerDayAfterASuccessfulCheck() {
         val schedule = UpdateSchedule()
-        assertTrue(schedule.isDue(null, NOW))
-        assertFalse(schedule.isDue(NOW, NOW))
-        assertFalse(schedule.isDue(NOW.minus(Duration.ofHours(23)), NOW))
-        assertTrue(schedule.isDue(NOW.minus(Duration.ofDays(1)), NOW))
-        assertTrue(schedule.isDue(NOW.minus(Duration.ofDays(400)), NOW))
-        assertTrue(schedule.isDue(NOW.plus(Duration.ofHours(5)), NOW)) // clock moved back
-        assertTrue(UpdateSchedule(Duration.ZERO).isDue(NOW, NOW))
+        assertTrue(schedule.isDue(UpdateStatus.NEVER, NOW))
+        assertFalse(schedule.isDue(checked(NOW), NOW))
+        assertFalse(schedule.isDue(checked(NOW.minus(Duration.ofHours(23))), NOW))
+        assertTrue(schedule.isDue(checked(NOW.minus(Duration.ofDays(1))), NOW))
+        assertTrue(schedule.isDue(checked(NOW.minus(Duration.ofDays(400))), NOW))
+        assertTrue(schedule.isDue(checked(NOW.plus(Duration.ofHours(5))), NOW)) // clock moved back
+        assertTrue(UpdateSchedule(Duration.ZERO).isDue(checked(NOW), NOW))
+    }
+
+    @Test fun aCheckThatFailedOfflineIsRetriedWithinAnHour() {
+        val schedule = UpdateSchedule(Duration.ofDays(1), Duration.ofHours(1))
+        assertFalse(schedule.isDue(checked(NOW.minus(Duration.ofMinutes(59)), UpdateError.Network), NOW))
+        assertTrue(schedule.isDue(checked(NOW.minus(Duration.ofHours(1)), UpdateError.Network), NOW))
+        assertTrue(schedule.isDue(checked(NOW.minus(Duration.ofHours(2)), UpdateError.Server(502)), NOW))
+        // The retry wait never exceeds the normal interval.
+        assertTrue(UpdateSchedule(Duration.ofMinutes(1), Duration.ofHours(1)).isDue(checked(NOW.minus(Duration.ofMinutes(1)), UpdateError.Network), NOW))
+    }
+
+    @Test fun aRateLimitWaitsForItsResetTime() {
+        val schedule = UpdateSchedule(Duration.ofDays(1), Duration.ofHours(1))
+        val limited = UpdateError.RateLimited(NOW.plus(Duration.ofMinutes(30)))
+        assertFalse(schedule.isDue(checked(NOW.minus(Duration.ofHours(2)), limited), NOW))
+        assertTrue(schedule.isDue(checked(NOW.minus(Duration.ofHours(2)), limited), NOW.plus(Duration.ofMinutes(30))))
+        assertTrue(schedule.isDue(checked(NOW.minus(Duration.ofHours(2)), UpdateError.RateLimited(null)), NOW))
     }
 
     @Test fun missingAccessMessageSaysExactlyWhatToDo() {
         val text = messages.message(UpdateError.NoRepoAccess)
-        assertTrue(text.contains("VeganMarshmallow/Taskboard-widget"))
-        assertTrue(text.contains("Contents: Read-only"))
+        // Each step names the exact place in GitHub's fine-grained token editor.
+        listOf(
+            "Fine-grained tokens", "Repository access → Only select repositories", "VeganMarshmallow/Taskboard-widget",
+            "Permissions → Repository permissions", "Contents to Read-only", "token itself doesn't change",
+        ).forEach { assertTrue(it, text.contains(it)) }
     }
 
     @Test fun everyErrorHasAMessage() {
@@ -94,6 +116,7 @@ class UpdateStatusTest {
             UpdateError.NoToken, UpdateError.Network, UpdateError.NoRepoAccess, UpdateError.BadToken, UpdateError.NoRelease,
             UpdateError.ReleaseChanged, UpdateError.UpToDate, UpdateError.RateLimited(null), UpdateError.RateLimited(NOW),
             UpdateError.Server(500), UpdateError.Malformed("m"), UpdateError.Corrupt("c"), UpdateError.LowStorage(1, 2), UpdateError.Unexpected("u"),
+            UpdateError.Untrusted("t"), UpdateError.InstallNotAllowed,
         ).forEach { assertTrue(it.toString(), messages.message(it).isNotBlank()) }
         assertTrue(messages.message(UpdateError.RateLimited(NOW)).contains("14:05"))
         assertTrue(messages.message(UpdateError.LowStorage(21_400_000, 3_000_000)).contains("21.4 MB"))

@@ -4,9 +4,9 @@ import java.security.MessageDigest
 
 /**
  * Checks a finished download against what the release promised: the exact byte count, the
- * SHA-256 when version.json publishes one, and the ZIP signature every APK starts with.
+ * SHA-256 from version.json, and the ZIP signature every APK starts with.
  */
-class DownloadVerifier(val expectedSize: Long, private val expectedSha256: String?) {
+class DownloadVerifier(val expectedSize: Long, private val expectedSha256: String) {
     private val digest = MessageDigest.getInstance("SHA-256")
     private val head = ByteArray(4)
     private var count = 0L
@@ -28,8 +28,7 @@ class DownloadVerifier(val expectedSize: Long, private val expectedSha256: Strin
         if (count < expectedSize) return "download incomplete ($count of $expectedSize bytes)"
         if (count > expectedSize) return "download larger than expected ($count of $expectedSize bytes)"
         if (!head.contentEquals(ZIP_MAGIC)) return "the file is not an APK"
-        val actual = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xFF) }
-        if (expectedSha256 != null && actual != expectedSha256.lowercase()) return "SHA-256 mismatch"
+        if (Sha256.hex(digest.digest()) != expectedSha256.lowercase()) return "SHA-256 mismatch"
         return null
     }
 
