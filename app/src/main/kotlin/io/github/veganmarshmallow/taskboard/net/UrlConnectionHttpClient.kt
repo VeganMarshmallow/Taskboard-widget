@@ -4,6 +4,7 @@ import io.github.veganmarshmallow.taskboard.core.http.HttpClient
 import io.github.veganmarshmallow.taskboard.core.http.HttpRequest
 import io.github.veganmarshmallow.taskboard.core.http.HttpResponse
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
@@ -48,6 +49,8 @@ class UrlConnectionHttpClient(
         val out = java.io.ByteArrayOutputStream()
         val buffer = ByteArray(16 * 1024)
         while (out.size() < limit) {
+            // A refresh that ran out of time interrupts its thread; stop instead of reading a trickle forever.
+            if (Thread.currentThread().isInterrupted) throw InterruptedIOException("Cancelled")
             val n = read(buffer, 0, minOf(buffer.size, limit - out.size()))
             if (n < 0) break
             out.write(buffer, 0, n)

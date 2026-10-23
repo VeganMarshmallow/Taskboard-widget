@@ -90,6 +90,7 @@ object WidgetStateCodec {
         is BoardError.RateLimited -> mapOf("k" to "RateLimited", "retryAt" to error.retryAt?.toEpochMilli())
         is BoardError.IssueGone -> mapOf("k" to "IssueGone", "n" to error.number.toLong())
         BoardError.Network -> mapOf("k" to "Network")
+        BoardError.Timeout -> mapOf("k" to "Timeout")
         is BoardError.Server -> mapOf("k" to "Server", "status" to error.status.toLong())
         is BoardError.Unexpected -> mapOf("k" to "Unexpected", "detail" to error.detail)
     }
@@ -101,6 +102,7 @@ object WidgetStateCodec {
         "RateLimited" -> BoardError.RateLimited(m.long("retryAt")?.let(Instant::ofEpochMilli))
         "IssueGone" -> BoardError.IssueGone(m.long("n")!!.toInt())
         "Network" -> BoardError.Network
+        "Timeout" -> BoardError.Timeout
         "Server" -> BoardError.Server(m.long("status")!!.toInt())
         "Unexpected" -> BoardError.Unexpected(m.string("detail") ?: "")
         else -> throw IllegalArgumentException("unknown error kind")

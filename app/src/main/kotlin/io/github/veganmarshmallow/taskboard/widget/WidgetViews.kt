@@ -21,10 +21,19 @@ class WidgetViews(private val context: Context) {
     private val messages = AppGraph.messages(context)
     private val tabs = TabViews(context)
 
-    /** [selected] is the tab to show; [WidgetRenderer] reads it from TabStore for each widget. */
-    fun build(state: WidgetState, widgetId: Int, selected: Section = TabSelection.default(state.board)): RemoteViews {
+    /**
+     * [selected] is the tab to show; [WidgetRenderer] reads it from TabStore for each widget.
+     * [updating]: a refresh is running right now (never true for a dead one; see RefreshTracker).
+     */
+    fun build(
+        state: WidgetState,
+        widgetId: Int,
+        selected: Section = TabSelection.default(state.board),
+        updating: Boolean = false,
+    ): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_board)
         bindHeader(views, state)
+        if (updating) views.setTextViewText(R.id.updated, context.getString(R.string.updating))
         tabs.bind(views, state.board, selected, widgetId)
         bindList(views, state, widgetId)
         bindError(views, state)
