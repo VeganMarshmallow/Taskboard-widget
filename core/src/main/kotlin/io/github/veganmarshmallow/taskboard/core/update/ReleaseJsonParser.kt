@@ -20,6 +20,7 @@ object ReleaseJsonParser {
             tag = root.string("tag_name").orEmpty(),
             notes = root.string("body"),
             assets = assets.mapNotNull { (it as? Map<*, *>)?.let(::asset) },
+            htmlUrl = root.string("html_url"),
         )
     }
 

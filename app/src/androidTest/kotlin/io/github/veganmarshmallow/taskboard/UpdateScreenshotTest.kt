@@ -9,7 +9,6 @@ import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
-import io.github.veganmarshmallow.taskboard.core.update.DownloadProgress
 import io.github.veganmarshmallow.taskboard.core.update.UpdateError
 import io.github.veganmarshmallow.taskboard.core.update.UpdateMessages
 import io.github.veganmarshmallow.taskboard.core.update.UpdatePresenter
@@ -26,7 +25,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Screenshots for issue #14 (in-app updates). Each also checks the view shows what the picture claims. */
+/**
+ * Screenshots for the update check (issue #14; since #32 Update opens the release page in the
+ * browser instead of installing). Each also checks the view shows what the picture claims.
+ */
 @RunWith(AndroidJUnit4::class)
 class UpdateScreenshotTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -73,19 +75,27 @@ class UpdateScreenshotTest {
         var bitmap: Bitmap? = null
         instrumentation.runOnMainSync {
             val root = activity.window.decorView
-            assertEquals("Update available (v0.1.57)", root.text(R.id.update_status))
+            assertEquals("Update available (v0.1.57): tap Update to download it in your browser", root.text(R.id.update_status))
             assertTrue(root.visible(R.id.update_install))
-            assertTrue(root.findViewById<TextView>(R.id.instructions).text.toString().contains("Contents: Read-only"))
+            val instructions = root.findViewById<TextView>(R.id.instructions).text.toString()
+            assertTrue(instructions.contains("Contents: Read-only"))
+            assertTrue(instructions.contains("downloaded in your browser"))
             bitmap = WidgetHost.toBitmap(root)
         }
         Screenshots.save(context, "14-1-setup-update-available", bitmap!!)
         instrumentation.runOnMainSync { activity.finish() }
     }
 
-    @Test fun downloadingWithProgress() {
-        val v = card("14-2-downloading", FakeUpdates.available(), Activity.Downloading(FakeUpdates.V57.version, DownloadProgress(320_000, 712_448)))
-        assertTrue(v.text(R.id.update_status).startsWith("Downloading v0.1.57… 44%"))
-        assertTrue(v.visible(R.id.update_progress))
+    @Test fun updateAvailableCard() {
+        val v = card("14-2-update-available", FakeUpdates.available(), Activity.Idle)
+        assertEquals("Update available (v0.1.57): tap Update to download it in your browser", v.text(R.id.update_status))
+        assertTrue(v.visible(R.id.update_install))
+        assertTrue(v.findViewById<View>(R.id.update_install).isEnabled)
+    }
+
+    @Test fun checkingDisablesTheButtons() {
+        val v = card("14-7-checking", FakeUpdates.available(), Activity.Checking)
+        assertEquals("Checking for updates…", v.text(R.id.update_status))
         assertTrue(!v.visible(R.id.update_install))
         assertTrue(!v.findViewById<View>(R.id.update_check).isEnabled)
     }
@@ -96,9 +106,9 @@ class UpdateScreenshotTest {
         assertTrue(!v.visible(R.id.update_install))
     }
 
-    @Test fun corruptDownloadOffersRetry() {
-        val v = card("14-4-error-corrupt", FakeUpdates.available(), Activity.Failed(UpdateError.Corrupt("SHA-256 mismatch")))
-        assertTrue(v.text(R.id.update_status).contains("SHA-256 mismatch"))
+    @Test fun noBrowserKeepsTheUpdateButton() {
+        val v = card("14-4-error-no-browser", FakeUpdates.available(), Activity.Failed(UpdateError.Unexpected("no browser to open the release page")))
+        assertTrue(v.text(R.id.update_status).contains("no browser"))
         assertTrue(v.visible(R.id.update_install))
     }
 

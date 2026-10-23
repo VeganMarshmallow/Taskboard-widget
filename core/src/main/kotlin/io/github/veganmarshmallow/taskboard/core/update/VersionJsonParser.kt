@@ -8,13 +8,12 @@ import io.github.veganmarshmallow.taskboard.core.json.string
 /**
  * Parses the `version.json` asset CI publishes next to the APK:
  * `{"versionCode":42,"versionName":"0.1.42","sha":"<commit>","apkSha256":"<hex>","apkSize":704244}`.
- * versionCode, apkSha256 and apkSize are required: the download is verified against them. The
- * optional fields (versionName, sha) are rejected when present but malformed.
+ * Only versionCode is required. The optional fields (versionName, sha) are rejected when present
+ * but malformed; apkSha256, apkSize and unknown fields are ignored (the app doesn't download the APK).
  */
 object VersionJsonParser {
     private const val MAX_LENGTH = 64 * 1024
     private const val MAX_NAME = 64
-    private val SHA256 = Regex("[0-9a-fA-F]{64}")
     private val COMMIT = Regex("[0-9a-fA-F]{7,64}")
 
     /** Throws [MalformedVersionException] for anything that is not a usable description. */
@@ -32,9 +31,6 @@ object VersionJsonParser {
             versionCode = code,
             versionName = name(root["versionName"]) ?: code.toString(),
             commitSha = optional(root, "sha", COMMIT)?.lowercase(),
-            apkSha256 = optional(root, "apkSha256", SHA256)?.lowercase()
-                ?: throw MalformedVersionException("version.json has no apkSha256"),
-            apkSize = apkSize(root) ?: throw MalformedVersionException("version.json has no apkSize"),
         )
     }
 
@@ -49,11 +45,6 @@ object VersionJsonParser {
         val value = root.string(key)?.trim()
         if (value == null || !pattern.matches(value)) throw MalformedVersionException("version.json has a malformed $key")
         return value
-    }
-
-    private fun apkSize(root: Map<*, *>): Long? {
-        if (root["apkSize"] == null) return null
-        return root.long("apkSize")?.takeIf { it > 0 } ?: throw MalformedVersionException("version.json has a malformed apkSize")
     }
 }
 

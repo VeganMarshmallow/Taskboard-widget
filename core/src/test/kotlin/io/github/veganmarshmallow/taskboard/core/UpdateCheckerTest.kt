@@ -1,6 +1,9 @@
 package io.github.veganmarshmallow.taskboard.core
 
+import io.github.veganmarshmallow.taskboard.core.update.ReleaseAsset
+import io.github.veganmarshmallow.taskboard.core.update.ReleasePage
 import io.github.veganmarshmallow.taskboard.core.update.UpdateError
+import io.github.veganmarshmallow.taskboard.core.update.UpdateRequests
 import io.github.veganmarshmallow.taskboard.core.update.UpdateResult
 import io.github.veganmarshmallow.taskboard.core.update.Updater
 import org.junit.Assert.assertEquals
@@ -21,8 +24,7 @@ class UpdateCheckerTest {
         val update = (check(http) as UpdateResult.Ok).value
         assertEquals(42L, update.version.versionCode)
         assertEquals("v0.1.42", update.version.label)
-        assertEquals(sha256(apk), update.version.apkSha256)
-        assertEquals(APK_ID, update.apk.id)
+        assertEquals(RELEASE_PAGE, update.pageUrl)
         assertTrue(update.isNewerThan(41))
         assertFalse(update.isNewerThan(42))
         assertEquals(listOf(LATEST_URL, assetUrl(VERSION_ID), "$STORAGE-v"), http.requests.map { it.url })
@@ -41,7 +43,7 @@ class UpdateCheckerTest {
     }
 
     @Test fun releaseWithoutVersionJsonIsNotOffered() {
-        // The notes still say "versionCode 9", but without version.json there is no checksum to verify.
+        // The notes still say "versionCode 9", but only version.json is trusted for the versionCode.
         val http = FakeStreamingHttp().standard(apk, version = null)
         assertTrue(check(http).error() is UpdateError.Malformed)
         assertEquals(1, http.requests.size)
@@ -162,6 +164,39 @@ class UpdateCheckerTest {
         assertEquals(1, downgrade.requests.size)
         val noLocation = FakeStreamingHttp().on(LATEST_URL) { streamed(302) }
         assertTrue(check(noLocation).error() is UpdateError.Unexpected)
+    }
+
+    @Test fun releasePageFallsBackWhenHtmlUrlIsMissingOrForeign() {
+        fun pageFor(htmlUrl: String?): String {
+            val version = versionJson(42, apk)
+            val http = FakeStreamingHttp().standard(apk).on(LATEST_URL) {
+                streamed(200, releaseJson(
+                    assetJson(APK_ID, "taskboard-widget.apk", apk.size.toLong()),
+                    assetJson(VERSION_ID, "version.json", version.length.toLong()),
+                    htmlUrl = htmlUrl,
+                ))
+            }
+            return (check(http) as UpdateResult.Ok).value.pageUrl
+        }
+        assertEquals(ReleasePage.FALLBACK, pageFor(null))
+        assertEquals(ReleasePage.FALLBACK, pageFor(""))
+        assertEquals(ReleasePage.FALLBACK, pageFor("https://evil.example/VeganMarshmallow/Taskboard-widget/releases/tag/latest"))
+        assertEquals(ReleasePage.FALLBACK, pageFor("http://github.com/VeganMarshmallow/Taskboard-widget/releases/tag/latest"))
+        assertEquals(ReleasePage.FALLBACK, pageFor("https://github.com/someone/else/releases/tag/latest"))
+        val id = "https://github.com/VeganMarshmallow/Taskboard-widget/releases/tag/untagged-1a2b"
+        assertEquals(id, pageFor(id))
+    }
+
+    @Test fun releaseWithAnApkTooLargeIsNotOffered() {
+        val http = FakeStreamingHttp().standard(apk).on(LATEST_URL) {
+            streamed(200, releaseJson(assetJson(APK_ID, "taskboard-widget.apk", 300L * 1024 * 1024), assetJson(VERSION_ID, "version.json", 10)))
+        }
+        assertEquals(UpdateError.NoRelease, check(http).error())
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun refusesToSendTheTokenToANonApiAssetUrl() {
+        UpdateRequests(token = TOKEN).asset(ReleaseAsset(1, "version.json", 10, "https://evil.example/assets/1"))
     }
 
     @Test fun storage403MeansTheLinkExpired() {

@@ -5,7 +5,7 @@ object ReleaseAssets {
     const val APK_NAME = "taskboard-widget.apk"
     const val VERSION_NAME = "version.json"
 
-    /** Larger than any plausible build of this app; refuses to download something unexpected. */
+    /** Larger than any plausible build of this app; a bigger asset is not offered as an update. */
     const val MAX_APK_BYTES = 200L * 1024 * 1024
 
     data class Selection(val apk: ReleaseAsset?, val versionJson: ReleaseAsset?)

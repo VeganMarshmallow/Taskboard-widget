@@ -14,8 +14,7 @@ import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetStateCodec
 import io.github.veganmarshmallow.taskboard.core.http.HttpRequest
 import io.github.veganmarshmallow.taskboard.core.http.Redirects
-import io.github.veganmarshmallow.taskboard.core.update.DownloadVerifier
-import io.github.veganmarshmallow.taskboard.core.update.UpdateMessages
+import io.github.veganmarshmallow.taskboard.core.update.ReleasePage
 import io.github.veganmarshmallow.taskboard.core.update.VersionJsonParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -51,7 +50,7 @@ class CoreOnDeviceTest {
         assertEquals(3, http.requests) // two open pages + the done listing
     }
 
-    /** The updater's URI, SHA-256 and formatting calls on Android's class library (#14). */
+    /** The update check's redirect and parsing calls on Android's class library (#14, #32). */
     @Test fun updaterCoreRunsOnAndroid() {
         val first = HttpRequest("GET", "https://api.github.com/repos/o/r/releases/assets/1", mapOf("Authorization" to "Bearer x", "Accept" to "application/octet-stream"))
         val signed = "https://release-assets.githubusercontent.com/p/1?sp=r&se=2026-10-22T18%3A26%3A59Z&sig=a%2Bb"
@@ -61,17 +60,8 @@ class CoreOnDeviceTest {
         assertEquals(first.headers, Redirects.next(first, "/repositories/9/releases/assets/1")!!.headers)
         assertEquals(null, Redirects.next(first, "http://x.example/"))
 
-        val bytes = byteArrayOf(0x50, 0x4B, 0x03, 0x04)
-        // SHA-256 of PK\x03\x04
-        val sha = java.security.MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it.toInt() and 0xFF) }
-        // Core's own hex encoder must agree with String.format on Android's class library.
-        assertEquals(sha, io.github.veganmarshmallow.taskboard.core.update.Sha256.of(bytes))
-        val verifier = DownloadVerifier(4, sha)
-        verifier.update(bytes, 4)
-        assertEquals(null, verifier.problem())
-
-        val v = VersionJsonParser.parse("""{"versionCode":42,"versionName":"0.1.42","apkSha256":"$sha","apkSize":4}""")
+        val v = VersionJsonParser.parse("""{"versionCode":42,"versionName":"0.1.42","apkSha256":"${"a".repeat(64)}","apkSize":4}""")
         assertEquals(42L, v.versionCode)
-        assertEquals("0.7 MB", UpdateMessages.megabytes(704_244))
+        assertTrue(ReleasePage.isSafe(ReleasePage.FALLBACK))
     }
 }
