@@ -12,13 +12,15 @@ import io.github.veganmarshmallow.taskboard.setup.SetupActivity
 object WidgetIntents {
     const val ACTION_REFRESH = "io.github.veganmarshmallow.taskboard.REFRESH"
     const val ACTION_APPROVE = "io.github.veganmarshmallow.taskboard.APPROVE"
+    const val ACTION_NOOP = "io.github.veganmarshmallow.taskboard.NOOP"
     const val EXTRA_ISSUE = "issue"
 
     private const val RC_REFRESH = 1
     private const val RC_SETUP = 2
     private const val RC_ROW_TEMPLATE = 3
-    private const val RC_OPEN_BOARD = 4
+    // 4 was the header title's "open board" intent, removed in #16; not reused, to avoid stale PendingIntents.
     private const val RC_NEW_TASK = 5
+    private const val RC_NOOP = 6
     private const val RC_UPDATES = 14
 
     private const val IMMUTABLE = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -28,6 +30,13 @@ object WidgetIntents {
 
     fun approveIntent(context: Context, issue: Int) =
         Intent(context, WidgetActionReceiver::class.java).setAction(ACTION_APPROVE).putExtra(EXTRA_ISSUE, issue)
+
+    /** Sent for taps on non-interactive widget areas (header text, padding). [WidgetActionReceiver] ignores it. */
+    fun noopIntent(context: Context) =
+        Intent(context, WidgetActionReceiver::class.java).setAction(ACTION_NOOP)
+
+    fun swallowTap(context: Context): PendingIntent =
+        PendingIntent.getBroadcast(context, RC_NOOP, noopIntent(context), IMMUTABLE)
 
     fun refresh(context: Context): PendingIntent =
         PendingIntent.getBroadcast(context, RC_REFRESH, refreshIntent(context), IMMUTABLE)
@@ -50,10 +59,6 @@ object WidgetIntents {
         context, RC_UPDATES,
         Intent(context, SetupActivity::class.java).setAction(SetupActivity.ACTION_SHOW_UPDATES).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         IMMUTABLE,
-    )
-
-    fun openUrl(context: Context, url: String): PendingIntent = PendingIntent.getActivity(
-        context, RC_OPEN_BOARD, viewUrl(url), IMMUTABLE,
     )
 
     /**
