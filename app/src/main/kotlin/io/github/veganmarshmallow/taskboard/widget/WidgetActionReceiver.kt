@@ -10,6 +10,7 @@ import io.github.veganmarshmallow.taskboard.core.work.RefreshTrigger
 class WidgetActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
+            WidgetIntents.ACTION_NOOP -> Unit // a tap on the header: deliberately nothing (task #16)
             WidgetIntents.ACTION_REFRESH -> BoardJobs.refresh(context, RefreshTrigger.MANUAL)
             WidgetIntents.ACTION_APPROVE -> {
                 val issue = intent.getIntExtra(WidgetIntents.EXTRA_ISSUE, 0)
