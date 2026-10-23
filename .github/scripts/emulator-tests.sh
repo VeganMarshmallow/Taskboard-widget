@@ -9,7 +9,9 @@ pkg="io.github.veganmarshmallow.taskboard"
 status=${PIPESTATUS[0]}
 
 ./gradlew :app:installDebug :app:installDebugAndroidTest --console=plain 2>&1 | tee -a connected.log
-adb shell am instrument -w -e class "$pkg.ScreenshotTest,$pkg.UpdateScreenshotTest" "$pkg.test/androidx.test.runner.AndroidJUnitRunner" 2>&1 | tee instrument.log
+# Every *ScreenshotTest class, so features can add their own screenshot class without editing a shared one.
+classes="$(find app/src/androidTest -name '*ScreenshotTest.kt' -exec basename {} .kt \; | sort | sed "s/^/$pkg./" | paste -sd, -)"
+adb shell am instrument -w -e class "$classes" "$pkg.test/androidx.test.runner.AndroidJUnitRunner" 2>&1 | tee instrument.log
 
 mkdir -p screenshots
 for name in $(adb shell run-as "$pkg" ls files/screenshots 2>/dev/null | tr -d '\r'); do

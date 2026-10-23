@@ -22,6 +22,16 @@
     <string name="approve_failed">Couldn\'t approve #%1$d: %2$s</string>
     <string name="no_browser">No app can open GitHub links</string>
 
+    <string name="preview_number">#%1$d</string>
+    <string name="preview_task_fallback">Task #%1$d</string>
+    <string name="preview_no_description">No description</string>
+    <string name="preview_open_github">Open on GitHub</string>
+    <string name="preview_retry">Retry</string>
+    <string name="preview_set_up">Set up</string>
+    <string name="preview_load_failed">Couldn\'t load the latest: %1$s</string>
+    <string name="preview_approved">Approved. Claude picks it up in the next run</string>
+    <string name="preview_approving">Approving…</string>
+
     <string name="setup_title">Connect to GitHub</string>
     <string name="setup_instructions">The widget reads your task board in <b>VeganMarshmallow/claude-workspace</b>. Create a <b>fine-grained</b> personal access token:\n\n1. Resource owner: VeganMarshmallow\n2. Repository access: <b>Only select repositories</b> → claude-workspace, and (optional, for in-app updates) Taskboard-widget\n3. Permissions → Repository: <b>Issues: Read and write</b> (Metadata: Read-only is added automatically). For updates, also <b>Contents: Read-only</b>, which lets the app read Taskboard-widget\'s releases and download new builds. It can\'t change any code.\n4. Pick an expiration, generate, and copy the token (starts with github_pat_).\n\nThe token stays on this phone, in app-private storage, and is never backed up.</string>
     <string name="create_token">Create token on GitHub</string>

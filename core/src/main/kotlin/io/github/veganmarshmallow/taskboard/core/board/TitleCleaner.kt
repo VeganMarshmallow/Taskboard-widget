@@ -13,11 +13,7 @@ object TitleCleaner {
 
     fun clean(raw: String, maxLength: Int = MAX_LENGTH): String {
         require(maxLength >= 1) { "maxLength must be positive" }
-        val collapsed = replaceInvalidUtf16(raw.filterNot(::isBidiControl))
-            .map { if (it.isWhitespace() || it.isISOControl()) ' ' else it }
-            .joinToString("")
-            .trim()
-            .replace(Regex(" {2,}"), " ")
+        val collapsed = sanitize(raw)
         if (collapsed.isEmpty()) return UNTITLED
         if (collapsed.length <= maxLength) return collapsed
         var end = maxLength - 1
@@ -25,6 +21,13 @@ object TitleCleaner {
         // A cut inside an emoji ZWJ sequence would leave a dangling joiner before the ellipsis.
         return collapsed.substring(0, end).trimEnd().trimEnd('\u200D').trimEnd() + "…"
     }
+
+    /** The same cleanup as [clean] (one line, no bidi controls, valid UTF-16), without the cap or placeholder. */
+    fun sanitize(raw: String): String = replaceInvalidUtf16(raw.filterNot(::isBidiControl))
+        .map { if (it.isWhitespace() || it.isISOControl()) ' ' else it }
+        .joinToString("")
+        .trim()
+        .replace(Regex(" {2,}"), " ")
 
     /**
      * Unpaired surrogates and the noncharacters U+FFFE/U+FFFF become U+FFFD. They can arrive via
