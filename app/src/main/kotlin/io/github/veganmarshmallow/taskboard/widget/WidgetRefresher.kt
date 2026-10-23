@@ -1,6 +1,7 @@
 package io.github.veganmarshmallow.taskboard.widget
 
 import android.content.Context
+import android.util.Log
 import io.github.veganmarshmallow.taskboard.core.board.BoardLoader
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.error.Reachability
@@ -36,11 +37,11 @@ class WidgetRefresher(private val context: Context) {
 
     /** Offline: records "No network" right away instead of waiting on a job that cannot run. Returns the state shown. */
     fun recordOffline(): WidgetState =
-        rendered(runner.run { it.withError(BoardError.Network, AppGraph.clock.instant()) }).also { renderer.render(it) }
+        rendered(runner.run { it.withError(BoardError.Network, AppGraph.clock.instant()) }).also(::show)
 
     /** If a refresh died with its process, shows an error instead of "updating…". */
     fun recoverIfStale() {
-        runner.recoverIfStale()?.let { renderer.render(it) }
+        runner.recoverIfStale()?.let(::show)
     }
 
     /**
@@ -50,7 +51,7 @@ class WidgetRefresher(private val context: Context) {
      */
     fun sweep(): WidgetState? {
         val recovered = runner.recoverIfStale()
-        renderer.render(recovered ?: StateStore(context).load())
+        show(recovered ?: StateStore(context).load())
         return recovered
     }
 
@@ -59,8 +60,20 @@ class WidgetRefresher(private val context: Context) {
      * launcher after the newer run's final render. The header then shows the tracker's truth.
      */
     private fun renderAfter(result: RefreshRunner.Result): RefreshRunner.Result {
-        renderer.render(rendered(result))
+        show(rendered(result))
         return result
+    }
+
+    /**
+     * Draws [state] on every widget. A drawing failure is logged, never thrown: the caller must still
+     * plan the next retry, or the widget could stay on an error after the network is back (#29).
+     */
+    private fun show(state: WidgetState) {
+        try {
+            renderer.render(state)
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "drawing the widget failed: ${e.javaClass.simpleName}")
+        }
     }
 
     private fun rendered(result: RefreshRunner.Result): WidgetState =
@@ -80,6 +93,7 @@ class WidgetRefresher(private val context: Context) {
     }
 
     private companion object {
+        const val TAG = "WidgetRefresher"
         val APPROVE_BUDGET: Duration = Duration.ofSeconds(30)
     }
 }

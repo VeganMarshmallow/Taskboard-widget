@@ -21,6 +21,7 @@ class BoardJobService : JobService() {
                 perform(job, WidgetRefresher(app))
             } catch (t: Throwable) {
                 Log.w(TAG, "$job failed: ${t.javaClass.simpleName}")
+                if (job is BoardJob.Refresh) RetryScheduler.afterCrash(app, job) // keep the retry chain alive (#29)
                 false
             }
             jobFinished(params, retry)

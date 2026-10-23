@@ -79,6 +79,15 @@
             android:exported="false"
             android:permission="android.permission.BIND_REMOTEVIEWS" />
 
+        <!-- After an app update, restarts the widget's refresh (#29). Only the system sends this. -->
+        <receiver
+            android:name=".widget.AppUpdatedReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Runs refreshes and approvals as JobScheduler jobs (never under a receiver's goAsync). -->
         <service
             android:name=".widget.BoardJobService"

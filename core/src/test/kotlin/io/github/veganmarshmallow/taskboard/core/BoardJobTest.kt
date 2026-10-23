@@ -88,6 +88,27 @@ class BoardJobTest {
         ).forEach { assertFalse("$it", RefreshPolicy.shouldAutoRetry(it)) }
     }
 
+    @Test fun aPlannedRetryGivesWayOnlyToAWaitingTapOrPeriodicRefresh() {
+        val tap = BoardJob.Refresh(RefreshTrigger.MANUAL)
+        val periodic = BoardJob.Refresh(RefreshTrigger.AUTOMATIC)
+        val oldRetry = BoardJob.Refresh(RefreshTrigger.RETRY, Duration.ofMinutes(30))
+        assertFalse("nothing pending", RefreshPolicy.retryYieldsTo(null, null))
+        assertFalse(RefreshPolicy.retryYieldsTo(null, periodic))
+        // A tap or periodic refresh made while this one ran is kept: it plans the next retry itself.
+        listOf(null, oldRetry, BoardJob.Refresh(RefreshTrigger.RETRY)).forEach { finished ->
+            assertTrue("$finished", RefreshPolicy.retryYieldsTo(tap, finished))
+            assertTrue("$finished", RefreshPolicy.retryYieldsTo(periodic, finished))
+        }
+        assertTrue("an offline tap gives way to a periodic refresh waiting for the network", RefreshPolicy.retryYieldsTo(periodic, null))
+        // An older retry, or the finished job itself (still listed while it runs), is replaced.
+        assertFalse(RefreshPolicy.retryYieldsTo(oldRetry, null))
+        assertFalse(RefreshPolicy.retryYieldsTo(oldRetry, periodic))
+        assertFalse(RefreshPolicy.retryYieldsTo(oldRetry, oldRetry))
+        assertFalse(RefreshPolicy.retryYieldsTo(periodic, periodic))
+        assertFalse(RefreshPolicy.retryYieldsTo(tap, tap))
+        assertTrue("a different tap is a newer refresh", RefreshPolicy.retryYieldsTo(tap, periodic))
+    }
+
     @Test fun retryJobsCarryTheirDelayAndArePersisted() {
         val retry = BoardJob.Refresh(RefreshTrigger.RETRY, Duration.ofMinutes(5))
         assertEquals(retry, roundTrip(retry))

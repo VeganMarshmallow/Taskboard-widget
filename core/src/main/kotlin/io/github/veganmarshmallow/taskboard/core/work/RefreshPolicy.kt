@@ -33,4 +33,13 @@ object RefreshPolicy {
         BoardError.Network, BoardError.Unreachable, BoardError.Timeout, is BoardError.Server -> true
         else -> false
     }
+
+    /**
+     * Whether a retry planned after [finished] (null: not after a refresh job, e.g. an offline tap)
+     * must give way to the refresh already [pending]. All refreshes share one job id, so scheduling
+     * the retry replaces whatever is pending: a waiting tap or periodic refresh is kept (it plans
+     * the next retry when it ends), while an older retry, or the finished job itself, is replaced.
+     */
+    fun retryYieldsTo(pending: BoardJob.Refresh?, finished: BoardJob.Refresh?): Boolean =
+        pending != null && pending.trigger != RefreshTrigger.RETRY && pending != finished
 }

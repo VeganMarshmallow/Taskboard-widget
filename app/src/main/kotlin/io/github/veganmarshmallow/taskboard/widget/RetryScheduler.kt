@@ -4,8 +4,10 @@ import android.app.job.JobScheduler
 import android.content.Context
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.work.BoardJob
+import io.github.veganmarshmallow.taskboard.core.work.RefreshPolicy
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTrigger
 import io.github.veganmarshmallow.taskboard.data.AppGraph
+import io.github.veganmarshmallow.taskboard.data.StateStore
 
 /**
  * Auto-recovery (#29): after every refresh outcome, asks the core [RetryPlanner] whether and when
@@ -21,21 +23,40 @@ object RetryScheduler {
     fun afterRefresh(context: Context, error: BoardError?, finished: BoardJob.Refresh?) {
         val app = context.applicationContext
         val delay = AppGraph.retryPlanner(app).afterRefresh(error) ?: return
-        if (otherRefreshPending(app, finished)) return // it will plan the next retry when it ends
+        if (RefreshPolicy.retryYieldsTo(pendingRefresh(app), finished)) return // it plans the next retry when it ends
         BoardJobs.schedule(app, BoardJob.Refresh(RefreshTrigger.RETRY, delay))
     }
 
     /**
-     * Whether a different refresh is already waiting (e.g. a tap made while this one ran). Replacing
-     * it would lose that refresh, since all refreshes share one job id. An older retry is replaced.
+     * A refresh job that threw (e.g. drawing the widget failed) still plans its retry from the stored
+     * state, so one bad run never ends the chain of retries. Never throws.
      */
-    private fun otherRefreshPending(context: Context, finished: BoardJob.Refresh?): Boolean {
+    fun afterCrash(context: Context, job: BoardJob.Refresh) {
+        try {
+            afterRefresh(context, StateStore(context.applicationContext).load().error, job)
+        } catch (e: RuntimeException) {
+            // Nothing more to do; the widget's periodic update still refreshes.
+        }
+    }
+
+    /** The last widget was removed: no more background retries, and the backoff starts over next time. */
+    fun stop(context: Context) {
+        val app = context.applicationContext
+        AppGraph.retryPlanner(app).reset()
+        try {
+            app.getSystemService(JobScheduler::class.java)?.cancel(BoardJob.REFRESH_ID)
+        } catch (e: RuntimeException) {
+            // The pending refresh then runs once more and, with no widget left, changes nothing visible.
+        }
+    }
+
+    /** The refresh job waiting (or running) right now, if any. */
+    private fun pendingRefresh(context: Context): BoardJob.Refresh? {
         val info = try {
             context.getSystemService(JobScheduler::class.java)?.getPendingJob(BoardJob.REFRESH_ID)
         } catch (e: RuntimeException) {
             null
-        } ?: return false
-        val pending = BoardJob.fromExtras(info.extras::getString) as? BoardJob.Refresh ?: return false
-        return pending.trigger != RefreshTrigger.RETRY && pending != finished
+        } ?: return null
+        return BoardJob.fromExtras(info.extras::getString) as? BoardJob.Refresh
     }
 }
