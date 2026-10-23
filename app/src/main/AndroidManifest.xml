@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Network-constrained jobs need it (required from Android 14), and so does the offline check. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- No backup or device transfer: the GitHub token must never leave this device. -->
     <application
@@ -74,5 +76,11 @@
             android:name=".widget.BoardListService"
             android:exported="false"
             android:permission="android.permission.BIND_REMOTEVIEWS" />
+
+        <!-- Runs refreshes and approvals as JobScheduler jobs (never under a receiver's goAsync). -->
+        <service
+            android:name=".widget.BoardJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
     </application>
 </manifest>

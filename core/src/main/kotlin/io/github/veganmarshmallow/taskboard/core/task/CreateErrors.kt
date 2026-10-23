@@ -25,9 +25,11 @@ object CreateErrors {
 
     /**
      * Whether the issue may exist even though the call failed: the request may have reached GitHub
-     * before the connection dropped or timed out ([BoardError.Network]), or GitHub failed after
+     * before the connection dropped ([BoardError.Network]) or timed out ([BoardError.Timeout], the
+     * likeliest case on a slow VPN or hotspot), or GitHub failed after
      * accepting it ([BoardError.Server]). The form then warns the user to check the board before
      * trying again, since creates are never retried automatically.
      */
-    fun mayAlreadyExist(error: BoardError): Boolean = error is BoardError.Network || error is BoardError.Server
+    fun mayAlreadyExist(error: BoardError): Boolean =
+        error is BoardError.Network || error is BoardError.Timeout || error is BoardError.Server
 }
