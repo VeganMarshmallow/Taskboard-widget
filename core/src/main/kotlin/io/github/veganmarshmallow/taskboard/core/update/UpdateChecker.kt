@@ -5,8 +5,8 @@ import io.github.veganmarshmallow.taskboard.core.update.UpdateErrorMapper.Step
 import java.io.IOException
 
 /**
- * Reads the `latest` release of Taskboard-widget and its `version.json`. A release without
- * version.json is not offered: without its SHA-256 the download couldn't be verified.
+ * Reads the `latest` release of Taskboard-widget and its `version.json`. A release is offered only
+ * when it holds the APK and a version.json (the versionCode it is compared by).
  */
 class UpdateChecker(private val fetcher: AssetFetcher, private val requests: UpdateRequests) {
 
@@ -17,10 +17,10 @@ class UpdateChecker(private val fetcher: AssetFetcher, private val requests: Upd
 
     private fun describe(release: Release): UpdateResult<AvailableUpdate> {
         val selection = ReleaseAssets.select(release)
-        val apk = selection.apk ?: return UpdateResult.Err(UpdateError.NoRelease)
+        if (selection.apk == null) return UpdateResult.Err(UpdateError.NoRelease)
         val version = selection.versionJson?.let(::readVersionJson)
             ?: return UpdateResult.Err(UpdateError.Malformed("the release has no version.json"))
-        return version.map { AvailableUpdate(it, apk) }
+        return version.map { AvailableUpdate(it, ReleasePage.orFallback(release.htmlUrl)) }
     }
 
     private fun readVersionJson(asset: ReleaseAsset): UpdateResult<VersionInfo> =

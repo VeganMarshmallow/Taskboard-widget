@@ -1,7 +1,7 @@
 package io.github.veganmarshmallow.taskboard.core
 
 import io.github.veganmarshmallow.taskboard.core.update.AvailableUpdate
-import io.github.veganmarshmallow.taskboard.core.update.ReleaseAsset
+import io.github.veganmarshmallow.taskboard.core.update.ReleasePage
 import io.github.veganmarshmallow.taskboard.core.update.UpdateError
 import io.github.veganmarshmallow.taskboard.core.update.UpdateMessages
 import io.github.veganmarshmallow.taskboard.core.update.UpdateResult
@@ -18,8 +18,8 @@ import java.time.Duration
 
 class UpdateStatusTest {
     private val update = AvailableUpdate(
-        VersionInfo(42, "0.1.42", "abcdef1", "a".repeat(64), 700),
-        ReleaseAsset(APK_ID, "taskboard-widget.apk", 700, assetUrl(APK_ID)),
+        VersionInfo(42, "0.1.42", "abcdef1"),
+        "https://github.com/VeganMarshmallow/Taskboard-widget/releases/tag/untagged-1a2b",
     )
     private val messages = UpdateMessages { "14:05" }
 
@@ -43,18 +43,31 @@ class UpdateStatusTest {
     @Test fun codecRoundTripsEveryError() {
         val errors = listOf(
             UpdateError.NoToken, UpdateError.Network, UpdateError.NoRepoAccess, UpdateError.BadToken,
-            UpdateError.NoRelease, UpdateError.ReleaseChanged, UpdateError.UpToDate,
+            UpdateError.NoRelease, UpdateError.ReleaseChanged,
             UpdateError.RateLimited(null), UpdateError.RateLimited(NOW), UpdateError.Server(503),
-            UpdateError.Malformed("x \"y\" ✓"), UpdateError.Corrupt("SHA-256 mismatch"), UpdateError.LowStorage(10, -1),
-            UpdateError.Unexpected("עברית"), UpdateError.Untrusted("signed with a different key"), UpdateError.InstallNotAllowed, null,
+            UpdateError.Malformed("x \"y\" ✓"), UpdateError.Unexpected("עברית"), null,
         )
         for (e in errors) {
             val s = UpdateStatus(NOW, update, e)
             assertEquals(s, UpdateStatusCodec.decode(UpdateStatusCodec.encode(s)))
         }
         assertEquals(UpdateStatus.NEVER, UpdateStatusCodec.decode(UpdateStatusCodec.encode(UpdateStatus.NEVER)))
-        val minimal = UpdateStatus(NOW, update.copy(version = VersionInfo(3, "3")))
+        val minimal = UpdateStatus(NOW, AvailableUpdate(VersionInfo(3, "3")))
         assertEquals(minimal, UpdateStatusCodec.decode(UpdateStatusCodec.encode(minimal)))
+        assertEquals(ReleasePage.FALLBACK, minimal.available!!.pageUrl)
+    }
+
+    @Test fun cacheWrittenByTheInstallerBuildStillShowsTheUpdate() {
+        // What build 68 (in-app installer) cached: asset fields, no "page", and a download error kind.
+        val old = """{"v":1,"checkedAt":${NOW.toEpochMilli()},"available":{"code":70,"name":"0.1.70","sha":"abcdef1",""" +
+            """"apkSha256":"${"a".repeat(64)}","apkSize":700,"assetId":111,"assetName":"taskboard-widget.apk","assetSize":700,""" +
+            """"assetUrl":"${assetUrl(111)}"},"error":{"k":"LowStorage","need":10,"free":1}}"""
+        val decoded = UpdateStatusCodec.decode(old)
+        assertEquals(UpdateStatus(NOW, AvailableUpdate(VersionInfo(70, "0.1.70", "abcdef1"), ReleasePage.FALLBACK), null), decoded)
+        assertEquals(70L, decoded.offer(68)!!.version.versionCode)
+        listOf("UpToDate", "Corrupt", "Untrusted", "InstallNotAllowed").forEach { kind ->
+            assertNull(UpdateStatusCodec.decode("""{"v":1,"checkedAt":1,"error":{"k":"$kind","d":"x"}}""").error)
+        }
     }
 
     @Test fun codecNeverThrowsOnGarbage() {
@@ -67,9 +80,11 @@ class UpdateStatusTest {
         assertEquals(NOW, UpdateStatusCodec.decode("""{"v":1,"checkedAt":${NOW.toEpochMilli()},"error":{"k":"Nope"}}""").checkedAt)
     }
 
-    @Test fun codecRefusesACachedNonApiAssetUrl() {
-        val tampered = UpdateStatusCodec.encode(UpdateStatus(NOW, update)).replace("https://api.github.com", "https://evil.example")
-        assertNull(UpdateStatusCodec.decode(tampered).available)
+    @Test fun codecReplacesATamperedReleasePageWithTheFallback() {
+        val tampered = UpdateStatusCodec.encode(UpdateStatus(NOW, update)).replace("https://github.com", "https://evil.example")
+        val decoded = UpdateStatusCodec.decode(tampered).available!!
+        assertEquals(update.version, decoded.version)
+        assertEquals(ReleasePage.FALLBACK, decoded.pageUrl)
     }
 
     private fun checked(at: java.time.Instant, error: UpdateError? = null) = UpdateStatus(at, update, error)
@@ -114,22 +129,10 @@ class UpdateStatusTest {
     @Test fun everyErrorHasAMessage() {
         listOf(
             UpdateError.NoToken, UpdateError.Network, UpdateError.NoRepoAccess, UpdateError.BadToken, UpdateError.NoRelease,
-            UpdateError.ReleaseChanged, UpdateError.UpToDate, UpdateError.RateLimited(null), UpdateError.RateLimited(NOW),
-            UpdateError.Server(500), UpdateError.Malformed("m"), UpdateError.Corrupt("c"), UpdateError.LowStorage(1, 2), UpdateError.Unexpected("u"),
-            UpdateError.Untrusted("t"), UpdateError.InstallNotAllowed,
+            UpdateError.ReleaseChanged, UpdateError.RateLimited(null), UpdateError.RateLimited(NOW),
+            UpdateError.Server(500), UpdateError.Malformed("m"), UpdateError.Unexpected("u"),
         ).forEach { assertTrue(it.toString(), messages.message(it).isNotBlank()) }
         assertTrue(messages.message(UpdateError.RateLimited(NOW)).contains("14:05"))
-        assertTrue(messages.message(UpdateError.LowStorage(21_400_000, 3_000_000)).contains("21.4 MB"))
-        assertTrue(messages.message(UpdateError.LowStorage(21_400_000, -1)).contains("unknown"))
-    }
-
-    @Test fun megabytes() {
-        assertEquals("0.0 MB", UpdateMessages.megabytes(0))
-        assertEquals("0.0 MB", UpdateMessages.megabytes(-5))
-        assertEquals("0.7 MB", UpdateMessages.megabytes(704_244))
-        assertEquals("1.0 MB", UpdateMessages.megabytes(999_999))
-        assertEquals("9223372036854.8 MB", UpdateMessages.megabytes(Long.MAX_VALUE))
-        assertEquals("0.1 MB", UpdateMessages.megabytes(50_000))
-        assertEquals("0.0 MB", UpdateMessages.megabytes(49_999))
+        assertFalse(messages.message(UpdateError.ReleaseChanged).contains("download"))
     }
 }

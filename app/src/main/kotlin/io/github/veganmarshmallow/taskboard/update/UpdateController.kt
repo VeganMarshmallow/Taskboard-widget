@@ -3,7 +3,6 @@ package io.github.veganmarshmallow.taskboard.update
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
-import io.github.veganmarshmallow.taskboard.core.update.AvailableUpdate
 import io.github.veganmarshmallow.taskboard.core.update.UpdateError
 import io.github.veganmarshmallow.taskboard.core.update.UpdatePresenter.Activity
 import io.github.veganmarshmallow.taskboard.core.update.UpdateResult
@@ -18,9 +17,9 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
- * Runs update checks and downloads on their own thread (never the widget's refresh thread), keeps
- * the current [Activity] across screen rotations, and tells the visible screen about changes on
- * the main thread. Process-wide, because a download should survive the activity being recreated.
+ * Runs update checks on their own thread (never the widget's refresh thread), keeps the current
+ * [Activity] across screen rotations, and tells the visible screen about changes on the main
+ * thread. Process-wide, because a check should survive the activity being recreated.
  */
 object UpdateController {
     private val executor: ExecutorService = Executors.newSingleThreadExecutor { r -> Thread(r, "taskboard-update").apply { isDaemon = true } }
@@ -31,20 +30,11 @@ object UpdateController {
     var activity: Activity = Activity.Idle
         private set
 
-    /**
-     * Set when the user was sent to the "install unknown apps" setting; the update continues on
-     * return. Kept here, not in the activity, so it survives the activity being recreated.
-     */
-    var waitingForPermission = false
-
-    /** Called with the downloaded update when it is ready for the installer. Main thread. */
-    var onReadyToInstall: ((AvailableUpdate) -> Unit)? = null
-
     fun listen(onChange: (() -> Unit)?) {
         listener = onChange
     }
 
-    fun isBusy() = activity is Activity.Checking || activity is Activity.Downloading
+    fun isBusy() = activity is Activity.Checking
 
     /** A user-visible check (the button, or app open via [checkOnOpen]). */
     fun check(context: Context) {
@@ -74,26 +64,7 @@ object UpdateController {
         }
     }
 
-    fun download(context: Context) {
-        if (isBusy()) return
-        val app = context.applicationContext
-        val known = UpdateStore(app).load().available?.version
-        set(Activity.Downloading(known, null))
-        executor.execute {
-            val result = downloadNow(app)
-            main.post {
-                when (result) {
-                    is UpdateResult.Ok -> {
-                        set(Activity.ReadyToInstall(result.value.version))
-                        onReadyToInstall?.invoke(result.value)
-                    }
-                    is UpdateResult.Err -> set(Activity.Failed(result.error))
-                }
-            }
-        }
-    }
-
-    /** Shows [error] (e.g. no app could install) until the next action. Main thread. */
+    /** Shows [error] (e.g. no browser could open the release page) until the next action. Main thread. */
     fun fail(error: UpdateError) = set(Activity.Failed(error))
 
     fun reset() = set(Activity.Idle)
@@ -107,23 +78,6 @@ object UpdateController {
         store.save(after)
         if (badgeChanged(app, before, after)) BackgroundWork.run(null) { StateRedraw.redraw(app) }
         return (result as? UpdateResult.Err)?.error
-    }
-
-    private fun downloadNow(app: Context): UpdateResult<AvailableUpdate> {
-        val updater = updater(app) ?: return UpdateResult.Err(UpdateError.NoToken)
-        val installed = InstalledVersion.of(app).versionCode
-        var lastPercent = -1
-        val target = CacheDownloadTarget.of(app)
-        val result = updater.downloadLatest(installed, target, ApkPackageCheck(app, target.part), { progress ->
-            if (progress.percent != lastPercent) { // one UI update per percent, not per 64 KB chunk
-                lastPercent = progress.percent
-                main.post { (activity as? Activity.Downloading)?.let { set(Activity.Downloading(it.version, progress)) } }
-            }
-        })
-        if (result is UpdateResult.Ok) {
-            UpdateStore(app).save(UpdateStatus(AppGraph.clock.instant(), result.value, null))
-        }
-        return result
     }
 
     private fun badgeChanged(app: Context, before: UpdateStatus, after: UpdateStatus): Boolean {

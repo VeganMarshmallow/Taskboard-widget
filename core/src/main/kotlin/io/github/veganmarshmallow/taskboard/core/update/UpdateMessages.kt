@@ -12,19 +12,12 @@ class UpdateMessages(private val formatTime: (Instant) -> String) {
         UpdateError.NoRepoAccess -> TOKEN_ACCESS_HELP
         UpdateError.BadToken -> "Token rejected (401): wrong or expired"
         UpdateError.NoRelease -> "No published build yet (no \"latest\" release with an APK)"
-        UpdateError.ReleaseChanged -> "The build changed while downloading. Check for updates again"
-        UpdateError.UpToDate -> "Already up to date"
+        UpdateError.ReleaseChanged -> "The build changed during the check. Check for updates again"
         is UpdateError.RateLimited ->
             error.retryAt?.let { "Rate-limited by GitHub, retry after ${formatTime(it)}" }
                 ?: "Rate-limited by GitHub, retry in a few minutes"
         is UpdateError.Server -> "GitHub error (${error.status}), try again later"
         is UpdateError.Malformed -> "Couldn't read the release (${error.detail})"
-        is UpdateError.Corrupt -> "Download damaged (${error.detail}). Try again"
-        is UpdateError.Untrusted -> "Update blocked: the downloaded build isn't this app signed with its key (${error.detail}). It was deleted, not installed"
-        UpdateError.InstallNotAllowed -> "Install not allowed. In Settings → Install unknown apps, turn on \"Allow from this source\" for Claude board, then tap Update"
-        is UpdateError.LowStorage ->
-            "Not enough free space: needs ${megabytes(error.neededBytes)}, " +
-                (if (error.availableBytes >= 0) "${megabytes(error.availableBytes)} free" else "free space unknown")
         is UpdateError.Unexpected -> "Update failed (${error.detail})"
     }
 
@@ -34,12 +27,5 @@ class UpdateMessages(private val formatTime: (Instant) -> String) {
                 "Fine-grained tokens and edit this token: under Repository access → Only select repositories, " +
                 "add VeganMarshmallow/Taskboard-widget; under Permissions → Repository permissions, set " +
                 "Contents to Read-only. Save it; the token itself doesn't change."
-
-        /** "12.3 MB", in decimal megabytes like Android's storage settings. */
-        fun megabytes(bytes: Long): String {
-            val b = bytes.coerceAtLeast(0)
-            val tenths = b / 100_000 + if (b % 100_000 >= 50_000) 1 else 0 // no overflow near Long.MAX_VALUE
-            return "${tenths / 10}.${tenths % 10} MB"
-        }
     }
 }

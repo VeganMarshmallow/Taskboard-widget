@@ -19,6 +19,7 @@ class ReleaseParsingTest {
             releaseJson(assetJson(APK_ID, "taskboard-widget.apk", 704244), assetJson(VERSION_ID, "version.json", 120)),
         )
         assertEquals("latest", release.tag)
+        assertEquals(RELEASE_PAGE, release.htmlUrl)
         assertTrue(release.notes!!.contains("versionCode 9"))
         assertEquals(listOf(asset(APK_ID, "taskboard-widget.apk", 704244), asset(VERSION_ID, "version.json", 120)), release.assets)
     }
@@ -46,6 +47,8 @@ class ReleaseParsingTest {
         assertTrue(ReleaseJsonParser.parse(text).assets.single().uploaded)
         assertEquals("", ReleaseJsonParser.parse(text).tag)
         assertNull(ReleaseJsonParser.parse(text).notes)
+        assertNull(ReleaseJsonParser.parse(text).htmlUrl)
+        assertNull(ReleaseJsonParser.parse("""{"html_url":42,"assets":[]}""").htmlUrl)
     }
 
     @Test(expected = MalformedVersionException::class) fun rejectsNoAssetsList() { ReleaseJsonParser.parse("""{"tag_name":"latest"}""") }

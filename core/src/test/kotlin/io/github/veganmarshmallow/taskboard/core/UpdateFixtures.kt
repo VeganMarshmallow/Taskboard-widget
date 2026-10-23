@@ -4,13 +4,9 @@ import io.github.veganmarshmallow.taskboard.core.http.HttpRequest
 import io.github.veganmarshmallow.taskboard.core.http.StreamingHttpClient
 import io.github.veganmarshmallow.taskboard.core.http.StreamingResponse
 import io.github.veganmarshmallow.taskboard.core.json.JsonWriter
-import io.github.veganmarshmallow.taskboard.core.update.DownloadTarget
-import io.github.veganmarshmallow.taskboard.core.update.PackageCheck
 import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
-import java.io.OutputStream
 import java.security.MessageDigest
 
 const val APP_API = "https://api.github.com/repos/VeganMarshmallow/Taskboard-widget"
@@ -19,11 +15,9 @@ const val PROBE_URL = "$APP_API/releases?per_page=1"
 const val APK_ID = 111L
 const val VERSION_ID = 222L
 const val STORAGE = "https://objects.githubusercontent.com/github-production-release-asset/1?sig=abc"
+const val RELEASE_PAGE = "https://github.com/VeganMarshmallow/Taskboard-widget/releases/tag/latest"
 
 fun assetUrl(id: Long) = "$APP_API/releases/assets/$id"
-
-/** A package check that accepts every APK (signature checks have their own tests). */
-val TRUSTED = PackageCheck { null }
 
 /** A fake APK: ZIP magic plus [size] - 4 filler bytes. */
 fun fakeApk(size: Int = 5000): ByteArray = ByteArray(size) { i ->
@@ -40,8 +34,13 @@ fun assetJson(id: Long, name: String, size: Long, state: String = "uploaded"): M
     "content_type" to "application/octet-stream",
 )
 
-fun releaseJson(vararg assets: Map<String, Any?>, notes: String? = "Built from abc1234 on main (build 9, versionCode 9)."): String =
-    JsonWriter.write(mapOf("tag_name" to "latest", "body" to notes, "assets" to assets.toList(), "prerelease" to false))
+fun releaseJson(
+    vararg assets: Map<String, Any?>,
+    notes: String? = "Built from abc1234 on main (build 9, versionCode 9).",
+    htmlUrl: String? = RELEASE_PAGE,
+): String = JsonWriter.write(
+    mapOf("tag_name" to "latest", "body" to notes, "html_url" to htmlUrl, "assets" to assets.toList(), "prerelease" to false),
+)
 
 fun versionJson(code: Long, apk: ByteArray, name: String = "0.1.$code"): String = JsonWriter.write(
     mapOf(
@@ -84,7 +83,7 @@ class FakeStreamingHttp : StreamingHttpClient {
         listOf("location", "content-length", "x-ratelimit-remaining", "x-ratelimit-reset", "retry-after")
             .mapNotNull { name -> r.header(name)?.let { name to listOf(it) } }.toMap()
 
-    /** The standard happy path: a release with an APK and version.json, redirected to storage. */
+    /** The standard happy path: a release with an APK and version.json (redirected to storage). */
     fun standard(apk: ByteArray, code: Long = 42, version: String? = versionJson(code, apk)) = apply {
         val assets = buildList {
             add(assetJson(APK_ID, "taskboard-widget.apk", apk.size.toLong()))
@@ -92,52 +91,10 @@ class FakeStreamingHttp : StreamingHttpClient {
             add(assetJson(5, "1-setup.png", 100))
         }
         on(LATEST_URL) { streamed(200, releaseJson(*assets.toTypedArray())) }
-        on(assetUrl(APK_ID)) { streamed(302, ByteArray(0), "Location" to STORAGE) }
-        on(STORAGE) { streamed(200, apk) }
         if (version != null) {
             on(assetUrl(VERSION_ID)) { streamed(302, ByteArray(0), "Location" to "$STORAGE-v") }
             on("$STORAGE-v") { streamed(200, version) }
         }
-    }
-}
-
-/** In-memory [DownloadTarget]. */
-class MemoryTarget(
-    var available: Long = 1L shl 40,
-    private val failOpen: Boolean = false,
-    private val failWriteAfter: Long = Long.MAX_VALUE,
-    private val writeFailure: String = "write failed",
-    private val failCommit: Boolean = false,
-) : DownloadTarget {
-    var partial: ByteArrayOutputStream? = null
-    var committed: ByteArray? = null
-    var discards = 0
-    var streamClosed = false
-
-    override fun availableBytes() = available
-
-    override fun open(): OutputStream {
-        if (failOpen) throw IOException("cannot create file")
-        val buffer = ByteArrayOutputStream()
-        partial = buffer
-        return object : OutputStream() {
-            override fun write(b: Int) = write(byteArrayOf(b.toByte()), 0, 1)
-            override fun write(b: ByteArray, off: Int, len: Int) {
-                if (buffer.size() + len > failWriteAfter) throw IOException(writeFailure)
-                buffer.write(b, off, len)
-            }
-            override fun close() { streamClosed = true }
-        }
-    }
-
-    override fun commit() {
-        if (failCommit) throw IOException("rename failed")
-        committed = partial!!.toByteArray()
-    }
-
-    override fun discard() {
-        discards++
-        partial = null
     }
 }
 

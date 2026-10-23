@@ -11,7 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 
-/** The required checksum and size, to prefix test objects that are about other fields. */
+/** Fields CI also publishes; the parser ignores them. Prefixed to test objects about other fields. */
 private const val REQ = "\"apkSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"apkSize\":1,"
 
 class VersionJsonParserTest {
@@ -30,27 +30,26 @@ class VersionJsonParserTest {
         val v = VersionJsonParser.parse(
             """{"versionCode":42,"versionName":"0.1.42","sha":"776dc5f6623ab408acd13439f7f081a22c508fd4","apkSha256":"$sha","apkSize":704244}""",
         )
-        assertEquals(VersionInfo(42, "0.1.42", "776dc5f6623ab408acd13439f7f081a22c508fd4", sha, 704244), v)
+        assertEquals(VersionInfo(42, "0.1.42", "776dc5f6623ab408acd13439f7f081a22c508fd4"), v)
         assertEquals("v0.1.42", v.label)
     }
 
-    @Test fun versionCodeChecksumAndSizeAreRequired() {
-        val v = VersionJsonParser.parse("""{"versionCode":7,"apkSha256":"$sha","apkSize":9}""")
-        assertEquals(7L, v.versionCode)
-        assertEquals("7", v.versionName)
+    @Test fun onlyVersionCodeIsRequired() {
+        val v = VersionJsonParser.parse("""{"versionCode":7}""")
+        assertEquals(VersionInfo(7, "7"), v)
         assertNull(v.commitSha)
-        assertEquals(sha, v.apkSha256); assertEquals(9L, v.apkSize)
-        // Without a checksum the download can't be verified, so the release isn't usable.
-        rejects("""{"versionCode":7}""")
-        rejects("""{"versionCode":7,"apkSize":9}""")
-        rejects("""{"versionCode":7,"apkSha256":"$sha"}""")
-        rejects("""{"versionCode":7,"apkSha256":null,"apkSize":9}""")
-        rejects("""{"versionCode":7,"apkSha256":"$sha","apkSize":null}""")
-        rejects("""{"versionCode":7,"apkSha256":"","apkSize":9}""")
+    }
+
+    @Test fun checksumAndSizeAreIgnoredEvenWhenMalformed() {
+        // The app no longer downloads the APK, so these fields don't decide anything.
+        listOf(
+            """"apkSha256":"$sha","apkSize":9""", """"apkSha256":"abc"""", """"apkSha256":42""", """"apkSha256":null""",
+            """"apkSize":0""", """"apkSize":-5""", """"apkSize":"704244"""", """"apkSize":1.5""",
+        ).forEach { assertEquals(it, VersionInfo(7, "7"), VersionJsonParser.parse("{\"versionCode\":7,$it}")) }
     }
 
     @Test fun explicitNullOptionalFieldsAreTheSameAsMissing() {
-        val v = VersionJsonParser.parse("""{"versionCode":7,"versionName":null,"sha":null,"apkSha256":"$sha","apkSize":9}""")
+        val v = VersionJsonParser.parse("""{"versionCode":7,"versionName":null,"sha":null}""")
         assertEquals("7", v.versionName)
         assertNull(v.commitSha)
     }
@@ -60,10 +59,8 @@ class VersionJsonParserTest {
         assertEquals(42L, VersionJsonParser.parse("""{$REQ"versionCode":4.2e1}""").versionCode)
     }
 
-    @Test fun normalisesChecksumAndCommitToLowerCase() {
-        val v = VersionJsonParser.parse("""{"versionCode":1,"sha":"ABCDEF1","apkSha256":"${"AB".repeat(32)}","apkSize":3}""")
-        assertEquals("abcdef1", v.commitSha)
-        assertEquals("ab".repeat(32), v.apkSha256)
+    @Test fun normalisesCommitToLowerCase() {
+        assertEquals("abcdef1", VersionJsonParser.parse("""{"versionCode":1,"sha":"ABCDEF1"}""").commitSha)
     }
 
     @Test fun rejectsMissingOrInvalidVersionCode() {
@@ -101,15 +98,7 @@ class VersionJsonParserTest {
         rejects("""{"versionCode":1,"pad":"${"x".repeat(70_000)}"}""")
     }
 
-    @Test fun rejectsMalformedChecksumSizeAndCommit() {
-        rejects("""{"versionCode":1,"apkSha256":"abc"}""")
-        rejects("""{"versionCode":1,"apkSha256":"${"g".repeat(64)}"}""")
-        rejects("""{"versionCode":1,"apkSha256":"${"a".repeat(65)}"}""")
-        rejects("""{"versionCode":1,"apkSha256":42}""")
-        rejects("""{"versionCode":1,"apkSize":0}""")
-        rejects("""{"versionCode":1,"apkSize":-5}""")
-        rejects("""{"versionCode":1,"apkSize":"704244"}""")
-        rejects("""{"versionCode":1,"apkSize":1.5}""")
+    @Test fun rejectsMalformedCommit() {
         rejects("""{"versionCode":1,"sha":"xyz"}""")
         rejects("""{"versionCode":1,"sha":"abc"}""")
     }
