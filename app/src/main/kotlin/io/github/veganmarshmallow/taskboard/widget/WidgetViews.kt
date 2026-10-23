@@ -40,11 +40,6 @@ class WidgetViews(private val context: Context) {
         return views
     }
 
-    /** A partial update that only swaps the header's time for "updating…". */
-    fun updating(): RemoteViews = RemoteViews(context.packageName, R.layout.widget_board).apply {
-        setTextViewText(R.id.updated, context.getString(R.string.updating))
-    }
-
     private fun bindHeader(views: RemoteViews, state: WidgetState) {
         views.setOnClickPendingIntent(R.id.refresh, WidgetIntents.refresh(context))
         views.setOnClickPendingIntent(R.id.new_task, WidgetIntents.newTask(context))
