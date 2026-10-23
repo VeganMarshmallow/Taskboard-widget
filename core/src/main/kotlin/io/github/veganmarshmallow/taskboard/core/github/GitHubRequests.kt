@@ -10,7 +10,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 /** Builds the REST requests the app sends. Pure: no I/O. */
-class GitHubRequests(private val repo: Repo, private val token: String) {
+class GitHubRequests(internal val repo: Repo, private val token: String) {
     init {
         require(token.isNotBlank()) { "token must not be blank" }
     }
@@ -58,7 +58,7 @@ class GitHubRequests(private val repo: Repo, private val token: String) {
     /** The newest issues in any state, with their bodies: where the New task form finds repo suggestions. */
     fun recentIssues(): HttpRequest = get(issuesUrl("state" to "all"))
 
-    private fun get(url: String) = HttpRequest("GET", url, headers())
+    internal fun get(url: String) = HttpRequest("GET", url, headers())
 
     private fun issuesUrl(vararg params: Pair<String, String>): String {
         val query = (params.toList() + ("per_page" to PER_PAGE.toString()))

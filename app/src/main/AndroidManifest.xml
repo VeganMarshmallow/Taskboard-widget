@@ -44,6 +44,17 @@
             android:taskAffinity=""
             android:theme="@style/Theme.Taskboard.Trampoline" />
 
+        <!-- Task preview: a bottom sheet over the home screen, opened by tapping a task row.
+             Rotation and resizing keep the instance, so a running load or approval and its result
+             (and an open Approve dialog) survive; the wrap-content sheet simply re-lays out. -->
+        <activity
+            android:name=".preview.TaskPreviewActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Taskboard.Preview" />
+
         <!-- Exported only because the system must deliver APPWIDGET_UPDATE to it. -->
         <receiver
             android:name=".widget.BoardWidgetProvider"
