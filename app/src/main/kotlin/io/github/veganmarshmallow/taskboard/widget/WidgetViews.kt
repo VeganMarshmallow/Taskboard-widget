@@ -32,6 +32,7 @@ class WidgetViews(private val context: Context) {
 
     private fun bindHeader(views: RemoteViews, state: WidgetState) {
         views.setOnClickPendingIntent(R.id.refresh, WidgetIntents.refresh(context))
+        views.setOnClickPendingIntent(R.id.new_task, WidgetIntents.newTask(context))
         views.setOnClickPendingIntent(R.id.title, WidgetIntents.openUrl(context, BoardLinks().openIssues()))
         val fetched = state.board?.fetchedAt
         views.setTextViewText(
