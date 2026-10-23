@@ -73,7 +73,9 @@ class PreviewViewsTest {
         val v = bind(FakePreviews.todoLoaded().approveStarted().approveFailed(BoardError.IssueGone(11)))
         assertTrue(v.text(R.id.preview_error).startsWith("Couldn't approve #11"))
         assertEquals(View.GONE, v.visibility(R.id.preview_retry)) // retrying an approval is the Approve button itself
-        assertEquals(View.VISIBLE, v.visibility(R.id.preview_approve))
+        assertEquals(View.GONE, v.visibility(R.id.preview_approve)) // the issue is gone: approving again can only fail
+        val net = bind(FakePreviews.todoLoaded().approveStarted().approveFailed(BoardError.Network))
+        assertEquals(View.VISIBLE, net.visibility(R.id.preview_approve)) // other failures: Approve is the retry
     }
 
     @Test fun previewRowActionRoundTripsAndRejectsBadNumbers() {
