@@ -1,10 +1,8 @@
 package io.github.veganmarshmallow.taskboard.core.preview
 
 import io.github.veganmarshmallow.taskboard.core.board.Board
-import io.github.veganmarshmallow.taskboard.core.board.BoardBuilder
-import io.github.veganmarshmallow.taskboard.core.board.Section
+import io.github.veganmarshmallow.taskboard.core.board.Placement
 import io.github.veganmarshmallow.taskboard.core.board.TitleCleaner
-import io.github.veganmarshmallow.taskboard.core.model.Labels
 import io.github.veganmarshmallow.taskboard.core.tags.TagPill
 import io.github.veganmarshmallow.taskboard.core.tags.TagPills
 
@@ -31,11 +29,10 @@ data class TaskPreview(
             return TaskPreview(number, item.title, PreviewStatus.of(content.section, item.needsYouReason), item.canApprove)
         }
 
-        /** From a freshly loaded issue, with the board's Approve rule (open Todo without `ready-for-claude`). */
-        fun fromIssue(details: IssueDetails, builder: BoardBuilder = BoardBuilder()): TaskPreview {
+        /** From a freshly loaded issue, with the board's Approve rule ([Placement.canApprove]). */
+        fun fromIssue(details: IssueDetails): TaskPreview {
             val issue = details.issue
-            val canApprove = issue.isOpen && !issue.isPullRequest &&
-                builder.place(issue) == Section.TODO && Labels.READY_FOR_CLAUDE !in issue.labels
+            val canApprove = !issue.isPullRequest && Placement.canApprove(issue)
             return TaskPreview(
                 number = issue.number,
                 title = TitleCleaner.clean(issue.title, TITLE_MAX_LENGTH),
