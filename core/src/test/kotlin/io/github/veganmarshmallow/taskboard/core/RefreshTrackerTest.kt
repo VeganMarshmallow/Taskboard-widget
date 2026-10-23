@@ -4,6 +4,8 @@ import io.github.veganmarshmallow.taskboard.core.work.RefreshMark
 import io.github.veganmarshmallow.taskboard.core.work.RefreshMarkCodec
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTracker
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTracker.Status
+import io.github.veganmarshmallow.taskboard.core.work.UptimeInstant
+import io.github.veganmarshmallow.taskboard.core.work.UptimeInstant.Companion.UNKNOWN_BOOT
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -11,16 +13,16 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Duration
-import java.time.Instant
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 class RefreshTrackerTest {
-    private val clock = MutableClock()
+    private val clock = FakeUptime()
     private val disk = TextMarkStore()
     private fun tracker() = RefreshTracker(disk, clock)
+    private fun at(boot: Int, elapsedMs: Long) = UptimeInstant(boot, elapsedMs)
 
     @Test fun idleUntilARunBegins() {
         val t = tracker()
@@ -51,11 +53,31 @@ class RefreshTrackerTest {
         assertFalse("a dead run never shows updating…", t.isUpdating())
     }
 
-    @Test fun aMarkFromTheFutureIsStaleButSmallSkewIsNot() {
-        disk.text = RefreshMarkCodec.encode(RefreshMark(1, NOW.plusSeconds(4)))
+    @Test fun aMarkFromTheFutureOfThisBootIsStale() {
+        disk.text = RefreshMarkCodec.encode(RefreshMark(1, at(clock.boot, clock.elapsedMs + 1)))
+        assertEquals("the uptime clock never goes back within a boot", Status.STALE, tracker().status())
+        disk.text = RefreshMarkCodec.encode(RefreshMark(1, at(clock.boot, clock.elapsedMs)))
         assertEquals(Status.RUNNING, tracker().status())
-        disk.text = RefreshMarkCodec.encode(RefreshMark(1, NOW.plusSeconds(3600)))
-        assertEquals("clock moved back: never stuck", Status.STALE, tracker().status())
+    }
+
+    @Test fun aRebootMidRunIsStaleAtOnceEvenWithinTheLimit() {
+        val t = tracker()
+        t.begin()
+        clock.reboot(upFor = Duration.ofSeconds(5)) // the phone restarted 5 s into the uptime clock
+        assertEquals("never \"updating…\" after a reboot", Status.STALE, t.status())
+        assertTrue(t.clearIfStale {})
+        assertEquals(Status.IDLE, t.status())
+    }
+
+    @Test fun aRebootIsCaughtByTheUptimeClockWhenTheBootCountIsUnknown() {
+        disk.text = RefreshMarkCodec.encode(RefreshMark(1, at(UNKNOWN_BOOT, 90_000)))
+        clock.boot = UNKNOWN_BOOT
+        clock.elapsedMs = 40_000 // lower than at the mark: the clock restarted
+        assertEquals(Status.STALE, tracker().status())
+        clock.elapsedMs = 100_000 // same boot as far as we can tell, 10 s in
+        assertEquals(Status.RUNNING, tracker().status())
+        clock.boot = 3 // the boot count became readable: unknown on one side is not a mismatch
+        assertEquals(Status.RUNNING, tracker().status())
     }
 
     @Test fun processDeathMidRunRecoversOnceStale() {
@@ -118,13 +140,13 @@ class RefreshTrackerTest {
     }
 
     @Test fun corruptStoredMarkCountsAsIdle() {
-        listOf("", "garbage", "1@", "@5", "a@b", "1@2@3").forEach {
+        listOf("", "garbage", "1@", "@5", "a@b", "1@2", "1@x@3", "1@2@3@4", "1@@3", "1762000000000@1762000000000").forEach {
             disk.text = it
             assertEquals(it, Status.IDLE, tracker().status())
         }
-        disk.text = "9223372036854775807@9223372036854775807" // the far future: decodes, and is never trusted
+        disk.text = "9223372036854775807@7@9223372036854775807" // the far future of this boot: never trusted
         assertEquals(Status.STALE, tracker().status())
-        disk.text = "1@-9223372036854775808" // the far past
+        disk.text = "1@7@-9223372036854775808" // the far past (no overflow into "running")
         assertEquals(Status.STALE, tracker().status())
     }
 
@@ -158,12 +180,12 @@ class RefreshTrackerTest {
     }
 
     @Test fun markCodecRoundTripsAndRejectsJunk() {
-        val mark = RefreshMark(42, Instant.parse("2026-10-22T12:00:00.123Z"))
+        val mark = RefreshMark(42, at(12, 123_456_789))
         assertEquals(mark, RefreshMarkCodec.decode(RefreshMarkCodec.encode(mark)))
         assertEquals(mark, RefreshMarkCodec.decode("  " + RefreshMarkCodec.encode(mark) + "\n"))
-        assertEquals(RefreshMark(-1, Instant.EPOCH), RefreshMarkCodec.decode("-1@0"))
-        listOf(null, "", " ", "x", "1", "1@x", "x@1", "1@2@3", "1.5@2", "1@99999999999999999999").forEach {
-            assertNull("$it", RefreshMarkCodec.decode(it))
-        }
+        assertEquals(RefreshMark(-1, at(UNKNOWN_BOOT, 0)), RefreshMarkCodec.decode("-1@-1@0"))
+        listOf(null, "", " ", "x", "1", "1@x", "x@1", "1@2", "1@2@3@4", "1.5@2@3", "1@2@99999999999999999999", "1@99999999999@3")
+            .forEach { assertNull("$it", RefreshMarkCodec.decode(it)) }
+        assertNull("the earlier wall-clock form is dropped, not misread", RefreshMarkCodec.decode("42@1761134400123"))
     }
 }

@@ -29,6 +29,8 @@ class RefreshRunner(
     /**
      * [load] turns the previous state into the next one (fetch and build). [onStarted] runs right
      * after the run is marked, e.g. to show "updating…"; if it fails, the run still goes ahead.
+     * Never throws: a failure to read or save the stored state also ends in an error state, so
+     * the caller always has something to render in place of "updating…".
      */
     fun run(onStarted: () -> Unit = {}, load: (WidgetState) -> WidgetState): Result {
         val mark = tracker.begin()
@@ -37,23 +39,42 @@ class RefreshRunner(
         } catch (e: RuntimeException) {
             // Cosmetic only: the run's result is what matters.
         }
-        val previous = states.load()
+        val previous = loadOrInitial()
         val next = when (val r = limit.run(budget) { load(previous) }) {
             is Timed.Done -> r.value
             is Timed.Crashed -> previous.withError(crashError(r.error), clock.instant())
             Timed.TimedOut -> previous.withError(BoardError.Timeout, clock.instant())
         }
-        val committed = tracker.commitIfCurrent(mark.runId) { states.save(next) }
-        return if (committed) Result.Committed(next) else Result.Superseded
+        return try {
+            if (tracker.commitIfCurrent(mark.runId) { states.save(next) }) Result.Committed(next) else Result.Superseded
+        } catch (t: Throwable) {
+            // The save (or clearing the mark) failed. The tracker has ended the run; show the failure.
+            Result.Committed(previous.withError(crashError(t), clock.instant()))
+        }
     }
 
-    /** If a run died (its mark went stale): records a timeout and returns the state to render. Otherwise null. */
+    /**
+     * If a run died (its mark went stale): records a timeout and returns the state to render.
+     * Otherwise null (so a sweep after a good refresh never touches the good board). Never throws.
+     */
     fun recoverIfStale(): WidgetState? {
         var recovered: WidgetState? = null
-        tracker.clearIfStale {
-            recovered = states.load().withError(BoardError.Timeout, clock.instant()).also(states::save)
+        try {
+            tracker.clearIfStale {
+                val state = loadOrInitial().withError(BoardError.Timeout, clock.instant())
+                recovered = state
+                states.save(state)
+            }
+        } catch (t: Throwable) {
+            // Saving failed; the mark is cleared anyway. Still render the error over "updating…".
         }
         return recovered
+    }
+
+    private fun loadOrInitial(): WidgetState = try {
+        states.load()
+    } catch (t: Throwable) {
+        WidgetState.INITIAL
     }
 
     companion object {

@@ -1,13 +1,16 @@
 package io.github.veganmarshmallow.taskboard.core.work
 
-import java.time.Clock
+import io.github.veganmarshmallow.taskboard.core.work.UptimeInstant.Companion.UNKNOWN_BOOT
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.random.Random
 
 /**
  * The refresh state machine: IDLE → RUNNING ([begin]) → IDLE ([commitIfCurrent], or [clearIfStale]
- * once the run is presumed dead). A mark older than [staleAfter], or dated in the future (the
- * clock moved back), is STALE: that run died with its process and will never clear its own mark.
+ * once the run is presumed dead). A mark is STALE (that run died and will never clear its own
+ * mark) when it is older than [staleAfter], or comes from another boot (the device restarted
+ * mid-refresh). Age is measured on the monotonic [Uptime] clock, so wall-clock jumps in either
+ * direction neither kill a live run nor keep a dead one alive.
  *
  * Only the newest run may commit. A run that was replaced (a refresh tap while another one hung)
  * drops its late result instead of overwriting newer data or clearing the newer run's mark.
@@ -16,9 +19,9 @@ import java.util.concurrent.atomic.AtomicLong
  */
 class RefreshTracker(
     private val store: RefreshMarkStore,
-    private val clock: Clock,
+    private val uptime: Uptime,
     private val staleAfter: Duration = STALE_AFTER,
-    private val nextId: () -> Long = clockSeededIds(clock),
+    private val nextId: () -> Long = randomlySeededIds(),
 ) {
     enum class Status { IDLE, RUNNING, STALE }
 
@@ -35,7 +38,7 @@ class RefreshTracker(
 
     /** Starts a run, replacing any other (live or dead) run's mark. */
     fun begin(): RefreshMark = synchronized(lock) {
-        RefreshMark(nextId(), clock.instant()).also(store::save)
+        RefreshMark(nextId(), uptime.now()).also(store::save)
     }
 
     /**
@@ -65,10 +68,13 @@ class RefreshTracker(
 
     private fun statusOf(mark: RefreshMark?): Status {
         mark ?: return Status.IDLE
-        val age = Duration.between(mark.startedAt, clock.instant())
+        val now = uptime.now()
+        val bootsKnown = mark.startedAt.boot != UNKNOWN_BOOT && now.boot != UNKNOWN_BOOT
+        if (bootsKnown && mark.startedAt.boot != now.boot) return Status.STALE
+        val ageMs = now.elapsedMs - mark.startedAt.elapsedMs
         return when {
-            age > staleAfter -> Status.STALE
-            age < FUTURE_TOLERANCE.negated() -> Status.STALE
+            ageMs < 0 -> Status.STALE // the uptime clock restarted: a reboot the boot count missed
+            ageMs > staleAfter.toMillis() -> Status.STALE
             else -> Status.RUNNING
         }
     }
@@ -76,11 +82,10 @@ class RefreshTracker(
     companion object {
         /** After this long a run is presumed dead. Longer than [RefreshRunner.RUN_BUDGET], so a live run always ends first. */
         val STALE_AFTER: Duration = Duration.ofSeconds(60)
-        private val FUTURE_TOLERANCE: Duration = Duration.ofSeconds(5)
 
-        /** Seeded from the clock so a new process does not reuse a dead process's run ids. */
-        private fun clockSeededIds(clock: Clock): () -> Long {
-            val counter = AtomicLong(clock.millis() * 1000)
+        /** Randomly seeded so a new process does not reuse a dead process's run ids. */
+        private fun randomlySeededIds(): () -> Long {
+            val counter = AtomicLong(Random.nextLong(0, Long.MAX_VALUE / 2))
             return { counter.incrementAndGet() }
         }
     }

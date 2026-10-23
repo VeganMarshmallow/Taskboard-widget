@@ -19,6 +19,21 @@ sealed class BoardJob {
     /** Earliest start, counted from scheduling. */
     open val minLatency: Duration get() = Duration.ZERO
 
+    /**
+     * Wait for a network the system has *validated* (Android 9+ requires that for plain network
+     * constraints). Urgent jobs don't: on a VPN or a phone hotspot validation can lag or flap, and
+     * a tap must not wait silently for it. If the network really is down, the request fails fast
+     * and the widget says so.
+     */
+    val needsValidatedNetwork: Boolean get() = needsNetwork && !urgent
+
+    /**
+     * For urgent jobs that are not expedited (Android 8–11, or out of expedited quota): run after
+     * this long even if the network constraint is still unmet, so a tap always ends in the board
+     * or an error. Null: no deadline. Android does not allow deadlines on expedited jobs.
+     */
+    val runAnywayAfter: Duration? get() = if (urgent) URGENT_DEADLINE else null
+
     abstract fun toExtras(): Map<String, String>
 
     /** One job id for every refresh, so scheduling a refresh replaces a pending or running one. */
@@ -54,6 +69,9 @@ sealed class BoardJob {
         const val REFRESH_ID = 1
         const val SWEEP_ID = 2
         const val APPROVE_BASE_ID = 1_000_000
+
+        /** See [runAnywayAfter]. */
+        val URGENT_DEADLINE: Duration = Duration.ofSeconds(10)
 
         /** Keeps APPROVE_BASE_ID + issue inside Int. */
         const val MAX_ISSUE = Int.MAX_VALUE - APPROVE_BASE_ID

@@ -9,6 +9,7 @@ import io.github.veganmarshmallow.taskboard.core.work.RefreshTrigger
 import io.github.veganmarshmallow.taskboard.core.work.TimeLimit
 import io.github.veganmarshmallow.taskboard.core.work.toOutcome
 import io.github.veganmarshmallow.taskboard.data.AppGraph
+import io.github.veganmarshmallow.taskboard.data.StateStore
 import java.time.Duration
 
 /**
@@ -20,23 +21,36 @@ class WidgetRefresher(private val context: Context) {
     private val runner = AppGraph.refreshRunner(context)
     private val renderer = WidgetRenderer(context)
 
-    fun refresh(): RefreshRunner.Result {
-        val result = runner.run(onStarted = ::onStarted) { previous ->
-            BoardLoader(AppGraph.clock).refresh(previous, AppGraph.apiOrNull(context))
-        }
-        if (result is RefreshRunner.Result.Committed) renderer.render(result.state)
-        return result
-    }
+    fun refresh(): RefreshRunner.Result = renderAfter(runner.run(onStarted = ::onStarted) { previous ->
+        BoardLoader(AppGraph.clock).refresh(previous, AppGraph.apiOrNull(context))
+    })
 
     /** Offline: records "No network" right away instead of waiting on a job that cannot run. */
     fun recordOffline() {
-        val result = runner.run { it.withError(BoardError.Network, AppGraph.clock.instant()) }
-        if (result is RefreshRunner.Result.Committed) renderer.render(result.state)
+        renderAfter(runner.run { it.withError(BoardError.Network, AppGraph.clock.instant()) })
     }
 
     /** If a refresh died with its process, shows an error instead of "updating…". */
     fun recoverIfStale() {
         runner.recoverIfStale()?.let { renderer.render(it) }
+    }
+
+    /**
+     * The sweep job: recovers a dead run, and otherwise just redraws what is stored, so a stray
+     * "updating…" left in the launcher by any race is gone within a minute. Never saves a good board.
+     */
+    fun sweep() {
+        renderer.render(runner.recoverIfStale() ?: StateStore(context).load())
+    }
+
+    /**
+     * Every run ends with a render, even a superseded one: its "updating…" may have reached the
+     * launcher after the newer run's final render. The header then shows the tracker's truth.
+     */
+    private fun renderAfter(result: RefreshRunner.Result): RefreshRunner.Result {
+        val state = (result as? RefreshRunner.Result.Committed)?.state ?: StateStore(context).load()
+        renderer.render(state)
+        return result
     }
 
     /** Adds `ready-for-claude`, then asks for a refresh. Returns the failure, if any, for the caller to report. */

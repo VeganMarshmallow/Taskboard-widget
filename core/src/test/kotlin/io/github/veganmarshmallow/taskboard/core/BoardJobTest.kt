@@ -59,6 +59,21 @@ class BoardJobTest {
         assertTrue("the sweep runs after a run has gone stale", BoardJob.Sweep.minLatency > RefreshTracker.STALE_AFTER)
     }
 
+    @Test fun urgentJobsNeitherWaitForValidationNorWaitForever() {
+        val manual = BoardJob.Refresh(RefreshTrigger.MANUAL)
+        val auto = BoardJob.Refresh(RefreshTrigger.AUTOMATIC)
+        val approve = BoardJob.Approve(5)
+        listOf(manual, approve).forEach {
+            assertFalse("$it: a tap on a VPN/hotspot must not wait for validation", it.needsValidatedNetwork)
+            assertEquals("$it", BoardJob.URGENT_DEADLINE, it.runAnywayAfter)
+        }
+        assertTrue("background refreshes can wait for a validated network", auto.needsValidatedNetwork)
+        assertNull(auto.runAnywayAfter)
+        assertFalse("no network at all", BoardJob.Sweep.needsValidatedNetwork)
+        assertNull(BoardJob.Sweep.runAnywayAfter)
+        assertTrue("a tap ends in well under the stale limit", BoardJob.URGENT_DEADLINE < RefreshTracker.STALE_AFTER)
+    }
+
     @Test fun manualRefreshAlwaysSchedulesAutomaticOnlyOverIdleOrDead() {
         Status.entries.forEach { assertTrue(RefreshPolicy.shouldSchedule(RefreshTrigger.MANUAL, it)) }
         assertTrue(RefreshPolicy.shouldSchedule(RefreshTrigger.AUTOMATIC, Status.IDLE))

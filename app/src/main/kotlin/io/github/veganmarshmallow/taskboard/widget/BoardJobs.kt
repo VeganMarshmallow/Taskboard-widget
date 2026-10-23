@@ -4,6 +4,8 @@ import android.app.job.JobInfo
 import android.app.job.JobScheduler
 import android.content.ComponentName
 import android.content.Context
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.os.Build
 import android.os.PersistableBundle
 import android.util.Log
@@ -69,10 +71,29 @@ object BoardJobs {
     fun jobInfo(context: Context, job: BoardJob, expedited: Boolean): JobInfo {
         val extras = PersistableBundle().apply { job.toExtras().forEach { (k, v) -> putString(k, v) } }
         val builder = JobInfo.Builder(job.jobId, ComponentName(context, BoardJobService::class.java)).setExtras(extras)
-        if (job.needsNetwork) builder.setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+        if (job.needsNetwork) requireNetwork(builder, validated = job.needsValidatedNetwork)
         if (!job.minLatency.isZero) builder.setMinimumLatency(job.minLatency.toMillis())
+        if (!expedited) job.runAnywayAfter?.let { builder.setOverrideDeadline(it.toMillis()) }
         if (job is BoardJob.Refresh) builder.setBackoffCriteria(BACKOFF_MS, JobInfo.BACKOFF_POLICY_EXPONENTIAL)
         if (expedited && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) builder.setExpedited(true)
         return builder.build()
+    }
+
+    /**
+     * NETWORK_TYPE_ANY also requires a *validated* network from Android 9. For urgent jobs ask
+     * only for a network with internet: validation over a VPN or hotspot can lag, and a tap must
+     * not wait silently for it (see BoardJob.needsValidatedNetwork).
+     */
+    private fun requireNetwork(builder: JobInfo.Builder, validated: Boolean) {
+        if (!validated && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            builder.setRequiredNetwork(
+                NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) // the owner's phone runs a VPN
+                    .build(),
+            )
+        } else {
+            builder.setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+        }
     }
 }

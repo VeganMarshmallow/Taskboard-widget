@@ -23,7 +23,7 @@ object AppGraph {
 
     /** One per process, so its lock really serializes every refresh state change. */
     fun refreshTracker(context: Context): RefreshTracker = tracker ?: synchronized(this) {
-        tracker ?: RefreshTracker(RefreshMarkPrefs(context), clock).also { tracker = it }
+        tracker ?: RefreshTracker(RefreshMarkPrefs(context), DeviceUptime(context)).also { tracker = it }
     }
 
     fun refreshRunner(context: Context): RefreshRunner = RefreshRunner(refreshTracker(context), StateStore(context), clock)

@@ -49,7 +49,7 @@ class BoardJobService : JobService() {
             false
         }
         BoardJob.Sweep -> {
-            refresher.recoverIfStale()
+            refresher.sweep()
             false
         }
     }

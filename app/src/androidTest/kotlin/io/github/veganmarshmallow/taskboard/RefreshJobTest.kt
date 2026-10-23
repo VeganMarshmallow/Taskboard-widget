@@ -1,6 +1,8 @@
 package io.github.veganmarshmallow.taskboard
 
 import android.app.job.JobScheduler
+import android.net.NetworkCapabilities
+import android.os.Build
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -12,6 +14,7 @@ import io.github.veganmarshmallow.taskboard.core.work.RefreshMark
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTracker.Status
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTrigger
 import io.github.veganmarshmallow.taskboard.data.AppGraph
+import io.github.veganmarshmallow.taskboard.data.DeviceUptime
 import io.github.veganmarshmallow.taskboard.data.RefreshMarkPrefs
 import io.github.veganmarshmallow.taskboard.data.StateStore
 import io.github.veganmarshmallow.taskboard.data.TokenStore
@@ -24,6 +27,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,6 +39,7 @@ class RefreshJobTest {
     private val context = instrumentation.targetContext
     private val tracker get() = AppGraph.refreshTracker(context)
     private fun state() = StateStore(context).load()
+    private val uptime = DeviceUptime(context)
 
     @Before @After fun reset() {
         context.getSystemService(JobScheduler::class.java).cancelAll()
@@ -71,7 +76,7 @@ class RefreshJobTest {
         val board = FakeBoards.realistic()
         StateStore(context).save(WidgetState(board, null, FakeBoards.NOW))
         // As if the process was killed mid-refresh two minutes ago: the mark was never cleared.
-        RefreshMarkPrefs(context).save(RefreshMark(7, AppGraph.clock.instant().minusSeconds(120)))
+        RefreshMarkPrefs(context).save(RefreshMark(7, uptime.now().let { it.copy(elapsedMs = it.elapsedMs - 120_000) }))
         assertEquals(Status.STALE, tracker.status())
         assertFalse("a dead run never shows updating…", tracker.isUpdating())
 
@@ -82,7 +87,7 @@ class RefreshJobTest {
     }
 
     @Test fun aFreshMarkShowsUpdatingAndAnAutomaticRefreshDoesNotInterruptIt() {
-        RefreshMarkPrefs(context).save(RefreshMark(8, AppGraph.clock.instant()))
+        RefreshMarkPrefs(context).save(RefreshMark(8, uptime.now()))
         assertTrue(tracker.isUpdating())
         BoardJobs.refresh(context, RefreshTrigger.AUTOMATIC)
         val pending = context.getSystemService(JobScheduler::class.java).getPendingJob(BoardJob.REFRESH_ID)
@@ -125,5 +130,42 @@ class RefreshJobTest {
             assertNotNull(state().attemptedAt)
             assertTrue("the server was really used", server.connections.get() >= 1)
         }
+    }
+
+    @Test fun aMarkFromAnotherBootIsDeadAtOnce() {
+        val now = uptime.now()
+        assumeTrue("the boot count is readable here", now.boot >= 0)
+        RefreshMarkPrefs(context).save(RefreshMark(9, now.copy(boot = now.boot - 1)))
+        assertEquals(Status.STALE, tracker.status())
+        assertFalse(tracker.isUpdating())
+    }
+
+    @Test fun theSweepAfterAGoodRefreshKeepsTheBoard() {
+        val good = WidgetState(FakeBoards.realistic(), null, FakeBoards.NOW)
+        StateStore(context).save(good)
+        WidgetRefresher(context).sweep()
+        assertEquals(good, state())
+        assertEquals(Status.IDLE, tracker.status())
+    }
+
+    /** A tap on a VPN or hotspot: no wait for validation, and a deadline when not expedited. */
+    @Test fun aManualRefreshJobAcceptsAVpnAndHasADeadline() {
+        val info = BoardJobs.jobInfo(context, BoardJob.Refresh(RefreshTrigger.MANUAL), expedited = false)
+        assertEquals(BoardJob.URGENT_DEADLINE.toMillis(), info.maxExecutionDelayMillis)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val net = info.requiredNetwork!!
+            assertTrue(net.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET))
+            assertFalse("a VPN satisfies it", net.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN))
+            assertFalse("no wait for validation", net.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED))
+        }
+        val auto = BoardJobs.jobInfo(context, BoardJob.Refresh(RefreshTrigger.AUTOMATIC), expedited = false)
+        assertEquals("automatic refreshes have no deadline", 0L, auto.maxExecutionDelayMillis)
+        val sweep = BoardJobs.jobInfo(context, BoardJob.Sweep, expedited = false)
+        assertEquals(JobInfoNoNetwork, sweep.networkType)
+        assertTrue(BoardJobs.schedule(context, BoardJob.Refresh(RefreshTrigger.MANUAL)))
+    }
+
+    private companion object {
+        const val JobInfoNoNetwork = android.app.job.JobInfo.NETWORK_TYPE_NONE
     }
 }
