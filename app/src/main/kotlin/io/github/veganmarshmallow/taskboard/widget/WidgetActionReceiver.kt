@@ -15,6 +15,7 @@ class WidgetActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val app = context.applicationContext
         when (intent.action) {
+            WidgetIntents.ACTION_NOOP -> Unit // a tap on the header: deliberately nothing (task #16)
             WidgetIntents.ACTION_REFRESH -> BackgroundWork.refresh(goAsync(), app)
             WidgetIntents.ACTION_SELECT_TAB -> TabTap.handle(app, intent)
             WidgetIntents.ACTION_APPROVE -> {

@@ -15,14 +15,16 @@ object WidgetIntents {
     const val ACTION_REFRESH = "io.github.veganmarshmallow.taskboard.REFRESH"
     const val ACTION_APPROVE = "io.github.veganmarshmallow.taskboard.APPROVE"
     const val ACTION_SELECT_TAB = "io.github.veganmarshmallow.taskboard.SELECT_TAB"
+    const val ACTION_NOOP = "io.github.veganmarshmallow.taskboard.NOOP"
     const val EXTRA_ISSUE = "issue"
     const val EXTRA_TAB = "tab"
 
     private const val RC_REFRESH = 1
     private const val RC_SETUP = 2
     private const val RC_ROW_TEMPLATE = 3
-    private const val RC_OPEN_BOARD = 4
+    // 4 was the header title's "open board" intent, removed in #16; not reused, to avoid stale PendingIntents.
     private const val RC_NEW_TASK = 5
+    private const val RC_NOOP = 6
     /** Tab taps use request codes from here up (one per tab); the intent data also names the widget, so no two collide. */
     private const val RC_TAB_BASE = 1000
 
@@ -33,6 +35,13 @@ object WidgetIntents {
 
     fun approveIntent(context: Context, issue: Int) =
         Intent(context, WidgetActionReceiver::class.java).setAction(ACTION_APPROVE).putExtra(EXTRA_ISSUE, issue)
+
+    /** Sent for taps on non-interactive widget areas (header text, padding). [WidgetActionReceiver] ignores it. */
+    fun noopIntent(context: Context) =
+        Intent(context, WidgetActionReceiver::class.java).setAction(ACTION_NOOP)
+
+    fun swallowTap(context: Context): PendingIntent =
+        PendingIntent.getBroadcast(context, RC_NOOP, noopIntent(context), IMMUTABLE)
 
     fun refresh(context: Context): PendingIntent =
         PendingIntent.getBroadcast(context, RC_REFRESH, refreshIntent(context), IMMUTABLE)
@@ -59,10 +68,6 @@ object WidgetIntents {
         Intent(context, NewTaskActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
         IMMUTABLE,
-    )
-
-    fun openUrl(context: Context, url: String): PendingIntent = PendingIntent.getActivity(
-        context, RC_OPEN_BOARD, viewUrl(url), IMMUTABLE,
     )
 
     /**
