@@ -33,7 +33,11 @@ class FakeGitHubServer(private val route: (method: String, path: String) -> Answ
         }
     }
 
-    private fun serve(socket: Socket) = socket.use {
+    private fun serve(socket: Socket) {
+        socket.use { answer(it) }
+    }
+
+    private fun answer(it: Socket) {
         try {
             val input = BufferedInputStream(it.getInputStream())
             val requestLine = readLine(input) ?: return
