@@ -37,6 +37,7 @@ enum class PreviewStatus(val text: String) {
             Section.IN_PROGRESS -> IN_PROGRESS
             Section.BLOCKED -> BLOCKED
             Section.TODO -> TODO
+            Section.DONE -> DONE
         }
     }
 }

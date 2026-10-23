@@ -19,7 +19,7 @@ import java.time.Instant
  * (old format, corruption) yields [WidgetState.INITIAL], and the next refresh replaces it.
  */
 object WidgetStateCodec {
-    private const val VERSION = 1L
+    private const val VERSION = 3L // 2: six tabs, Done lists items. 3: five tabs (no In review)
 
     fun encode(state: WidgetState): String = JsonWriter.write(
         mapOf(
@@ -47,7 +47,6 @@ object WidgetStateCodec {
 
     private fun boardToMap(board: Board) = mapOf(
         "fetchedAt" to board.fetchedAt.toEpochMilli(),
-        "done" to board.doneLast7Days.toLong(),
         "sections" to board.sections.map { s ->
             mapOf(
                 "section" to s.section.name,
@@ -73,7 +72,7 @@ object WidgetStateCodec {
         }.associateBy { it.section }
         // Always return every section in display order, even if the stored data lacks one.
         val sections = Section.entries.map { byName[it] ?: SectionContent(it, emptyList(), 0) }
-        return Board(sections, map.long("done")!!.toInt(), Instant.ofEpochMilli(map.long("fetchedAt")!!))
+        return Board(sections, Instant.ofEpochMilli(map.long("fetchedAt")!!))
     }
 
     private fun itemFromMap(m: Map<*, *>) = BoardItem(

@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTrigger
 import io.github.veganmarshmallow.taskboard.data.StateStore
+import io.github.veganmarshmallow.taskboard.data.TabStore
 
 /**
  * Periodic updates (updatePeriodMillis) and widget placement: clear a dead refresh, draw the
@@ -17,5 +18,9 @@ class BoardWidgetProvider : AppWidgetProvider() {
         // New widget ids always get the cached board, even while a refresh is running.
         WidgetRenderer(app).render(StateStore(app).load(), appWidgetIds)
         BoardJobs.refresh(app, RefreshTrigger.AUTOMATIC)
+    }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        TabStore(context).clear(appWidgetIds)
     }
 }

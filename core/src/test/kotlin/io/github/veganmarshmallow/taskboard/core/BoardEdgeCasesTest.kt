@@ -30,12 +30,12 @@ class BoardEdgeCasesTest {
     @Test fun exactlyFiftyItemsHasNoMoreRowAndFiftyOneHasOne() {
         val fifty = build((2..51).map { issue(it, TODO) })
         assertEquals(50, fifty.section(Section.TODO).items.size)
-        assertTrue(BoardRows.of(fifty).none { it is BoardRow.More })
+        assertTrue(BoardRows.of(fifty, Section.TODO).none { it is BoardRow.More })
 
         val fiftyOne = build((2..52).map { issue(it, TODO) })
         assertEquals(50, fiftyOne.section(Section.TODO).items.size)
         assertEquals(51, fiftyOne.section(Section.TODO).totalCount)
-        assertEquals(BoardRow.More(Section.TODO, 1), BoardRows.of(fiftyOne).single { it is BoardRow.More })
+        assertEquals(BoardRow.More(Section.TODO, 1), BoardRows.of(fiftyOne, Section.TODO).single { it is BoardRow.More })
     }
 
     @Test fun hugeBoardCapsEverySectionIndependently() {
@@ -44,11 +44,16 @@ class BoardEdgeCasesTest {
             issue(n, status)
         }
         val board = build(issues)
-        board.sections.forEach { assertEquals(50, it.items.size) }
-        assertEquals(2000, board.sections.sumOf { it.totalCount })
-        val rows = BoardRows.of(board)
-        assertEquals(4, rows.count { it is BoardRow.More })
-        assertEquals(rows.size, rows.map { it.id }.toSet().size) // ids stay unique at scale
+        val open = Section.entries.filter { it != Section.DONE }
+        // 500 per status; the 500 in review are in Needs you.
+        open.forEach { assertEquals(50, board.section(it).items.size) }
+        open.forEach { assertEquals(500, board.count(it)) }
+        assertEquals(2000, open.sumOf { board.count(it) }) // every open issue counted exactly once
+        open.forEach { tab ->
+            val rows = BoardRows.of(board, tab)
+            assertEquals(1, rows.count { it is BoardRow.More })
+            assertEquals(rows.size, rows.map { it.id }.toSet().size) // ids stay unique at scale
+        }
     }
 
     @Test fun capOrdersByIssueNumberNotInputOrder() {
@@ -56,10 +61,11 @@ class BoardEdgeCasesTest {
         assertEquals((2..51).toList(), board.section(Section.TODO).items.map { it.number })
     }
 
-    @Test fun emptyOpenBoardWithRecentDoneShowsEmptyRowThenDone() {
+    @Test fun emptyOpenBoardWithRecentDoneListsItOnlyInDone() {
         val board = build(issue(5, DONE, open = false, closedAt = NOW.minusSeconds(60)))
         assertTrue(board.isEmpty)
-        assertEquals(listOf(BoardRow.Empty, BoardRow.Done(1)), BoardRows.of(board))
+        assertEquals(listOf(BoardRow.Empty(Section.TODO)), BoardRows.of(board, Section.TODO))
+        assertEquals(listOf(5), board.section(Section.DONE).items.map { it.number })
     }
 
     @Test fun onlyTheSummaryIssueMeansEmptyBoard() {
@@ -129,6 +135,8 @@ class BoardEdgeCasesTest {
         assertEquals(io.github.veganmarshmallow.taskboard.core.model.Priority.HIGH, inProgress.priority)
         assertEquals(listOf(3), board.section(Section.NEEDS_YOU).items.map { it.number })
         assertFalse(board.section(Section.TODO).items.single().canApprove)
+        assertEquals(listOf(4), board.section(Section.TODO).items.map { it.number }) // 3 is a question: Needs you only
+        assertFalse(board.section(Section.NEEDS_YOU).items.single().canApprove) // answer first
     }
 
     @Test fun similarButDifferentLabelsDoNotMatch() {
@@ -152,7 +160,7 @@ class BoardEdgeCasesTest {
             issue(10, TODO, NEEDS_OWNER), // no: waiting on an answer
             issue(11, DONE, TODO), // todo wins over done, open: yes
         )
-        val approvable = board.sections.flatMap { it.items }.filter { it.canApprove }.map { it.number }.sorted()
+        val approvable = board.sections.flatMap { it.items }.filter { it.canApprove }.map { it.number }.distinct().sorted()
         assertEquals(listOf(2, 3, 4, 11), approvable)
     }
 

@@ -25,6 +25,9 @@ sealed class RowAction {
         private const val TITLE = "row_title"
         private const val ALLOWED_PREFIX = "https://github.com/"
 
+        /** Fill-in for rows that do nothing when tapped: [from] returns null, so the trampoline just closes. */
+        val NONE: Intent get() = Intent().putExtra(KIND, "none")
+
         /** Null for anything malformed. Only github.com links are opened. */
         fun from(intent: Intent?): RowAction? = when (intent?.getStringExtra(KIND)) {
             OPEN -> intent.getStringExtra(URL)?.takeIf { it.startsWith(ALLOWED_PREFIX) }?.let(::Open)

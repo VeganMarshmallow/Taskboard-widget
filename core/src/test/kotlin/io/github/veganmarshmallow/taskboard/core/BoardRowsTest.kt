@@ -10,39 +10,40 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BoardRowsTest {
-    @Test fun emptyBoardShowsEmptyRowAndDoneCount() {
+    private fun BoardRow.code() = when (this) {
+        is BoardRow.Item -> "I:${item.number}"
+        is BoardRow.More -> "M:$section:$hidden"
+        is BoardRow.Empty -> "E:$section"
+    }
+
+    @Test fun emptyTabShowsOnlyItsEmptyRow() {
         val board = BoardBuilder().build(listOf(issue(5, Labels.DONE, open = false, closedAt = NOW)), NOW)
-        assertEquals(listOf(BoardRow.Empty, BoardRow.Done(1)), BoardRows.of(board))
+        Section.entries.filter { it != Section.DONE }.forEach {
+            assertEquals(listOf(BoardRow.Empty(it)), BoardRows.of(board, it))
+        }
+        assertEquals(listOf("I:5"), BoardRows.of(board, Section.DONE).map { it.code() })
     }
 
-    @Test fun skipsEmptySectionsAndKeepsOrder() {
+    @Test fun eachTabListsOnlyItsItems() {
         val board = BoardBuilder().build(listOf(issue(3, Labels.TODO), issue(4, Labels.IN_REVIEW)), NOW)
-        val rows = BoardRows.of(board)
-        assertEquals(
-            listOf("H:NEEDS_YOU:1", "I:4", "H:TODO:1", "I:3", "D:0"),
-            rows.map {
-                when (it) {
-                    is BoardRow.Header -> "H:${it.section}:${it.count}"
-                    is BoardRow.Item -> "I:${it.item.number}"
-                    is BoardRow.More -> "M:${it.section}:${it.hidden}"
-                    is BoardRow.Done -> "D:${it.count}"
-                    BoardRow.Empty -> "E"
-                }
-            },
-        )
+        assertEquals(listOf("I:3"), BoardRows.of(board, Section.TODO).map { it.code() })
+        assertEquals(listOf("I:4"), BoardRows.of(board, Section.NEEDS_YOU).map { it.code() })
+        assertEquals(listOf("E:BLOCKED"), BoardRows.of(board, Section.BLOCKED).map { it.code() })
     }
 
-    @Test fun cappedSectionGetsMoreRow() {
+    @Test fun cappedTabGetsMoreRow() {
         val board = BoardBuilder(maxPerSection = 2).build((2..6).map { issue(it, Labels.BLOCKED) }, NOW)
-        val rows = BoardRows.of(board)
-        assertEquals(BoardRow.Header(Section.BLOCKED, 5), rows[0])
-        assertEquals(BoardRow.More(Section.BLOCKED, 3), rows[3])
+        val rows = BoardRows.of(board, Section.BLOCKED)
+        assertEquals(listOf("I:2", "I:3", "M:BLOCKED:3"), rows.map { it.code() })
     }
 
-    @Test fun rowIdsAreUnique() {
+    @Test fun rowIdsAreUniqueWithinEveryTab() {
         val issues = (2..60).map { issue(it, listOf(Labels.TODO, Labels.BLOCKED, Labels.IN_PROGRESS, Labels.IN_REVIEW)[it % 4]) }
-        val rows = BoardRows.of(BoardBuilder(maxPerSection = 5).build(issues, NOW))
-        assertEquals(rows.size, rows.map { it.id }.toSet().size)
-        assertTrue(rows.any { it is BoardRow.More })
+        val board = BoardBuilder(maxPerSection = 5).build(issues, NOW)
+        Section.entries.forEach { tab ->
+            val rows = BoardRows.of(board, tab)
+            assertEquals("$tab", rows.size, rows.map { it.id }.toSet().size)
+        }
+        assertTrue(BoardRows.of(board, Section.TODO).any { it is BoardRow.More })
     }
 }

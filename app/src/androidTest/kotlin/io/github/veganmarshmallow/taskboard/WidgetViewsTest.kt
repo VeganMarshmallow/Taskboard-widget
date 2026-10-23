@@ -78,11 +78,13 @@ class WidgetViewsTest {
         assertEquals(View.VISIBLE, v.visibilityOf(R.id.board_list))
     }
 
-    @Test fun everyRowOfTheRealisticBoardApplies() {
-        val rows = BoardRows.of(FakeBoards.realistic())
-        rows.forEach { applyRow(it) }
-        assertTrue(rows.first() is BoardRow.Header)
-        assertTrue(rows.last() is BoardRow.Done)
+    @Test fun everyRowOfEveryTabOfTheRealisticBoardApplies() {
+        val board = FakeBoards.realistic()
+        Section.entries.forEach { tab ->
+            val rows = BoardRows.of(board, tab)
+            rows.forEach { applyRow(it) }
+            assertTrue("$tab", rows.isNotEmpty())
+        }
     }
 
     @Test fun itemBadgesAndApproveButton() {
@@ -101,15 +103,14 @@ class WidgetViewsTest {
         }
     }
 
-    @Test fun headerMoreAndDoneRows() {
-        applyRow(BoardRow.Header(Section.NEEDS_YOU, 3)).let {
-            assertEquals("Needs you", it.text(R.id.section_title))
-            assertEquals("3", it.text(R.id.section_count))
-        }
+    @Test fun moreAndEmptyRows() {
         assertTrue(applyRow(BoardRow.More(Section.TODO, 1)).let { (it as TextView).text.startsWith("+1 more") })
         assertTrue(applyRow(BoardRow.More(Section.TODO, 950)).let { (it as TextView).text.startsWith("+950 more") })
-        assertEquals("Done in the last 7 days: 0", (applyRow(BoardRow.Done(0)) as TextView).text.toString())
-        assertEquals(context.getString(R.string.empty_board), (applyRow(BoardRow.Empty) as TextView).text.toString())
+        assertTrue(applyRow(BoardRow.More(Section.DONE, 2)).let { (it as TextView).text.startsWith("+2 more done") })
+        val empties = Section.entries.map { (applyRow(BoardRow.Empty(it)) as TextView).text.toString() }
+        assertEquals("Nothing needs you right now", empties[0])
+        assertEquals("Nothing finished in the last 7 days", empties.last())
+        assertEquals(Section.entries.size, empties.toSet().size) // every tab has its own message
     }
 
     @Test fun hebrewAndEmojiTitlesStaySingleLine() {

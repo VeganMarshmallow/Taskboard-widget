@@ -64,6 +64,8 @@
             android:src="@drawable/ic_refresh" />
     </LinearLayout>
 
+    <include layout="@layout/widget_tabs" />
+
     <TextView
         android:id="@+id/error"
         android:layout_width="match_parent"

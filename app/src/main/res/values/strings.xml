@@ -9,12 +9,21 @@
     <string name="updating">updating…</string>
     <string name="loading">Loading…</string>
     <string name="no_data">No board data yet</string>
-    <string name="empty_board">Nothing here — add a task</string>
+    <string name="empty_needs_you">Nothing needs you right now</string>
+    <string name="empty_todo">No tasks to do — tap to add one</string>
+    <string name="empty_in_progress">Nothing in progress</string>
+    <string name="empty_blocked">Nothing is blocked</string>
+    <string name="empty_done">Nothing finished in the last 7 days</string>
     <plurals name="more_items">
         <item quantity="one">+%1$d more — open on GitHub</item>
         <item quantity="other">+%1$d more — open on GitHub</item>
     </plurals>
-    <string name="done_count">Done in the last 7 days: %1$d</string>
+    <plurals name="more_done">
+        <item quantity="one">+%1$d more done — open on GitHub</item>
+        <item quantity="other">+%1$d more done — open on GitHub</item>
+    </plurals>
+    <string name="tab_description">%1$s: %2$d</string>
+    <string name="tab_selected">, selected</string>
     <string name="approve">Approve</string>
     <string name="approve_title">Approve #%1$d?</string>
     <string name="approve_message">Adds the ready-for-claude label to “%1$s”, so Claude can start on it in the next run.</string>
