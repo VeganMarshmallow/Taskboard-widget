@@ -34,6 +34,15 @@
             android:textColor="@color/widget_muted"
             android:textSize="12sp" />
 
+        <ImageView
+            android:id="@+id/update_dot"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:contentDescription="@string/update_dot"
+            android:padding="7dp"
+            android:src="@drawable/update_dot"
+            android:visibility="gone" />
+
         <ImageButton
             android:id="@+id/new_task"
             android:layout_width="36dp"

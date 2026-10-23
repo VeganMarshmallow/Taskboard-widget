@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- In-app updates: lets the app open Android's installer for a downloaded build. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Network-constrained jobs need it (required from Android 14), and so does the offline check. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
@@ -44,6 +46,17 @@
             android:taskAffinity=""
             android:theme="@style/Theme.Taskboard.Trampoline" />
 
+        <!-- Task preview: a bottom sheet over the home screen, opened by tapping a task row.
+             Rotation and resizing keep the instance, so a running load or approval and its result
+             (and an open Approve dialog) survive; the wrap-content sheet simply re-lays out. -->
+        <activity
+            android:name=".preview.TaskPreviewActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Taskboard.Preview" />
+
         <!-- Exported only because the system must deliver APPWIDGET_UPDATE to it. -->
         <receiver
             android:name=".widget.BoardWidgetProvider"
@@ -60,6 +73,13 @@
         <receiver
             android:name=".widget.WidgetActionReceiver"
             android:exported="false" />
+
+        <!-- Serves the downloaded update APK to the installer. Not exported; access is granted per install intent. -->
+        <provider
+            android:name=".update.ApkProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true" />
 
         <service
             android:name=".widget.BoardListService"

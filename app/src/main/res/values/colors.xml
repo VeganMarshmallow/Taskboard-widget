@@ -12,6 +12,14 @@
     <color name="widget_badge">#C2410C</color>
     <color name="error">#B42318</color>
     <color name="ok">#1F7A3A</color>
+    <color name="status_needs_you">#C2410C</color>
+    <color name="status_review">#7C3AED</color>
+    <color name="status_progress">#1D4ED8</color>
+    <color name="status_blocked">#B42318</color>
+    <color name="status_todo">#62656D</color>
+    <color name="status_done">#1F7A3A</color>
+    <!-- Chip text on every status colour, day and night (all status colours are dark enough for white). -->
+    <color name="status_text">#FFFFFF</color>
     <color name="icon_bg">#1B1C1F</color>
     <color name="icon_fg">#F3A46C</color>
 </resources>

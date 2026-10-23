@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import io.github.veganmarshmallow.taskboard.R
@@ -14,6 +15,7 @@ import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.token.TokenValidator
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.TokenStore
+import io.github.veganmarshmallow.taskboard.update.UpdateSection
 import io.github.veganmarshmallow.taskboard.widget.WidgetIntents
 
 /**
@@ -27,6 +29,7 @@ class SetupActivity : Activity() {
     private lateinit var testButton: Button
     private lateinit var saveButton: Button
     private val tester = ConnectionTester()
+    private lateinit var updates: UpdateSection
     private val widgetId by lazy {
         intent?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
             ?: AppWidgetManager.INVALID_APPWIDGET_ID
@@ -58,9 +61,17 @@ class SetupActivity : Activity() {
             sendBroadcast(WidgetIntents.refreshIntent(this))
         }
         showSavedState()
+        updates = UpdateSection(this).also { it.onOpen() }
+        if (intent?.action == ACTION_SHOW_UPDATES) scrollToUpdates()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updates.onResume()
     }
 
     override fun onDestroy() {
+        updates.onDestroy()
         tester.shutdown()
         super.onDestroy()
     }
@@ -86,6 +97,7 @@ class SetupActivity : Activity() {
         showSavedState()
         sendBroadcast(WidgetIntents.refreshIntent(this))
         Toast.makeText(this, R.string.saved, Toast.LENGTH_SHORT).show()
+        updates.onTokenChanged()
         if (isConfiguring()) {
             setResult(RESULT_OK, widgetResult())
             finish()
@@ -128,4 +140,14 @@ class SetupActivity : Activity() {
     private fun isConfiguring() = widgetId != AppWidgetManager.INVALID_APPWIDGET_ID
 
     private fun widgetResult() = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+
+    private fun scrollToUpdates() {
+        val scroll = findViewById<ScrollView>(R.id.setup_scroll)
+        scroll.post { scroll.scrollTo(0, findViewById<View>(R.id.update_section).bottom) }
+    }
+
+    companion object {
+        /** Launch action used by the widget's update dot. */
+        const val ACTION_SHOW_UPDATES = "io.github.veganmarshmallow.taskboard.SHOW_UPDATES"
+    }
 }

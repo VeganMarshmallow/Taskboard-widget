@@ -29,7 +29,7 @@ object IssueJsonParser {
         }
     }
 
-    private fun parseIssue(obj: Map<*, *>, index: Int): Issue {
+    internal fun parseIssue(obj: Map<*, *>, index: Int): Issue {
         val number = obj.long("number")?.takeIf { it in 1..Int.MAX_VALUE }?.toInt()
             ?: throw MalformedResponseException("Issue $index has no valid number")
         val state = obj.string("state") ?: throw MalformedResponseException("Issue #$number has no state")
@@ -53,7 +53,7 @@ object IssueJsonParser {
     }.map(Labels::normalize).filter { it.isNotEmpty() }.toSet()
 
     /** GitHub sends UTC ("...Z"); an explicit offset is accepted too (older Android Instant.parse rejects it). */
-    private fun parseInstant(raw: String?, number: Int): Instant? = raw?.let {
+    internal fun parseInstant(raw: String?, number: Int): Instant? = raw?.let {
         try {
             OffsetDateTime.parse(it).toInstant()
         } catch (e: DateTimeParseException) {
