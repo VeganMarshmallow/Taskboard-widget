@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Context
 import io.github.veganmarshmallow.taskboard.R
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
+import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.TabStore
 
 /** Pushes [WidgetViews] to every widget instance and tells the list to reload its rows. */
@@ -15,8 +16,12 @@ class WidgetRenderer(private val context: Context) {
 
     fun widgetIds(): IntArray = manager.getAppWidgetIds(ComponentName(context, BoardWidgetProvider::class.java))
 
-    fun render(state: WidgetState, ids: IntArray = widgetIds()) {
-        for (id in ids) manager.updateAppWidget(id, views.build(state, id, tabs.selected(id, state.board)))
+    fun render(
+        state: WidgetState,
+        ids: IntArray = widgetIds(),
+        updating: Boolean = AppGraph.refreshTracker(context).isUpdating(),
+    ) {
+        for (id in ids) manager.updateAppWidget(id, views.build(state, id, tabs.selected(id, state.board), updating))
         if (ids.isNotEmpty()) manager.notifyAppWidgetViewDataChanged(ids, R.id.board_list)
     }
 

@@ -45,13 +45,11 @@ class BoardEdgeCasesTest {
         }
         val board = build(issues)
         val open = Section.entries.filter { it != Section.DONE }
-        // 500 per status; the 500 in review are in Needs you only, so the In review tab is empty.
-        val listed = open.filter { it != Section.IN_REVIEW }
-        listed.forEach { assertEquals(50, board.section(it).items.size) }
-        listed.forEach { assertEquals(500, board.count(it)) }
-        assertEquals(0, board.count(Section.IN_REVIEW))
+        // 500 per status; the 500 in review are in Needs you.
+        open.forEach { assertEquals(50, board.section(it).items.size) }
+        open.forEach { assertEquals(500, board.count(it)) }
         assertEquals(2000, open.sumOf { board.count(it) }) // every open issue counted exactly once
-        listed.forEach { tab ->
+        open.forEach { tab ->
             val rows = BoardRows.of(board, tab)
             assertEquals(1, rows.count { it is BoardRow.More })
             assertEquals(rows.size, rows.map { it.id }.toSet().size) // ids stay unique at scale
@@ -121,7 +119,6 @@ class BoardEdgeCasesTest {
         assertEquals(listOf(2), board.section(Section.TODO).items.map { it.number })
         assertEquals(listOf(4), board.section(Section.IN_PROGRESS).items.map { it.number })
         assertEquals(listOf(3), board.section(Section.BLOCKED).items.map { it.number })
-        assertEquals(emptyList<Int>(), board.section(Section.IN_REVIEW).items.map { it.number })
         val needsYou = board.section(Section.NEEDS_YOU).items.associate { it.number to it.needsYouReason }
         assertEquals(mapOf(5 to NeedsYouReason.REVIEW, 6 to NeedsYouReason.QUESTION), needsYou)
     }

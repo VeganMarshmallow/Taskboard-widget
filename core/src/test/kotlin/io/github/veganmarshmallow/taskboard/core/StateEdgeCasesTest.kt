@@ -9,18 +9,13 @@ import io.github.veganmarshmallow.taskboard.core.http.HttpClient
 import io.github.veganmarshmallow.taskboard.core.model.Labels
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetStateCodec
-import io.github.veganmarshmallow.taskboard.core.work.RefreshGate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
 
-/** Reviewer-added edge cases: cached state after process death, refresh coalescing, title cleaning. */
+/** Reviewer-added edge cases: cached state after process death, title cleaning. */
 class StateEdgeCasesTest {
     // --- cached state (survives process death through SharedPreferences) --------------------
 
@@ -62,7 +57,7 @@ class StateEdgeCasesTest {
     }
 
     @Test fun decodeOfUnknownTopLevelFieldsStillWorks() {
-        val text = """{"v":2,"future":{"x":1},"board":null,"error":{"k":"Network","extra":true},"attemptedAt":5}"""
+        val text = """{"v":3,"future":{"x":1},"board":null,"error":{"k":"Network","extra":true},"attemptedAt":5}"""
         val state = WidgetStateCodec.decode(text)
         assertEquals(BoardError.Network, state.error)
         assertNull(state.board)
@@ -91,29 +86,6 @@ class StateEdgeCasesTest {
         val state = BoardLoader(FIXED_CLOCK).refresh(WidgetState(null, BoardError.NoToken, NOW), working)
         assertTrue(state.board!!.isEmpty)
         assertNull(state.error)
-    }
-
-    // --- refresh coalescing ----------------------------------------------------------------
-
-    @Test fun gateLetsOneRefreshWaitBehindTheRunningOne() {
-        val gate = RefreshGate()
-        assertTrue(gate.request()) // queued
-        assertFalse(gate.request()) // already waiting: dropped
-        gate.started()
-        assertTrue(gate.request()) // the first is running; one more may wait
-        assertFalse(gate.request())
-    }
-
-    @Test fun gateUnderConcurrentTapsQueuesExactlyOne() {
-        val gate = RefreshGate()
-        val accepted = AtomicInteger()
-        val start = CountDownLatch(1)
-        val pool = Executors.newFixedThreadPool(16)
-        repeat(200) { pool.execute { start.await(); if (gate.request()) accepted.incrementAndGet() } }
-        start.countDown()
-        pool.shutdown()
-        assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS))
-        assertEquals(1, accepted.get())
     }
 
     // --- titles ----------------------------------------------------------------------------

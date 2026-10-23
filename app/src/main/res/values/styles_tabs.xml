@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- One tab's tappable slot. Three share a row. -->
+    <!-- One tab's tappable slot. Three share the first row, two the second. -->
     <style name="WidgetTabSlot">
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">@dimen/tab_height</item>

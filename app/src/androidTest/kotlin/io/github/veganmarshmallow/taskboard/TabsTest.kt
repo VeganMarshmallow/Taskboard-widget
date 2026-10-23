@@ -46,10 +46,41 @@ class TabsTest {
     @Test fun tabsShowShortLabelsWithCounts() {
         val v = apply(realistic, Section.NEEDS_YOU)
         val labels = Section.entries.map { v.shownTab(it).text.toString() }
-        // Needs you is exclusive: the blocked question and the PR are counted there only.
-        assertEquals(listOf("Needs you 2", "Todo 2", "Doing 2", "Blocked 1", "Review 0", "Done 3"), labels)
+        // Needs you is exclusive: the blocked question and the PR are counted there only. No Review tab.
+        assertEquals(listOf("Needs you 2", "Todo 2", "Doing 2", "Blocked 1", "Done 3"), labels)
         assertEquals("Todo: 2", v.tabSlot(Section.TODO).contentDescription.toString())
         assertEquals("Needs you: 2, selected", v.tabSlot(Section.NEEDS_YOU).contentDescription.toString())
+    }
+
+    @Test fun fiveTabsSitInTwoRowsOfThreeAndTwo() {
+        listOf(180, 340).forEach { widthDp ->
+            lateinit var widget: View
+            instrumentation.runOnMainSync { widget = WidgetHost(context).render(realistic, widthDp, 300, Section.TODO).widget }
+            val slots = Section.entries.map { widget.tabSlot(it) }
+            val rows = slots.map { it.parent as View }
+            assertEquals("$widthDp", 2, rows.distinct().size)
+            assertEquals("$widthDp", List(3) { rows[0] } + List(2) { rows[3] }, rows)
+            assertTrue("$widthDp", rows[3].top > rows[0].top)
+            // The second row's two tabs share its width: each is about half the row, wider than a first-row tab.
+            val (blocked, done) = slots[3] to slots[4]
+            assertTrue("$widthDp", Math.abs(blocked.width - done.width) <= 1)
+            assertTrue("$widthDp", blocked.width > slots[0].width)
+            assertTrue("$widthDp: ${blocked.width} of ${rows[3].width}", blocked.width * 2 >= rows[3].width - 8 * context.resources.displayMetrics.density)
+            // Nothing else in the tab rows: the Review tab is gone from the layout.
+            val tabs = widget.findViewById<android.view.ViewGroup>(R.id.tabs)
+            assertEquals(listOf(rows[0], rows[3]), (0 until tabs.childCount).map { tabs.getChildAt(it) })
+            assertEquals(listOf(3, 2), listOf(rows[0], rows[3]).map { (it as android.view.ViewGroup).childCount })
+        }
+    }
+
+    @Test fun aSavedPickOfTheRemovedReviewTabFallsBackToTheDefault() {
+        // A widget set up before the Review tab was removed still has "IN_REVIEW" stored.
+        context.getSharedPreferences("widget_tabs", Context.MODE_PRIVATE).edit().putString("tab_41", "IN_REVIEW").commit()
+        assertEquals(Section.NEEDS_YOU, TabStore(context).selected(41, FakeBoards.realistic())) // has a PR waiting
+        assertEquals(Section.TODO, TabStore(context).selected(41, FakeBoards.emptyWithDone()))
+        assertEquals(Section.TODO, TabStore(context).selected(41, null))
+        val v = apply(realistic, TabStore(context).selected(41, FakeBoards.realistic()))
+        assertTrue(v.isHighlighted(Section.NEEDS_YOU))
     }
 
     @Test fun hugeCountsAreCappedOnTheTabs() {

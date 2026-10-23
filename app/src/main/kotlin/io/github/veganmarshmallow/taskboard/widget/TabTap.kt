@@ -11,8 +11,8 @@ import io.github.veganmarshmallow.taskboard.data.TabStore
 /**
  * A tap on a status tab: remember the pick for that widget and redraw it from the cached board.
  *
- * This is quick local work (no network), so it runs right away in the receiver instead of queueing
- * on [BackgroundWork]'s thread, where it would wait behind a slow refresh. A refresh may save a
+ * This is quick local work (no network), so it runs right away in the receiver instead of being
+ * scheduled as a job ([BoardJobs]), where it could wait behind a slow refresh. A refresh may save a
  * newer board meanwhile; [RenderUntilStable] makes sure the older one is never left on screen.
  */
 object TabTap {

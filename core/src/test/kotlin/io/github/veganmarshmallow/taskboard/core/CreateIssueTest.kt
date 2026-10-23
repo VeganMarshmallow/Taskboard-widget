@@ -10,6 +10,7 @@ import io.github.veganmarshmallow.taskboard.core.task.CreatedIssue
 import io.github.veganmarshmallow.taskboard.core.task.IssueResponseParser
 import io.github.veganmarshmallow.taskboard.core.task.NewIssue
 import io.github.veganmarshmallow.taskboard.core.task.SubmitGuard
+import io.github.veganmarshmallow.taskboard.core.task.CreateErrors
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -74,7 +75,9 @@ class CreateIssueTest {
 
     @Test fun networkFailuresAreNetworkErrors() {
         assertEquals(BoardError.Network, api(FakeHttp().on({ true }) { throw IOException("down") }).createIssue(issue).error())
-        assertEquals(BoardError.Network, api(FakeHttp().on({ true }) { throw SocketTimeoutException() }).createIssue(issue).error())
+        val timedOut = api(FakeHttp().on({ true }) { throw SocketTimeoutException() }).createIssue(issue).error()
+        assertEquals("a slow network is reported as one (#17)", BoardError.Timeout, timedOut)
+        assertTrue("and the form warns it may exist", CreateErrors.mayAlreadyExist(timedOut))
         assertTrue(api(FakeHttp().on({ true }) { throw SecurityException() }).createIssue(issue).error() is BoardError.Unexpected)
     }
 

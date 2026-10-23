@@ -278,4 +278,15 @@ class ScreenshotTest {
         val dark = capture("12-5-final-look-dark", state, heightDp = 330, tab = Section.TODO, host = configured(context, night = true)).rowTexts()
         assertEquals(texts, dark)
     }
+
+    /** #17: a refresh that hung (or died with its process) ends in this instead of "updating…" forever. */
+    @Test fun widgetStaleBoardAfterRefreshTimeout() {
+        val state = WidgetState(FakeBoards.realistic(), BoardError.Timeout, FakeBoards.NOW)
+        val widget = capture("17-widget-refresh-timed-out", state)
+        assertTrue(widget.visible(R.id.error))
+        assertTrue(widget.text(R.id.error).contains("too long"))
+        assertTrue(widget.text(R.id.error).endsWith("tap to retry"))
+        assertTrue(widget.visible(R.id.board_list))
+        assertTrue(widget.text(R.id.updated).startsWith("last updated "))
+    }
 }
