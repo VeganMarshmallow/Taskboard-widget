@@ -171,6 +171,7 @@ class TaskFormEdgeCasesTest {
 
     @Test fun onlyAmbiguousFailuresWarnTheIssueMayExist() {
         assertTrue(CreateErrors.mayAlreadyExist(BoardError.Network))
+        assertTrue("a create that timed out may well have gone through", CreateErrors.mayAlreadyExist(BoardError.Timeout))
         assertTrue(CreateErrors.mayAlreadyExist(BoardError.Server(502)))
         listOf(
             BoardError.NoToken, BoardError.BadToken(401), BoardError.BadToken(403), BoardError.NoAccess,

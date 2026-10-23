@@ -18,9 +18,11 @@ class WidgetViews(private val context: Context) {
     private val time = TimeText(context)
     private val messages = AppGraph.messages(context)
 
-    fun build(state: WidgetState, widgetId: Int): RemoteViews {
+    /** [updating]: a refresh is running right now (never true for a dead one; see RefreshTracker). */
+    fun build(state: WidgetState, widgetId: Int, updating: Boolean = false): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_board)
         bindHeader(views, state)
+        if (updating) views.setTextViewText(R.id.updated, context.getString(R.string.updating))
         bindList(views, state, widgetId)
         bindError(views, state)
         return views
