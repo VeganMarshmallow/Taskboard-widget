@@ -177,6 +177,51 @@ class TagPillsTest {
         val board = io.github.veganmarshmallow.taskboard.core.board.BoardBuilder().build(listOf(issue(2, "status: todo", "type: bug")), NOW)
         assertTrue(TaskPreview.fromBoard(board, 2)!!.tags.isEmpty())
     }
+
+    // --- review of #13 ---
+
+    @Test fun repoFieldOddForms() {
+        assertEquals("site", RepoField.name("### Repo\n   VeganMarshmallow/site   \n"))
+        assertEquals("site", RepoField.name("### Repo\n\n\tVeganMarshmallow/site/\n"))
+        assertEquals("site", RepoField.name("### Repo\nhttps://github.com/VeganMarshmallow/site/tree/main/app/"))
+        assertEquals("site", RepoField.name("### Repo\nHTTPS://WWW.GITHUB.COM/VeganMarshmallow/site"))
+        assertEquals("site", RepoField.name("### Repo\ngit@github.com:VeganMarshmallow/site.git"))
+        assertEquals("site", RepoField.name("### Repository\nVeganMarshmallow/site"))
+        listOf("_No response_", "No response", "_no response_", " ", "VeganMarshmallow/", "/site", "https://github.com/", "https://gitlab.com/o/site")
+            .forEach { assertNull(it, RepoField.name("### Repo\n$it")) }
+    }
+
+    @Test fun noResponseSectionFallsBackToARepoLine() {
+        assertEquals("site", RepoField.name("### Repo\n_No response_\n\n### Notes\nRepo: VeganMarshmallow/site"))
+    }
+
+    @Test fun repoLineInsideCodeIsIgnored() {
+        assertNull(RepoField.name("Example config:\n```yaml\nrepo: someone/else\n```"))
+        assertEquals("real", RepoField.name("```\nRepo: someone/else\n```\nRepo: VeganMarshmallow/real"))
+    }
+
+    @Test fun veryLongAndOddLabelNames() {
+        val long = "type: " + "x".repeat(500)
+        val pills = TagPills.of(mapOf(long to "b60205", "type: " to "000000", "type:   " to null, "type: bug\u202Efix\nnow" to "c5def5"), null)
+        assertEquals(2, pills.size) // empty type names are dropped
+        assertTrue(pills.all { it.text.length <= TagPills.MAX_TEXT })
+        assertTrue(pills.any { it.text.endsWith("…") })
+        assertTrue(pills.none { p -> p.text.any { it == '\u202E' || it == '\n' } }) // one line, no bidi override
+        val hebrew = TagPills.of(mapOf("type: " + "תכונה".repeat(20) to "0e8a16"), null).single()
+        assertTrue(hebrew.text.length <= TagPills.MAX_TEXT)
+        val emoji = TagPills.of(mapOf("type: " + "👩‍💻".repeat(30) to "0e8a16"), null).single()
+        assertTrue(emoji.text.none { Character.isHighSurrogate(it) && emoji.text.indexOf(it) == emoji.text.length - 2 })
+    }
+
+    @Test fun thousandsOfLabelsStayFastAndOrdered() {
+        val labels = (0 until 5_000).associate { "type: t$it" to "%06x".format(it * 3301 % 0xFFFFFF) } + ("status: todo" to "ededed")
+        val start = System.nanoTime()
+        val pills = TagPills.of(labels, "### Repo\no/p")
+        assertTrue(System.nanoTime() - start < 2_000_000_000L)
+        assertEquals(5_001, pills.size)
+        assertEquals(Kind.PROJECT, pills.first().kind)
+        assertTrue(pills.all { it.background.contrastWith(it.textTone.rgb) >= TextTone.MIN_CONTRAST })
+    }
 }
 
 /** Builds single-issue JSON with label colours. */

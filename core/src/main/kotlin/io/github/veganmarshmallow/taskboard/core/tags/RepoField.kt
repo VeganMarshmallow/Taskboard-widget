@@ -1,19 +1,21 @@
 package io.github.veganmarshmallow.taskboard.core.tags
 
+import io.github.veganmarshmallow.taskboard.core.markdown.CodeFence
 import io.github.veganmarshmallow.taskboard.core.markdown.MarkdownBlock
 import io.github.veganmarshmallow.taskboard.core.markdown.MarkdownBlocks
 import io.github.veganmarshmallow.taskboard.core.markdown.MarkdownInline
 import io.github.veganmarshmallow.taskboard.core.markdown.MarkdownSections
 
 /**
- * The task's project repo from its issue body: the `### Repo` section (the issue form's field) or,
- * failing that, a `Repo: owner/name` line. Accepts `owner/name`, a github.com URL, Markdown links
- * and code spans around it, and a trailing `.git`. Returns only the name part, or null.
+ * The task's project repo from its issue body: the `### Repo` (or `### Repository`) section, the
+ * issue form's field, or failing that a `Repo: owner/name` line outside code. Accepts `owner/name`,
+ * a github.com URL (also `git@github.com:`), Markdown links and code spans around it, and a trailing
+ * `.git`. Returns only the name part, or null.
  */
 object RepoField {
-    private const val SECTION = "Repo"
-    private val LINE = Regex("""(?im)^[ \t>*_-]*\**repo(?:sitory)?\**[ \t]*:\**[ \t]*(.+)$""")
-    private val GITHUB_URL = Regex("""(?i)^(?:https?://)?(?:www\.)?github\.com/""")
+    private val SECTIONS = listOf("Repo", "Repository")
+    private val LINE = Regex("""(?i)^[ \t>*_-]*\**repo(?:sitory)?\**[ \t]*:\**[ \t]*(.+)$""")
+    private val GITHUB_URL = Regex("""(?i)^(?:(?:https?://)?(?:www\.)?github\.com/|git@github\.com:)""")
 
     /** GitHub owner and repo names: letters, digits, `-`, `_`, `.`; at most 100 characters. */
     private val OWNER_NAME = Regex("""^([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))/([A-Za-z0-9._-]{1,100})$""")
@@ -22,12 +24,28 @@ object RepoField {
     fun name(body: String?): String? {
         if (body.isNullOrBlank()) return null
         val text = body.take(MAX_INPUT)
-        val section = MarkdownSections.content(MarkdownBlocks.parse(text), SECTION)
+        val blocks = MarkdownBlocks.parse(text)
+        val section = SECTIONS.firstNotNullOfOrNull { MarkdownSections.content(blocks, it) }
         // The whole first line, or just its first word ("owner/name (the new one)").
         section?.firstNotNullOfOrNull(::blockText)?.let { candidate ->
             (parse(candidate) ?: parse(candidate.trim().substringBefore(' ')))?.let { return it }
         }
-        return LINE.findAll(text).firstNotNullOfOrNull { parse(it.groupValues[1]) }
+        return linesOutsideCode(text).firstNotNullOfOrNull { line -> LINE.find(line)?.let { parse(it.groupValues[1]) } }
+    }
+
+    /** A `Repo:` line inside a code example is not the task's repo. */
+    private fun linesOutsideCode(text: String): Sequence<String> = sequence {
+        var fence: String? = null
+        for (line in text.lineSequence()) {
+            val open = fence
+            when {
+                open != null -> if (CodeFence.closes(line, open)) fence = null
+                else -> {
+                    fence = CodeFence.opening(line)
+                    if (fence == null) yield(line)
+                }
+            }
+        }
     }
 
     private fun blockText(block: MarkdownBlock): String? = when (block) {

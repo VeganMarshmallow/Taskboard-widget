@@ -1,5 +1,7 @@
 package io.github.veganmarshmallow.taskboard.core.tags
 
+import io.github.veganmarshmallow.taskboard.core.board.TitleCleaner
+import io.github.veganmarshmallow.taskboard.core.markdown.TextCap
 import io.github.veganmarshmallow.taskboard.core.model.Labels
 
 /**
@@ -37,18 +39,13 @@ object TagPills {
     private fun labelPill(name: String, color: Rgb): TagPill? {
         SPECIAL[name]?.let { (kind, text) -> return TagPill(text, color, kind) }
         val type = name.takeIf { it.startsWith(TYPE_PREFIX) }?.removePrefix(TYPE_PREFIX)?.trim()
-        return type?.takeIf { it.isNotEmpty() }?.let { TagPill(clip(capitalize(it)), color, TagPill.Kind.TYPE) }
+        return type?.let { clip(capitalize(it)) }?.takeIf { it.isNotEmpty() }?.let { TagPill(it, color, TagPill.Kind.TYPE) }
     }
 
     private fun capitalize(s: String) = s.replaceFirstChar { it.titlecase() }
 
-    private fun clip(s: String): String {
-        val one = s.map { if (it.isWhitespace() || it.isISOControl()) ' ' else it }.joinToString("").trim()
-        if (one.length <= MAX_TEXT) return one
-        var end = MAX_TEXT - 1
-        if (Character.isHighSurrogate(one[end - 1])) end--
-        return one.substring(0, end).trimEnd() + "…"
-    }
+    /** One line, no bidi controls or broken UTF-16 (same cleanup as titles), capped with an ellipsis. */
+    private fun clip(s: String): String = TextCap.cap(TitleCleaner.sanitize(s), MAX_TEXT)
 
     const val CREATED_BY_CLAUDE = "created-by-claude"
 }

@@ -51,15 +51,15 @@ class TagColorTest {
         light.forEach { assertEquals(it, TextTone.LIGHT, TextTone.on(Rgb.parse(it)!!)) }
     }
 
-    @Test fun chosenToneAlwaysHasTheBetterContrast() {
+    @Test fun chosenToneAlwaysMeetsWcagAa() {
         var v = 0
         while (v <= 0xFFFFFF) {
             val bg = Rgb(v)
             val tone = TextTone.on(bg)
             val other = if (tone == TextTone.DARK) TextTone.LIGHT else TextTone.DARK
-            assertTrue(bg.hex(), bg.contrastWith(tone.rgb) >= bg.contrastWith(other.rgb))
-            // With black-or-white text the better choice always reaches at least ~4.4:1.
-            assertTrue(bg.hex(), bg.contrastWith(tone.rgb) >= 4.0)
+            // Always WCAG AA, and never the worse tone unless that one also passes AA (white preferred).
+            assertTrue(bg.hex(), bg.contrastWith(tone.rgb) >= TextTone.MIN_CONTRAST)
+            assertTrue(bg.hex(), bg.contrastWith(tone.rgb) >= bg.contrastWith(other.rgb) || tone == TextTone.LIGHT)
             v += 0x010307
         }
     }
@@ -86,7 +86,7 @@ class TagColorTest {
             assertTrue(hue >= 0 && hue < 360)
             val spread = maxOf(c.red, c.green, c.blue) - minOf(c.red, c.green, c.blue)
             assertTrue("$name ${c.hex()}", spread > 80) // never grey
-            assertTrue("$name ${c.hex()}", c.contrastWith(TextTone.on(c).rgb) >= 4.0)
+            assertTrue("$name ${c.hex()}", c.contrastWith(TextTone.on(c).rgb) >= TextTone.MIN_CONTRAST)
         }
     }
 
@@ -97,5 +97,30 @@ class TagColorTest {
         assertEquals(Rgb(0xFF0000), ProjectColor.hsl(360.0, 1.0, 0.5))
         assertEquals(Rgb(0x808080), ProjectColor.hsl(42.0, 0.0, 0.5))
         assertEquals(Rgb.WHITE, ProjectColor.hsl(42.0, 1.0, 1.0))
+    }
+
+    // --- review of #13: boundaries and odd colour strings ---
+
+    @Test fun toneAtTheLuminanceBoundary() {
+        // Find the exact grey where white drops below 4.5:1; one step lighter must switch to black.
+        val greys = (0..255).map { Rgb(it * 0x010101) }
+        val lastWhite = greys.last { TextTone.on(it) == TextTone.LIGHT }
+        val firstBlack = greys.first { TextTone.on(it) == TextTone.DARK }
+        assertEquals(lastWhite.red + 1, firstBlack.red)
+        assertTrue(lastWhite.contrastWith(Rgb.WHITE) >= 4.5)
+        assertTrue(firstBlack.contrastWith(Rgb.WHITE) < 4.5)
+        assertTrue(firstBlack.contrastWith(Rgb.BLACK) >= 4.5)
+        assertEquals(TextTone.LIGHT, TextTone.on(Rgb(0x1D76DB))) // GitHub's blue: white, as on github.com
+        assertEquals(TextTone.LIGHT, TextTone.on(Rgb.BLACK))
+        assertEquals(TextTone.DARK, TextTone.on(Rgb.WHITE))
+    }
+
+    @Test fun shortUppercaseAndPaddedColours() {
+        assertEquals(Rgb(0xAABBCC), Rgb.parse("ABC"))
+        assertEquals(Rgb(0xAABBCC), Rgb.parse("#abc"))
+        assertEquals(Rgb(0x000000), Rgb.parse("000"))
+        assertEquals(Rgb(0xB60205), Rgb.parse("\tB60205\n"))
+        assertEquals(Rgb(0xAABBCC), Rgb.parse("abc ")) // surrounding whitespace is trimmed
+        listOf("##abc", "#abcd", "ab", "abcabc1", "#ggg", "١٢٣٤٥٦").forEach { assertNull(it, Rgb.parse(it)) }
     }
 }

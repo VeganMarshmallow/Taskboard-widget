@@ -76,6 +76,17 @@ object FakePreviews {
             ),
         )
 
+    /** A long project name and a long type label: each pill must fit the row and ellipsize. */
+    fun longTags(): PreviewScreen = PreviewScreen.initial(21, null)
+        .issueLoaded(
+            details(
+                21, "Long label names",
+                "### What should be done\nCheck that very long pills never overflow.\n\n### Repo\n" +
+                    "https://github.com/VeganMarshmallow/an-unusually-long-repository-name-for-testing/",
+                Labels.TODO, "type: infrastructure-and-continuous-integration-maintenance", Labels.PRIORITY_HIGH,
+            ),
+        )
+
     fun justApproved(): PreviewScreen = todoLoaded().approveStarted().approveSucceeded()
 
     /** The task was deleted or moved since the widget loaded: stale row kept, no Approve. */
