@@ -10,6 +10,7 @@ import io.github.veganmarshmallow.taskboard.core.work.TimeLimit
 import io.github.veganmarshmallow.taskboard.core.work.toOutcome
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.StateStore
+import io.github.veganmarshmallow.taskboard.update.UpdateController
 import java.time.Duration
 
 /**
@@ -21,9 +22,13 @@ class WidgetRefresher(private val context: Context) {
     private val runner = AppGraph.refreshRunner(context)
     private val renderer = WidgetRenderer(context)
 
-    fun refresh(): RefreshRunner.Result = renderAfter(runner.run(onStarted = ::onStarted) { previous ->
-        BoardLoader(AppGraph.clock).refresh(previous, AppGraph.apiOrNull(context))
-    })
+    fun refresh(): RefreshRunner.Result {
+        val result = renderAfter(runner.run(onStarted = ::onStarted) { previous ->
+            BoardLoader(AppGraph.clock).refresh(previous, AppGraph.apiOrNull(context))
+        })
+        UpdateController.checkInBackgroundIfDue(context) // queued on its own thread; never delays the board
+        return result
+    }
 
     /** Offline: records "No network" right away instead of waiting on a job that cannot run. */
     fun recordOffline() {

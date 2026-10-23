@@ -41,6 +41,7 @@ class WidgetViews(private val context: Context) {
         // open the app (whose launcher screen is the token setup) when a tap finds no handler.
         // Buttons, list rows and the error banner have their own intents, which take precedence.
         views.setOnClickPendingIntent(ROOT, WidgetIntents.swallowTap(context))
+        UpdateDot.bind(views, context)
         val fetched = state.board?.fetchedAt
         views.setTextViewText(
             R.id.updated,

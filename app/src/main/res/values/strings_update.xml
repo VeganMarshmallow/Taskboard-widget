@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- In-app updates (issue #14). Kept in their own file so other features' string edits don't collide. -->
+<resources>
+    <string name="update_title">App updates</string>
+    <string name="update_check">Check for updates</string>
+    <string name="update_install">Update</string>
+    <string name="update_dot">Update available, open the app</string>
+    <string name="update_note">Updates come from the latest build of VeganMarshmallow/Taskboard-widget. The token needs read access to that repo (step 3 above).</string>
+    <string name="update_permission_title">Allow installing updates</string>
+    <string name="update_permission_message">Android asks before an app installs other apps. To update in-app, turn on \"Allow from this source\" for Claude board on the next screen, then come back. The update starts by itself.</string>
+    <string name="update_permission_open">Open settings</string>
+</resources>

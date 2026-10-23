@@ -21,6 +21,7 @@ object WidgetIntents {
     // 4 was the header title's "open board" intent, removed in #16; not reused, to avoid stale PendingIntents.
     private const val RC_NEW_TASK = 5
     private const val RC_NOOP = 6
+    private const val RC_UPDATES = 14
 
     private const val IMMUTABLE = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
@@ -50,6 +51,13 @@ object WidgetIntents {
         context, RC_NEW_TASK,
         Intent(context, NewTaskActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        IMMUTABLE,
+    )
+
+    /** Opens the app scrolled to the "App updates" card (the widget's update dot). */
+    fun updates(context: Context): PendingIntent = PendingIntent.getActivity(
+        context, RC_UPDATES,
+        Intent(context, SetupActivity::class.java).setAction(SetupActivity.ACTION_SHOW_UPDATES).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         IMMUTABLE,
     )
 
