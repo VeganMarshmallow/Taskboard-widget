@@ -49,13 +49,25 @@ class TabSelectionTest {
 
     @Test fun keysRoundTripAndAreStableNames() {
         Section.entries.forEach { assertEquals(it, TabSelection.parse(TabSelection.key(it))) }
-        assertEquals(listOf("NEEDS_YOU", "TODO", "IN_PROGRESS", "BLOCKED", "IN_REVIEW", "DONE"), Section.entries.map(TabSelection::key))
+        assertEquals(listOf("NEEDS_YOU", "TODO", "IN_PROGRESS", "BLOCKED", "DONE"), Section.entries.map(TabSelection::key))
         assertEquals(Section.DONE, TabSelection.parse("  DONE \n")) // padding tolerated
+    }
+
+    @Test fun aSavedPickOfTheRemovedReviewTabFallsBackToTheDefaultRule() {
+        // Widgets set up before the Review tab was removed may have "IN_REVIEW" stored.
+        assertNull(TabSelection.parse("IN_REVIEW"))
+        assertNull(TabSelection.parse(" IN_REVIEW\n"))
+        val quiet = board(issue(2, Labels.TODO))
+        val waiting = board(issue(2, Labels.TODO), issue(3, Labels.IN_REVIEW))
+        assertEquals(Section.TODO, TabSelection.resolve("IN_REVIEW", quiet))
+        assertEquals(Section.NEEDS_YOU, TabSelection.resolve("IN_REVIEW", waiting)) // the PR waiting is in Needs you
+        assertEquals(Section.TODO, TabSelection.resolve("IN_REVIEW", null))
+        assertEquals(TabSelection.default(waiting), TabSelection.resolve("IN_REVIEW", waiting))
     }
 
     @Test fun malformedOrUnknownKeysFallBackToTheDefault() {
         val busy = board(issue(3, Labels.NEEDS_OWNER))
-        listOf(null, "", "   ", "done", "Todo", "ARCHIVED", "3", "NEEDS_YOU;DROP", "תור", "TODO\u0000", "x".repeat(100_000)).forEach {
+        listOf(null, "", "   ", "done", "Todo", "ARCHIVED", "IN_REVIEW", "in_review", "3", "NEEDS_YOU;DROP", "תור", "TODO\u0000", "x".repeat(100_000)).forEach {
             assertNull(it?.take(20), TabSelection.parse(it))
             assertEquals(it?.take(20), Section.NEEDS_YOU, TabSelection.resolve(it, busy))
             assertEquals(it?.take(20), Section.TODO, TabSelection.resolve(it, null))

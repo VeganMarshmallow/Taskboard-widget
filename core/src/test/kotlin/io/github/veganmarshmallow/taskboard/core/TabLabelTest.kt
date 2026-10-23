@@ -14,7 +14,6 @@ class TabLabelTest {
         assertEquals("Todo 3", TabLabel.of(Section.TODO, 3))
         assertEquals("Doing 0", TabLabel.of(Section.IN_PROGRESS, 0))
         assertEquals("Blocked 1", TabLabel.of(Section.BLOCKED, 1))
-        assertEquals("Review 4", TabLabel.of(Section.IN_REVIEW, 4))
         assertEquals("Done 7", TabLabel.of(Section.DONE, 7))
     }
 

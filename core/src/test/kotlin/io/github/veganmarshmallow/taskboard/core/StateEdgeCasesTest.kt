@@ -62,7 +62,7 @@ class StateEdgeCasesTest {
     }
 
     @Test fun decodeOfUnknownTopLevelFieldsStillWorks() {
-        val text = """{"v":2,"future":{"x":1},"board":null,"error":{"k":"Network","extra":true},"attemptedAt":5}"""
+        val text = """{"v":3,"future":{"x":1},"board":null,"error":{"k":"Network","extra":true},"attemptedAt":5}"""
         val state = WidgetStateCodec.decode(text)
         assertEquals(BoardError.Network, state.error)
         assertNull(state.board)

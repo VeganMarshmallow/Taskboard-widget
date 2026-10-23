@@ -10,7 +10,6 @@ object EmptyText {
         Section.TODO -> R.string.empty_todo
         Section.IN_PROGRESS -> R.string.empty_in_progress
         Section.BLOCKED -> R.string.empty_blocked
-        Section.IN_REVIEW -> R.string.empty_in_review
         Section.DONE -> R.string.empty_done
     }
 }

@@ -28,7 +28,7 @@ class BoardBuilderTest {
     private fun build(vararg issues: io.github.veganmarshmallow.taskboard.core.model.Issue) = builder.build(issues.toList(), NOW)
     private fun Board.numbers(section: Section) = section(section).items.map { it.number }
     private fun Board.allShown() = sections.filter { it.section != Section.DONE }.flatMap { s -> s.items.map { it.number } }.distinct()
-    private val statusTabSections = listOf(Section.TODO, Section.IN_PROGRESS, Section.BLOCKED, Section.IN_REVIEW)
+    private val statusTabSections = listOf(Section.TODO, Section.IN_PROGRESS, Section.BLOCKED)
     private fun Board.statusTabs() = statusTabSections.flatMap { numbers(it) }
 
     @Test fun groupsEachStatusIntoItsSection() {
@@ -39,13 +39,12 @@ class BoardBuilderTest {
         assertEquals(listOf(5, 6), board.numbers(Section.NEEDS_YOU))
         assertEquals(listOf(3), board.numbers(Section.IN_PROGRESS))
         assertEquals(listOf(4), board.numbers(Section.BLOCKED)) // 6 needs you, so it is only there
-        assertEquals(emptyList<Int>(), board.numbers(Section.IN_REVIEW)) // 5 waits for the owner: Needs you only
         assertEquals(listOf(2), board.numbers(Section.TODO))
     }
 
     @Test fun sectionsAlwaysPresentInDisplayOrder() {
         assertEquals(Section.entries.toList(), build().sections.map { it.section })
-        assertEquals(listOf("Needs you", "Todo", "In progress", "Blocked", "In review", "Done"), Section.entries.map { it.title })
+        assertEquals(listOf("Needs you", "Todo", "In progress", "Blocked", "Done"), Section.entries.map { it.title })
     }
 
     @Test fun needsOwnerIsAQuestionWhateverItsStatusAndLeavesItsStatusTab() {
@@ -132,7 +131,6 @@ class BoardBuilderTest {
             issue(6, TODO, IN_PROGRESS, BLOCKED, IN_REVIEW, DONE),
         )
         assertEquals(listOf(4, 6), board.numbers(Section.NEEDS_YOU))
-        assertEquals(emptyList<Int>(), board.numbers(Section.IN_REVIEW))
         assertEquals(listOf(3), board.numbers(Section.BLOCKED))
         assertEquals(listOf(2), board.numbers(Section.IN_PROGRESS))
         assertEquals(listOf(5), board.numbers(Section.TODO))

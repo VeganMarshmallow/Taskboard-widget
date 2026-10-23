@@ -9,7 +9,7 @@ import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.core.board.TabLabel
 
 /**
- * Binds the six status tabs: label with count, highlight on [selected], and a tap that selects the tab.
+ * Binds the five status tabs: label with count, highlight on [selected], and a tap that selects the tab.
  * The highlight shows the slot's highlighted label instead of recolouring one from code, so the
  * launcher keeps resolving the colours itself (they follow a light/dark switch; see widget_tabs.xml).
  */
@@ -43,7 +43,6 @@ class TabViews(private val context: Context) {
             Section.TODO -> Ids(R.id.tab_todo, R.id.tab_todo_label, R.id.tab_todo_selected)
             Section.IN_PROGRESS -> Ids(R.id.tab_in_progress, R.id.tab_in_progress_label, R.id.tab_in_progress_selected)
             Section.BLOCKED -> Ids(R.id.tab_blocked, R.id.tab_blocked_label, R.id.tab_blocked_selected)
-            Section.IN_REVIEW -> Ids(R.id.tab_in_review, R.id.tab_in_review_label, R.id.tab_in_review_selected)
             Section.DONE -> Ids(R.id.tab_done, R.id.tab_done_label, R.id.tab_done_selected)
         }
     }

@@ -19,7 +19,7 @@ import java.time.Instant
  * (old format, corruption) yields [WidgetState.INITIAL], and the next refresh replaces it.
  */
 object WidgetStateCodec {
-    private const val VERSION = 2L // 2: six tabs, Done lists items
+    private const val VERSION = 3L // 2: six tabs, Done lists items. 3: five tabs (no In review)
 
     fun encode(state: WidgetState): String = JsonWriter.write(
         mapOf(
