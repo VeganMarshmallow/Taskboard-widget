@@ -42,10 +42,12 @@ class UpdateScreenshotTest {
         lateinit var root: View
         instrumentation.runOnMainSync {
             val density = context.resources.displayMetrics.density
-            val frame = FrameLayout(context).apply { setBackgroundColor(android.graphics.Color.WHITE) }
+            // The app's theme, as in SetupActivity: without it the card renders in the platform's blue accent.
+            val themed = android.view.ContextThemeWrapper(context, R.style.Theme_Taskboard)
+            val frame = FrameLayout(themed).apply { setBackgroundColor(android.graphics.Color.WHITE) }
             val pad = (16 * density).toInt()
             frame.setPadding(pad, 0, pad, pad)
-            root = LayoutInflater.from(context).inflate(R.layout.section_update, frame, false)
+            root = LayoutInflater.from(themed).inflate(R.layout.section_update, frame, false)
             frame.addView(root)
             UpdateCard(root).bind(presenter.present(status, InstalledVersion.of(context), activity))
             val w = (392 * density).toInt()
