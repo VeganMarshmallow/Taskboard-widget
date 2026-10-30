@@ -2,7 +2,8 @@ package io.github.veganmarshmallow.taskboard
 
 import android.os.Build
 import android.os.Parcel
-import android.widget.FrameLayout
+import android.os.SystemClock
+import android.widget.ListAdapter
 import android.widget.ListView
 import android.widget.RemoteViews
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -17,10 +18,12 @@ import io.github.veganmarshmallow.taskboard.core.board.SectionContent
 import io.github.veganmarshmallow.taskboard.core.board.TitleCleaner
 import io.github.veganmarshmallow.taskboard.core.model.Priority
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
+import io.github.veganmarshmallow.taskboard.data.TabStore
 import io.github.veganmarshmallow.taskboard.widget.RowViews
 import io.github.veganmarshmallow.taskboard.widget.WidgetViews
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
@@ -49,33 +52,60 @@ class InlineListTest {
         }
     }
 
+    /**
+     * Through a real widget host, so the worst-case update also really crosses the binder to the
+     * system and back. (A plain RemoteViews.apply leaves the list's adapter unset on API 35.)
+     */
     @Test fun theInlineAdapterHasEveryRowWithStableIdsAndBothViewTypes() {
         val board = worstCase()
-        val expected = BoardRows.of(board, Section.NEEDS_YOU)
-        val list = applyList(board, Section.NEEDS_YOU)
-        onMain {
-            val adapter = list.adapter
-            assertEquals(BoardBuilder.DEFAULT_MAX_PER_SECTION + 1, adapter.count) // items + "+N more"
-            assertEquals(expected.map { it.id }, (0 until adapter.count).map(adapter::getItemId))
-            assertTrue(adapter.hasStableIds())
-            assertEquals(RowViews.VIEW_TYPE_COUNT, adapter.viewTypeCount)
-            val types = (0 until adapter.count).map(adapter::getItemViewType).toSet()
-            assertEquals("an item row and the more row use different layouts", 2, types.size)
+        val expected = BoardRows.of(board, Section.NEEDS_YOU).map { it.id }
+        withHost(board) { host ->
+            val list = awaitList(host, "the worst-case Needs you rows") { it.count == expected.size }
+            onMain {
+                val adapter = list.adapter
+                assertEquals(BoardBuilder.DEFAULT_MAX_PER_SECTION + 1, adapter.count) // items + "+N more"
+                assertEquals(expected, (0 until adapter.count).map(adapter::getItemId))
+                assertTrue(adapter.hasStableIds())
+                assertEquals(RowViews.VIEW_TYPE_COUNT, adapter.viewTypeCount)
+                val types = (0 until adapter.count).map(adapter::getItemViewType).toSet()
+                assertEquals("an item row and the more row use different layouts", 2, types.size)
+            }
         }
     }
 
     @Test fun anEmptyTabShowsItsSingleEmptyRow() {
         val board = worstCase().let { b -> b.copy(sections = b.sections.map { if (it.section == Section.TODO) SectionContent(Section.TODO, emptyList(), 0) else it }) }
-        val list = applyList(board, Section.TODO)
-        onMain {
-            assertEquals(1, list.adapter.count)
-            assertEquals(BoardRows.of(board, Section.TODO).single().id, list.adapter.getItemId(0))
+        val emptyId = BoardRows.of(board, Section.TODO).single().id
+        withHost(board) { host ->
+            host.tap(Section.TODO)
+            host.awaitHighlighted(Section.TODO, "tap on the empty Todo tab")
+            awaitList(host, "the empty Todo row") { it.count == 1 && it.getItemId(0) == emptyId }
         }
     }
 
-    private fun applyList(board: Board, tab: Section): ListView = onMain {
-        val root = WidgetViews(context).build(WidgetState(board, null, board.fetchedAt), 1, tab).apply(context, FrameLayout(context))
-        root.findViewById<ListView>(R.id.board_list)
+    private fun withHost(board: Board, block: (RealWidgetHost) -> Unit) {
+        val host = RealWidgetHost(instrumentation)
+        try {
+            host.seed(WidgetState(board, null, board.fetchedAt))
+            block(host)
+        } finally {
+            TabStore(context).clear(intArrayOf(host.widgetId))
+            host.close()
+        }
+    }
+
+    /** Waits until the hosted list's adapter matches [ok]; the host applies updates asynchronously. */
+    private fun awaitList(host: RealWidgetHost, what: String, ok: (ListAdapter) -> Boolean): ListView {
+        val deadline = SystemClock.uptimeMillis() + TIMEOUT_MS
+        var last = "no adapter"
+        while (SystemClock.uptimeMillis() < deadline) {
+            val list = onMain { host.view.findViewById<ListView>(R.id.board_list) }
+            val matched = onMain { list?.adapter?.let { a -> last = "${a.count} rows"; ok(a) } ?: false }
+            if (matched) return list
+            SystemClock.sleep(POLL_MS)
+        }
+        fail("timed out waiting for $what (last: $last)")
+        throw AssertionError()
     }
 
     private fun parcelSize(views: RemoteViews): Int {
@@ -116,5 +146,7 @@ class InlineListTest {
     private companion object {
         /** Half the binder transaction limit, so the update has room beside other calls in flight. */
         const val BUDGET_BYTES = 512 * 1024
+        const val TIMEOUT_MS = 10_000L
+        const val POLL_MS = 50L
     }
 }
