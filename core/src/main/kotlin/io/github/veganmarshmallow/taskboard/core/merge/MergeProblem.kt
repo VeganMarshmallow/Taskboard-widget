@@ -37,7 +37,7 @@ sealed class MergeProblem {
     data class ChecksRunning(override val pr: PullRequest, val names: List<String>) : MergeProblem()
     data class ChecksFailed(override val pr: PullRequest, val names: List<String>) : MergeProblem()
 
-    /** No check run passed: none reported, or all were neutral/skipped. */
+    /** No workflow run passed: none reported, or the newest of each were all neutral/skipped. */
     data class NoChecks(override val pr: PullRequest) : MergeProblem()
 
     /** 409: the PR got new commits after it was checked. */
@@ -45,6 +45,9 @@ sealed class MergeProblem {
 
     /** 403/404 from the project repo: the token can't read or merge its PRs. */
     data class NoRepoAccess(val repo: Repo, override val pr: PullRequest? = null) : MergeProblem()
+
+    /** 403/404 from the Actions runs list: the token lacks Actions: Read-only for [repo]. */
+    data class NoActionsAccess(val repo: Repo, override val pr: PullRequest? = null) : MergeProblem()
 
     /** Anything else, using the board's error classification (network, timeout, rate limit, 401, 5xx...). */
     data class Failed(val error: BoardError) : MergeProblem()

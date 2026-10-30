@@ -38,10 +38,11 @@ object FakeMerges {
     """.trimIndent()
 
     /**
-     * Issue #30 in review with Claude's PR link, PR #12 open on main with green checks. [stacked]
-     * puts PR #12 on PR #11's branch instead; [mergeStatus] is what the merge PUT answers.
+     * Issue #30 in review with Claude's PR link, PR #12 open on main with green GitHub Actions runs
+     * (CI failed, then its re-run passed; Lint passed). [stacked] puts PR #12 on PR #11's branch
+     * instead; [mergeStatus] is what the merge PUT answers; [actionsStatus] what the runs list answers.
      */
-    fun script(stacked: Boolean = false, mergeStatus: Int = 200): (String, String) -> FakeGitHubServer.Answer? = { method, path ->
+    fun script(stacked: Boolean = false, mergeStatus: Int = 200, actionsStatus: Int = 200): (String, String) -> FakeGitHubServer.Answer? = { method, path ->
         val board = "/repos/VeganMarshmallow/claude-workspace"
         val repo = "/repos/VeganMarshmallow/Taskboard-widget"
         val pr12 = if (stacked) pullJson(12, base = "claude/11-first") else pullJson(12)
@@ -58,10 +59,19 @@ object FakeMerges {
             }
             path == "$repo/pulls/12" -> FakeGitHubServer.Answer(200, pr12)
             path == "$repo/pulls/11" -> FakeGitHubServer.Answer(200, pr11)
-            path.startsWith("$repo/commits/$SHA/check-runs") -> FakeGitHubServer.Answer(
-                200, """{"total_count":2,"check_runs":[{"name":"build","status":"completed","conclusion":"success"},{"name":"emulator","status":"completed","conclusion":"success"}]}""",
-            )
+            path == "$repo/actions/runs?head_sha=$SHA&per_page=100" -> if (actionsStatus == 200) {
+                FakeGitHubServer.Answer(200, RUNS)
+            } else {
+                FakeGitHubServer.Answer(actionsStatus, """{"message":"Resource not accessible by personal access token"}""")
+            }
             else -> null
         }
     }
+
+    private fun run(id: Int, workflow: Int, name: String, attempt: Int, conclusion: String) =
+        """{"id":$id,"workflow_id":$workflow,"name":"$name","head_sha":"$SHA","run_number":4,"run_attempt":$attempt,""" +
+            """"created_at":"2026-10-30T10:0$attempt:00Z","status":"completed","conclusion":"$conclusion"}"""
+
+    /** CI's first attempt failed and its re-run passed, so only the re-run counts. */
+    private val RUNS = """{"total_count":3,"workflow_runs":[${run(2, 1, "CI", 2, "success")},${run(3, 2, "Lint", 1, "success")},${run(1, 1, "CI", 1, "failure")}]}"""
 }

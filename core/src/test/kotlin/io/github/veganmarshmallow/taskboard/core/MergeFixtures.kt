@@ -38,14 +38,33 @@ fun pullJson(
 
 fun pullsPage(vararg pulls: Map<String, Any?>): String = JsonWriter.write(pulls.toList())
 
-fun checkRunsJson(vararg runs: Triple<String, String, String?>): String = JsonWriter.write(
-    mapOf(
-        "total_count" to runs.size.toLong(),
-        "check_runs" to runs.map { (name, status, conclusion) -> mapOf("name" to name, "status" to status, "conclusion" to conclusion) },
-    ),
+private var nextRunId = 1000L
+
+/**
+ * One GitHub-shaped Actions workflow run. Each workflow name gets its own `workflow_id` unless
+ * [workflow] is given, and every run gets a fresh `id` unless [id] is given.
+ */
+fun wfRun(
+    name: String = "CI",
+    conclusion: String? = "success",
+    status: String = "completed",
+    workflow: Long? = (name.hashCode().toLong() and 0xFFFF) + 1,
+    number: Long? = 1,
+    attempt: Long? = 1,
+    createdAt: String? = "2026-10-30T10:00:00Z",
+    sha: String? = SHA_A,
+    id: Long? = nextRunId++,
+): Map<String, Any?> = mapOf(
+    "id" to id, "name" to name, "workflow_id" to workflow, "head_sha" to sha, "run_number" to number,
+    "run_attempt" to attempt, "created_at" to createdAt, "status" to status, "conclusion" to conclusion,
+    "html_url" to "https://evil.example/run",
 )
 
-fun passed(name: String = "build") = Triple(name, "completed", "success")
+/** `{"total_count": n, "workflow_runs": [...]}`; [total] defaults to the runs on this page. */
+fun runsJson(vararg runs: Map<String, Any?>, total: Long? = runs.size.toLong()): String =
+    JsonWriter.write(mapOf("total_count" to total, "workflow_runs" to runs.toList()))
+
+fun passed(name: String = "CI") = wfRun(name)
 
 fun commentsJson(vararg bodies: String): String = JsonWriter.write(
     bodies.mapIndexed { i, b -> mapOf("id" to (i + 1).toLong(), "body" to b, "created_at" to "2026-10-2${i % 10}T10:00:00Z") },

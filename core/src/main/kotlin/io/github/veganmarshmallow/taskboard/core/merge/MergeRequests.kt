@@ -26,9 +26,10 @@ internal fun GitHubRequests.pull(ref: PullRef): HttpRequest = get("${repoPath(re
 internal fun GitHubRequests.openPulls(repo: Repo): HttpRequest =
     get("${repoPath(repo)}/pulls?state=open&per_page=${GitHubRequests.PER_PAGE}")
 
-internal fun GitHubRequests.checkRuns(repo: Repo, sha: String): HttpRequest {
+/** The GitHub Actions runs on [sha] (task #38). Needs only Actions: Read-only on a fine-grained token. */
+internal fun GitHubRequests.workflowRuns(repo: Repo, sha: String): HttpRequest {
     require(SHA.matches(sha)) { "not a commit SHA" }
-    return get("${repoPath(repo)}/commits/$sha/check-runs?per_page=${GitHubRequests.PER_PAGE}")
+    return get("${repoPath(repo)}/actions/runs?head_sha=$sha&per_page=${GitHubRequests.PER_PAGE}")
 }
 
 /** A merge commit, pinned to the head SHA that was checked: if the PR changed since, GitHub answers 409. */
