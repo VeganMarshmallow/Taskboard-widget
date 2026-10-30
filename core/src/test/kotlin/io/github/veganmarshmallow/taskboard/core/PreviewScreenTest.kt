@@ -3,6 +3,7 @@ package io.github.veganmarshmallow.taskboard.core
 import io.github.veganmarshmallow.taskboard.core.board.BoardBuilder
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.model.Labels
+import io.github.veganmarshmallow.taskboard.core.preview.ClaudeMessage
 import io.github.veganmarshmallow.taskboard.core.preview.IssueComment
 import io.github.veganmarshmallow.taskboard.core.preview.IssueDetails
 import io.github.veganmarshmallow.taskboard.core.preview.PreviewError
@@ -174,8 +175,8 @@ class PreviewScreenTest {
 
     @Test fun commentsSetOrClearTheClaudeLine() {
         val s = PreviewScreen.initial(2, null).commentsLoaded(listOf(IssueComment(1, "⛔ Blocked: why", null)))
-        assertEquals("⛔ Blocked: why", s.claudeLine)
-        assertNull(s.commentsLoaded(emptyList()).claudeLine)
+        assertEquals(ClaudeMessage(null, "⛔ Blocked: why"), s.claudeComment)
+        assertNull(s.commentsLoaded(emptyList()).claudeComment)
     }
 
     @Test fun approveFlow() {
@@ -245,7 +246,7 @@ class PreviewScreenTest {
     @Test fun commentsArrivingAfterAFailedReloadStillShow() {
         val s = PreviewScreen.initial(2, null).issueLoaded(details(2, Labels.TODO)).loadStarted().issueFailed(BoardError.Network)
             .commentsLoaded(listOf(IssueComment(1, "✅ Done", null)))
-        assertEquals("✅ Done", s.claudeLine)
+        assertEquals("✅ Done", s.claudeComment?.body)
         assertEquals("T2", s.task!!.title)
     }
 

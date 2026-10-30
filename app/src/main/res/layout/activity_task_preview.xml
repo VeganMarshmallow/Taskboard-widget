@@ -92,17 +92,75 @@
             android:textDirection="firstStrong"
             android:textSize="14sp" />
 
-        <TextView
+        <!-- Claude's latest comment in full (task #43); the sheet scrolls when it is long. -->
+        <LinearLayout
             android:id="@+id/preview_claude"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textColor="@color/widget_muted"
-            android:textDirection="firstStrong"
-            android:textSize="13sp"
-            android:visibility="gone" />
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/preview_claude_need"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/claude_need_background"
+                android:orientation="vertical"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="8dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/preview_claude_need_label"
+                    android:textColor="@color/widget_accent"
+                    android:textDirection="locale"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/preview_claude_need_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:lineSpacingExtra="2dp"
+                    android:textAlignment="viewStart"
+                    android:textColor="@color/widget_text"
+                    android:textDirection="firstStrong"
+                    android:textSize="14sp" />
+            </LinearLayout>
+
+            <io.github.veganmarshmallow.taskboard.preview.CollapsibleText
+                android:id="@+id/preview_claude_body"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <TextView
+                    android:id="@+id/preview_claude_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:lineSpacingExtra="2dp"
+                    android:textAlignment="viewStart"
+                    android:textColor="@color/widget_muted"
+                    android:textDirection="firstStrong"
+                    android:textSize="13sp" />
+
+                <Button
+                    android:id="@+id/preview_claude_toggle"
+                    style="@android:style/Widget.Material.Button.Borderless.Colored"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="36dp"
+                    android:paddingHorizontal="0dp"
+                    android:text="@string/preview_show_more"
+                    android:textAllCaps="false"
+                    android:visibility="gone" />
+            </io.github.veganmarshmallow.taskboard.preview.CollapsibleText>
+        </LinearLayout>
 
         <TextView
             android:id="@+id/preview_error"

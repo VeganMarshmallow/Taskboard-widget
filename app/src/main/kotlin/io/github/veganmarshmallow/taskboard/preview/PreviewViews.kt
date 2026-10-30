@@ -23,7 +23,7 @@ class PreviewViews(private val root: View, private val messages: ErrorMessages) 
     private val title: TextView = root.findViewById(R.id.preview_title)
     private val tags: FlowLayout = root.findViewById(R.id.preview_tags)
     private val summary: TextView = root.findViewById(R.id.preview_summary)
-    private val claude: TextView = root.findViewById(R.id.preview_claude)
+    private val claude = ClaudeCommentViews(root)
     private val error: TextView = root.findViewById(R.id.preview_error)
     private val approved: View = root.findViewById(R.id.preview_approved)
     private val approve: Button = root.findViewById(R.id.preview_approve)
@@ -39,7 +39,7 @@ class PreviewViews(private val root: View, private val messages: ErrorMessages) 
         progress.visibility = if (screen.loading || screen.approving) View.VISIBLE else View.GONE
         TagPillViews.bind(tags, task?.tags.orEmpty())
         bindSummary(screen.summaryState)
-        claude.showText(screen.claudeLine)
+        claude.bind(screen.claudeComment)
         error.showText(screen.error?.let { errorText(it, screen.number) })
         approved.visibility = if (screen.justApproved) View.VISIBLE else View.GONE
         approve.visibility = if (screen.showApprove || screen.approving) View.VISIBLE else View.GONE

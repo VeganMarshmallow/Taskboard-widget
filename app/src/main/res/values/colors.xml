@@ -11,6 +11,8 @@
     <color name="widget_tab_bg">#E6E7EB</color>
     <color name="widget_badge">#C2410C</color>
     <color name="error">#B42318</color>
+    <!-- The highlighted "What I need from you" box in the preview (task #43). -->
+    <color name="claude_need_bg">#FFF1E8</color>
     <color name="ok">#1F7A3A</color>
     <color name="status_needs_you">#C2410C</color>
     <color name="status_review">#7C3AED</color>

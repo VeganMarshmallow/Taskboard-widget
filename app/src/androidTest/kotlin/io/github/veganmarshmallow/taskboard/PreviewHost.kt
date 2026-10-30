@@ -22,13 +22,15 @@ class PreviewHost(context: Context, fontScale: Float? = null, night: Boolean? = 
 
     class Rendered(val root: View, val sheet: View, val views: PreviewViews)
 
-    fun render(screen: PreviewScreen, widthDp: Int = 380, heightDp: Int = 520): Rendered {
+    /** [prepare] runs on the bound sheet before it is measured, e.g. to tap a toggle. */
+    fun render(screen: PreviewScreen, widthDp: Int = 380, heightDp: Int = 520, prepare: (View) -> Unit = {}): Rendered {
         val density = themed.resources.displayMetrics.density
         val frame = FrameLayout(themed).apply { setBackgroundColor(DIMMED_WALLPAPER) }
         val sheet = LayoutInflater.from(themed).inflate(R.layout.activity_task_preview, frame, false)
         frame.addView(sheet, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
         val views = PreviewViews(sheet, AppGraph.messages(themed))
         views.bind(screen)
+        prepare(sheet)
         val w = (widthDp * density).toInt()
         val h = (heightDp * density).toInt()
         frame.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY))
