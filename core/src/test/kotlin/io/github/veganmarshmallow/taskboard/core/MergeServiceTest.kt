@@ -282,6 +282,15 @@ class MergeServiceTest {
         assertTrue("a re-run in progress is still running", s.prepare().problem() is MergeProblem.ChecksRunning)
     }
 
+    @Test fun aNewerPushRunDoesNotHideAFailedPullRequestRun() {
+        val s = Script()
+        s.checks = runsJson(wfRun("CI", "failure", number = 4, event = "pull_request"), wfRun("CI", "success", number = 5, event = "push"))
+        assertEquals(MergeProblem.ChecksFailed::class, s.prepare().problem()!!::class)
+        s.checks = runsJson(wfRun("CI", sha = null), wfRun("Lint"))
+        assertTrue("a run without head_sha refuses", s.prepare().problem() is MergeProblem.Failed)
+        assertTrue("never merges", s.urls().none { it.startsWith("PUT") })
+    }
+
     @Test fun noChecksOrOnlySkipped() {
         val s = Script()
         s.checks = runsJson()

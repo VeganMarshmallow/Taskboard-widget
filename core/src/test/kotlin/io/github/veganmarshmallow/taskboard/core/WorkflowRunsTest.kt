@@ -21,7 +21,8 @@ class WorkflowRunsTest {
         created: String? = "2026-10-30T10:00:00Z",
         sha: String? = SHA_A,
         id: Long? = ids++,
-    ) = WorkflowRun(id, workflow, name, sha, number, attempt, created?.let(Instant::parse), status, conclusion)
+        event: String? = "push",
+    ) = WorkflowRun(id, workflow, name, sha, number, attempt, created?.let(Instant::parse), status, conclusion, event)
 
     private fun verdict(vararg runs: WorkflowRun) = WorkflowRuns.verdict(runs.toList(), SHA_A)
 
@@ -111,7 +112,38 @@ class WorkflowRunsTest {
     @Test fun runsForAnotherCommitAreIgnored() {
         assertEquals(ChecksVerdict.None, verdict(run("CI", sha = SHA_B)))
         assertEquals(ChecksVerdict.Passed, verdict(run("CI"), run("Lint", "failure", sha = SHA_B)))
-        assertEquals("missing or upper-case SHAs still count", ChecksVerdict.Passed, verdict(run("CI", sha = null), run("Lint", sha = SHA_A.uppercase())))
+        assertEquals("upper-case SHAs still count", ChecksVerdict.Passed, verdict(run("CI"), run("Lint", sha = SHA_A.uppercase())))
+        assertEquals("a run without a SHA can't pass", ChecksVerdict.None, verdict(run("CI", sha = null)))
+        assertEquals(ChecksVerdict.None, verdict(run("CI", sha = "")))
+        assertEquals("a prefix isn't the commit", ChecksVerdict.None, verdict(run("CI", sha = SHA_A.dropLast(1))))
+    }
+
+    // --- events (task #38 review) ---
+
+    @Test fun aGreenPushRunDoesNotHideAFailedPullRequestRunOfTheSameWorkflow() {
+        // Same workflow, same SHA, two triggers: the newer push run must not supersede the pull_request run.
+        val runs = arrayOf(run("CI", "failure", workflow = 1, number = 7, event = "pull_request"), run("CI", workflow = 1, number = 8, event = "push"))
+        assertEquals(2, WorkflowRuns.latest(runs.toList(), SHA_A).size)
+        assertEquals(ChecksVerdict.Failed(listOf("CI")), verdict(*runs))
+        assertEquals(ChecksVerdict.Failed(listOf("CI")), verdict(*runs.reversedArray()))
+    }
+
+    @Test fun aRunningRunFromAnotherEventStillBlocks() {
+        assertEquals(
+            ChecksVerdict.Running(listOf("CI")),
+            verdict(run("CI", null, "in_progress", workflow = 1, number = 3, event = "workflow_dispatch"), run("CI", workflow = 1, number = 9, event = "push")),
+        )
+    }
+
+    @Test fun reRunsAreStillJudgedWithinTheirOwnEvent() {
+        val runs = arrayOf(
+            run("CI", "failure", workflow = 1, number = 7, event = "pull_request"),
+            run("CI", workflow = 1, number = 7, attempt = 2, event = "pull_request"),
+            run("CI", workflow = 1, number = 8, event = "PUSH"),
+            run("CI", "failure", workflow = 1, number = 5, event = "push"),
+        )
+        assertEquals(ChecksVerdict.Passed, verdict(*runs))
+        assertEquals("a missing event is its own group", ChecksVerdict.Failed(listOf("CI")), verdict(run("CI", workflow = 1, number = 9), run("CI", "failure", workflow = 1, number = 2, event = null)))
     }
 
     @Test fun hebrewAndHugeNamesAreKept() {

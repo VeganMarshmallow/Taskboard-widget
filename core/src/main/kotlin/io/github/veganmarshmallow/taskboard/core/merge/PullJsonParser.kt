@@ -29,7 +29,8 @@ object PullJsonParser {
 
     /**
      * `{"total_count": n, "workflow_runs": [...]}` from the Actions runs list. A run without a name
-     * is kept as "workflow"; a missing status is "unknown" (counted as still running), and an
+     * is kept as "workflow"; a run without `head_sha` is malformed (it can't be tied to the commit
+     * being merged); a missing status is "unknown" (counted as still running), and an
      * unreadable `created_at` is null (it only breaks ties between attempts).
      */
     fun parseWorkflowRuns(body: String): WorkflowRunPage {
@@ -42,12 +43,13 @@ object PullJsonParser {
                     id = run.long("id"),
                     workflowId = run.long("workflow_id"),
                     name = run.string("name")?.takeIf { it.isNotBlank() } ?: "workflow",
-                    headSha = run.string("head_sha"),
+                    headSha = run.string("head_sha") ?: throw MalformedResponseException("Workflow run without head_sha"),
                     runNumber = run.long("run_number") ?: 0,
                     runAttempt = run.long("run_attempt") ?: 1,
                     createdAt = run.string("created_at")?.let(::instant),
                     status = run.string("status") ?: "unknown",
                     conclusion = run.string("conclusion"),
+                    event = run.string("event"),
                 )
             },
             obj.long("total_count")?.takeIf { it >= 0 },

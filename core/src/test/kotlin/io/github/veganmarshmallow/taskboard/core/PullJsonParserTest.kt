@@ -86,7 +86,7 @@ class PullJsonParserTest {
     @Test fun workflowRuns() {
         val body = runsJson(
             wfRun("CI", workflow = 7, number = 12, attempt = 2, id = 99),
-            wfRun("Lint", null, "in_progress", workflow = 8, createdAt = "not a date", sha = null),
+            wfRun("Lint", null, "in_progress", workflow = 8, createdAt = "not a date", event = "pull_request"),
             total = 120,
         )
         val page = PullJsonParser.parseWorkflowRuns(body)
@@ -100,11 +100,11 @@ class PullJsonParserTest {
         assertEquals("in_progress", lint.status)
         assertNull(lint.conclusion)
         assertNull("an unreadable time is only a missing tie-breaker", lint.createdAt)
-        assertNull(lint.headSha)
+        assertEquals("push" to "pull_request", ci.event to lint.event)
     }
 
     @Test fun workflowRunsWithMissingFields() {
-        val bare = PullJsonParser.parseWorkflowRuns("""﻿{"workflow_runs":[{},{"name":"  ","run_number":"x"}]}""")
+        val bare = PullJsonParser.parseWorkflowRuns("""﻿{"workflow_runs":[{"head_sha":"$SHA_A"},{"name":"  ","run_number":"x","head_sha":"$SHA_A"}]}""")
         assertNull(bare.totalCount)
         bare.runs.forEach { run ->
             assertEquals("workflow", run.name)
@@ -112,13 +112,18 @@ class PullJsonParserTest {
             assertEquals(0L to 1L, run.runNumber to run.runAttempt)
             assertNull(run.id)
             assertNull(run.workflowId)
+            assertNull(run.event)
         }
         assertNull(PullJsonParser.parseWorkflowRuns("""{"total_count":-1,"workflow_runs":[]}""").totalCount)
         assertEquals(emptyList<Any>(), PullJsonParser.parseWorkflowRuns("""{"total_count":0,"workflow_runs":[]}""").runs)
     }
 
     @Test fun malformedWorkflowRunsAreErrors() {
-        listOf("[]", "{}", """{"workflow_runs":[1]}""", """{"workflow_runs":{}}""", """{"check_runs":[]}""", "x", "").forEach { body ->
+        listOf("[]", "{}", """{"workflow_runs":[1]}""", """{"workflow_runs":{}}""", """{"check_runs":[]}""", "x", "",
+            // A run that can't be tied to a commit refuses the whole list rather than count (task #38 review).
+            """{"workflow_runs":[{"name":"CI","status":"completed","conclusion":"success"}]}""",
+            """{"workflow_runs":[{"name":"CI","head_sha":null,"status":"completed","conclusion":"success"}]}""",
+        ).forEach { body ->
             assertThrows(body, MalformedResponseException::class.java) { PullJsonParser.parseWorkflowRuns(body) }
         }
     }
