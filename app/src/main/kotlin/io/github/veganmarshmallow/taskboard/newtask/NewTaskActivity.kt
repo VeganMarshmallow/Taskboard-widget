@@ -10,14 +10,17 @@ import io.github.veganmarshmallow.taskboard.R
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.task.NewTaskSession
 import io.github.veganmarshmallow.taskboard.core.task.TaskType
+import io.github.veganmarshmallow.taskboard.data.AppGraph
 
 /**
  * The "New task" form, opened from the widget's + button. A thin binder: validation, the draft
  * and the in-flight guard live in [NewTaskSession] (core), the request in [NewTaskController].
- * The draft survives rotation because the session is process-wide, not part of this Activity.
+ * The draft survives rotation because the controller (and its session) is one per process, owned
+ * by [AppGraph], not part of this Activity.
  */
 class NewTaskActivity : Activity() {
-    private val session get() = NewTaskController.session
+    private val controller = AppGraph.newTask
+    private val session get() = controller.session
     private lateinit var form: DraftForm
     private lateinit var submit: Button
     private lateinit var status: TextView
@@ -46,14 +49,14 @@ class NewTaskActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        NewTaskController.listener = ::render
+        controller.listener = ::render
         render()
     }
 
     override fun onPause() {
         // Back, Home and rotation keep what was typed; Cancel and a successful submit clear it.
         if (keepDraft && !session.isSubmitting) session.draft = form.read()
-        NewTaskController.listener = null
+        controller.listener = null
         super.onPause()
     }
 
@@ -63,7 +66,7 @@ class NewTaskActivity : Activity() {
     }
 
     private fun bindRepoField() {
-        repos = RepoSuggestionStore(this)
+        repos = RepoSuggestionStore(this, controller.deps)
         val field = form.repo
         field.setAdapter(repoAdapter)
         field.threshold = 1
@@ -79,7 +82,7 @@ class NewTaskActivity : Activity() {
             is NewTaskSession.Start.Invalid -> form.showErrors(start.errors)
             is NewTaskSession.Start.Send -> {
                 form.showErrors(emptyMap())
-                NewTaskController.send(this, start.issue)
+                controller.send(this, start.issue)
             }
         }
         render()

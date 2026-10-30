@@ -10,6 +10,8 @@ import io.github.veganmarshmallow.taskboard.core.work.RefreshTracker
 import io.github.veganmarshmallow.taskboard.core.work.RetryBackoff
 import io.github.veganmarshmallow.taskboard.core.work.RetryPlanner
 import io.github.veganmarshmallow.taskboard.net.UrlConnectionHttpClient
+import io.github.veganmarshmallow.taskboard.newtask.NewTaskController
+import io.github.veganmarshmallow.taskboard.newtask.NewTaskDeps
 import io.github.veganmarshmallow.taskboard.widget.TimeText
 import java.time.Clock
 import java.time.Duration
@@ -57,4 +59,10 @@ object AppGraph {
 
     /** Null when no token is saved. */
     fun apiOrNull(context: Context): GitHubApi? = TokenStore(context).get()?.let(::api)
+
+    /**
+     * The New task form's controller. One per process, so the draft and an in-flight request
+     * outlive the Activity (rotation). Replaced only by instrumented tests (`NewTaskRule`).
+     */
+    @Volatile var newTask: NewTaskController = NewTaskController(NewTaskDeps.standard(::apiOrNull))
 }
