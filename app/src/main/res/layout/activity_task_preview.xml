@@ -185,7 +185,7 @@
                 android:paddingHorizontal="12dp"
                 android:paddingVertical="8dp"
                 android:scrollbars="vertical"
-                android:textAlignment="viewStart"
+                android:textAlignment="textStart"
                 android:textColor="@color/widget_text"
                 android:textColorHint="@color/widget_muted"
                 android:textDirection="firstStrong"

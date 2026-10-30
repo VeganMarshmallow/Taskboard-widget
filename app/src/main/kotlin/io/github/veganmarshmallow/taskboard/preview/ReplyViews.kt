@@ -75,12 +75,18 @@ class ReplyViews(root: View, private val messages: ErrorMessages) {
     }
 
     private fun failureText(failure: ReplyResult.Failed): String {
-        val reason = messages.message(failure.error)
+        val reason = sentence(messages.message(failure.error))
         return when (failure.step) {
             ReplyStep.COMMENT -> context.getString(R.string.reply_failed, reason) +
                 if (failure.mayHavePosted) " " + context.getString(R.string.reply_may_have_posted) else ""
             ReplyStep.UNBLOCK -> context.getString(R.string.reply_unblock_failed, reason)
         }
+    }
+
+    /** Error messages may or may not end in a full stop; the reply's text adds a sentence after them. */
+    private fun sentence(text: String): String {
+        val last = text.trimEnd().lastOrNull() ?: return text
+        return if (last in SENTENCE_ENDS) text else "$text."
     }
 
     private fun showMessage(text: String, error: Boolean) {
@@ -92,5 +98,6 @@ class ReplyViews(root: View, private val messages: ErrorMessages) {
 
     private companion object {
         const val DISABLED_ALPHA = 0.45f
+        val SENTENCE_ENDS = setOf('.', '!', '?', '…')
     }
 }

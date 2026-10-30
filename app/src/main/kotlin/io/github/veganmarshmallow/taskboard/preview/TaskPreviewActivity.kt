@@ -16,7 +16,6 @@ import io.github.veganmarshmallow.taskboard.core.preview.PreviewScreen
 import io.github.veganmarshmallow.taskboard.core.preview.TaskPreview
 import io.github.veganmarshmallow.taskboard.core.reply.ReplyForm
 import io.github.veganmarshmallow.taskboard.core.reply.ReplyResult
-import io.github.veganmarshmallow.taskboard.core.reply.ReplyStep
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.StateStore
 import io.github.veganmarshmallow.taskboard.merge.MergeFlow
@@ -56,6 +55,7 @@ class TaskPreviewActivity : Activity() {
         findViewById<View>(R.id.preview_merge).setOnClickListener { startMerge() }
         findViewById<View>(R.id.preview_retry).setOnClickListener { onRetry() }
         views.reply.listen(onEdit = ::onReplyEdited, onUnblock = { update(screen.withReply(screen.reply.unblockChecked(it))) }, onSend = ::sendReply)
+        ReplyDrafts.listen(number, onReplyFinished)
 
         val cached = TaskPreview.fromBoard(StateStore(this).load().board, number)
         update(
@@ -81,6 +81,7 @@ class TaskPreviewActivity : Activity() {
 
     override fun onDestroy() {
         if (::worker.isInitialized) worker.close()
+        if (::screen.isInitialized) ReplyDrafts.stopListening(screen.number, onReplyFinished)
         mergeFlow?.close()
         super.onDestroy()
     }
@@ -125,9 +126,12 @@ class TaskPreviewActivity : Activity() {
         ).also { it.start() }
     }
 
-    /** The draft comes back after process death (saved state) or after the sheet was closed ([ReplyDrafts]). */
+    /**
+     * The reply box comes back from [ReplyDrafts] while the process lives (sheet closed and
+     * reopened, or recreated), including a send still running; after process death, from saved state.
+     */
     private fun restoredReply(number: Int, saved: Bundle?): ReplyForm =
-        if (saved == null) ReplyForm(draft = ReplyDrafts.get(number))
+        if (saved == null || ReplyDrafts.knows(number)) ReplyDrafts.form(number)
         else ReplyForm(
             draft = saved.getString(STATE_REPLY_DRAFT).orEmpty(),
             unblock = saved.getBoolean(STATE_REPLY_UNBLOCK, true),
@@ -136,18 +140,22 @@ class TaskPreviewActivity : Activity() {
 
     private fun onReplyEdited(text: String) {
         if (text == screen.reply.draft) return
-        ReplyDrafts.put(screen.number, text)
         update(screen.withReply(screen.reply.edit(text)))
     }
 
-    /** [ReplyForm.start] refuses while a send is in flight, so a double tap posts once. */
+    /**
+     * [ReplyForm.start] refuses while a send is in flight, also one started by an earlier sheet
+     * for this issue ([ReplyDrafts]), so a double tap or a reopened sheet posts once.
+     */
     private fun sendReply() {
         val start = screen.reply.start(screen.offerUnblock) ?: return
         update(screen.withReply(start.form))
-        worker.reply(screen.number, start.action) { result ->
-            update(screen.withReply(screen.reply.finished(result)))
-            if (result !is ReplyResult.Failed || result.step == ReplyStep.UNBLOCK) load()
-        }
+        worker.reply(screen.number, start.action)
+    }
+
+    private val onReplyFinished: (ReplyForm, ReplyResult) -> Unit = { form, result ->
+        update(screen.withReply(form))
+        if (result.posted) load()
     }
 
     private fun onRetry() {
@@ -170,6 +178,7 @@ class TaskPreviewActivity : Activity() {
 
     private fun update(next: PreviewScreen) {
         screen = next
+        ReplyDrafts.remember(next.number, next.reply)
         views.bind(next)
     }
 

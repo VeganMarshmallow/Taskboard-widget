@@ -19,6 +19,9 @@ sealed class ReplyAction {
 enum class ReplyStep { COMMENT, UNBLOCK }
 
 sealed class ReplyResult {
+    /** The comment is on GitHub (only the label change may have failed): refresh, and never post it again. */
+    val posted: Boolean get() = this !is Failed || step == ReplyStep.UNBLOCK
+
     /** Everything asked for was done. [unblocked] is true when the labels were changed too. */
     data class Sent(val unblocked: Boolean) : ReplyResult()
 

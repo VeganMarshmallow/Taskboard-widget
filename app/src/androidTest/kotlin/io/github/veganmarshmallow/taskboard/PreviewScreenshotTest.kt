@@ -155,6 +155,8 @@ class PreviewScreenshotTest {
         assertEquals("כן, ECharts. ה־heatmap חשוב יותר.", v.text(R.id.preview_reply_input))
         val input = v.findViewById<TextView>(R.id.preview_reply_input)
         assertTrue("Hebrew reply lays out right to left", input.layout.getParagraphDirection(0) == android.text.Layout.DIR_RIGHT_TO_LEFT)
+        assertTrue("Hebrew reply starts at the right edge", input.layout.getLineLeft(0) > 0f)
+        assertTrue("the reason ends its sentence", v.text(R.id.preview_reply_message).contains("can't reach GitHub. It may have reached GitHub"))
     }
 
     @Test fun replyDark() {

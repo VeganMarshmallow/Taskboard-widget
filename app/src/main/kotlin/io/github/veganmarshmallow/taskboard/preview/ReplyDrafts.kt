@@ -1,15 +1,10 @@
 package io.github.veganmarshmallow.taskboard.preview
 
+import io.github.veganmarshmallow.taskboard.core.reply.ReplyMemory
+
 /**
- * Unsent reply text per issue (task #44), kept for the app process so a sheet closed by a stray
- * tap outside it reopens with the text still there. Main thread only.
+ * The app process's reply boxes per issue (task #44), shared by every preview sheet so a sheet
+ * closed by a stray tap reopens with its draft, and one closed mid-send can't post twice.
+ * Main thread only.
  */
-object ReplyDrafts {
-    private val drafts = HashMap<Int, String>()
-
-    fun get(issue: Int): String = drafts[issue].orEmpty()
-
-    fun put(issue: Int, text: String) {
-        if (text.isEmpty()) drafts.remove(issue) else drafts[issue] = text
-    }
-}
+val ReplyDrafts = ReplyMemory()

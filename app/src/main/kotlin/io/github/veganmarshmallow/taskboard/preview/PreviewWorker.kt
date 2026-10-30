@@ -59,10 +59,11 @@ class PreviewWorker(context: Context) {
 
     /**
      * Sends a reply (task #44) on the widget's [BackgroundWork] thread like [approve], within
-     * [REPLY_BUDGET], then refreshes the widget the way approve and merge do. A posted
-     * reply clears its [ReplyDrafts] entry.
+     * [REPLY_BUDGET], then refreshes the widget the way approve and merge do. The result goes to
+     * [ReplyDrafts], not to this worker's sheet: it must land even when that sheet was closed
+     * meanwhile, and reach the sheet reopened in its place.
      */
-    fun reply(number: Int, action: ReplyAction, onResult: (ReplyResult) -> Unit) {
+    fun reply(number: Int, action: ReplyAction) {
         BackgroundWork.run(null) {
             val api = AppGraph.apiOrNull(app)
             val result = if (api == null) {
@@ -74,11 +75,8 @@ class PreviewWorker(context: Context) {
                     Timed.TimedOut -> ReplyResult.Failed(stepOf(action), BoardError.Timeout)
                 }
             }
-            val posted = result !is ReplyResult.Failed || result.step == ReplyStep.UNBLOCK
-            if (posted) BoardJobs.refresh(app, RefreshTrigger.MANUAL)
-            // Even when the sheet is gone by now: a posted reply must not come back as a draft.
-            if (posted) main.post { ReplyDrafts.put(number, "") }
-            post { onResult(result) }
+            if (result.posted) BoardJobs.refresh(app, RefreshTrigger.MANUAL)
+            main.post { ReplyDrafts.finished(number, result) }
         }
     }
 
