@@ -125,15 +125,24 @@ class MergeScreenshotTest {
     }
 
     @Test fun tokenAccessRefusal() {
-        val root = captureDialog("30-5-token-access", dialogs.refusal(MergeProblem.NoRepoAccess(FakeMerges.WIDGET), 30), heightDp = 460)
-        assertTrue(lines(root).any { it.contains("Pull requests: Read and write") })
+        val root = captureDialog("38-1-token-access", dialogs.refusal(MergeProblem.NoRepoAccess(FakeMerges.WIDGET), 30), heightDp = 460)
+        assertTrue(lines(root).any { it.contains("Pull requests: Read and write") && it.contains("Actions: Read-only") })
+        assertTrue(lines(root).none { it.contains("Checks") })
+        assertEquals(context.getString(R.string.merge_edit_token), root.text(R.id.merge_primary))
+    }
+
+    @Test fun actionsAccessRefusal() {
+        val root = captureDialog("38-2-actions-access", dialogs.refusal(MergeProblem.NoActionsAccess(FakeMerges.WIDGET), 30), heightDp = 500)
+        assertEquals("Token can't read CI", root.text(R.id.merge_title))
+        assertTrue(lines(root).any { it.contains("add Actions: Read-only") })
         assertEquals(context.getString(R.string.merge_edit_token), root.text(R.id.merge_primary))
     }
 
     @Test fun checksRunningDark() {
-        val dialog = dialogs.refusal(MergeProblem.ChecksRunning(FakeMerges.pr(), listOf("emulator")), 30)
-        val root = captureDialog("30-6-checks-running-dark", dialog, night = true, heightDp = 320)
+        val dialog = dialogs.refusal(MergeProblem.ChecksRunning(FakeMerges.pr(), listOf("CI")), 30)
+        val root = captureDialog("38-3-checks-running-dark", dialog, night = true, heightDp = 320)
         assertEquals("Checks still running", root.text(R.id.merge_title))
+        assertTrue(lines(root).any { it.contains("Wait for workflow CI to finish") })
     }
 
     @Test fun checkingProgress() {
@@ -154,13 +163,14 @@ class MergeScreenshotTest {
             assertTrue(s.startsWith("To merge from the widget"))
             assertTrue(s.contains("Pull requests: Read and write"))
             assertTrue(s.contains("Contents: Read and write"))
-            assertTrue(s.contains("Checks: Read"))
+            assertTrue(s.contains("Actions: Read-only"))
+            assertTrue(!s.contains("Checks") && !s.contains("Commit statuses"))
             assertTrue(s.contains("write access to those repos' code"))
             activity.findViewById<android.widget.ScrollView>(R.id.setup_scroll).scrollTo(0, text.top - 40)
         }
         instrumentation.waitForIdleSync()
         instrumentation.runOnMainSync { bitmap = WidgetHost.toBitmap(activity.window.decorView) }
-        Screenshots.save(context, "30-8-setup-merge-permissions", bitmap!!)
+        Screenshots.save(context, "38-4-setup-merge-permissions", bitmap!!)
         instrumentation.runOnMainSync { activity.finish() }
     }
 

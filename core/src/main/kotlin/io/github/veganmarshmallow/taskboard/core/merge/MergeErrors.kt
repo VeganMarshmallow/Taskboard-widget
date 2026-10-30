@@ -14,12 +14,25 @@ import java.time.Instant
 object MergeErrors {
     private const val MAX_DETAIL = 160
 
-    /** A read (PR, PR list, check runs, repo) in [repo]. Null for 2xx. */
+    /** A read (PR, PR list, repo) in [repo]. Null for 2xx. */
     fun forRead(response: HttpResponse, now: Instant, repo: Repo): MergeProblem? {
         if (response.isSuccessful) return null
         common(response, now)?.let { return it }
         return when (response.status) {
             403, 404 -> MergeProblem.NoRepoAccess(repo)
+            else -> MergeProblem.Failed(classify(response, now))
+        }
+    }
+
+    /**
+     * The Actions runs list. The PR in [repo] was already read, so a 403/404 here means the token
+     * lacks Actions: Read-only for that repo (or Actions is off there). Null for 2xx.
+     */
+    fun forActions(response: HttpResponse, now: Instant, repo: Repo): MergeProblem? {
+        if (response.isSuccessful) return null
+        common(response, now)?.let { return it }
+        return when (response.status) {
+            403, 404 -> MergeProblem.NoActionsAccess(repo)
             else -> MergeProblem.Failed(classify(response, now))
         }
     }

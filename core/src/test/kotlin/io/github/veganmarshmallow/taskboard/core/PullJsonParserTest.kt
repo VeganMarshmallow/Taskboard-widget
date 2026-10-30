@@ -2,7 +2,6 @@ package io.github.veganmarshmallow.taskboard.core
 
 import io.github.veganmarshmallow.taskboard.core.github.MalformedResponseException
 import io.github.veganmarshmallow.taskboard.core.json.JsonWriter
-import io.github.veganmarshmallow.taskboard.core.merge.CheckRun
 import io.github.veganmarshmallow.taskboard.core.merge.PullJsonParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -10,6 +9,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
 
 class PullJsonParserTest {
     private fun parse(map: Map<String, Any?>) = PullJsonParser.parsePull(JsonWriter.write(map), WIDGET)
@@ -83,15 +83,48 @@ class PullJsonParserTest {
         assertThrows(MalformedResponseException::class.java) { PullJsonParser.parsePulls("{}", WIDGET) }
     }
 
-    @Test fun checkRuns() {
-        val page = PullJsonParser.parseCheckRuns(checkRunsJson(passed("build"), Triple("emulator", "in_progress", null)))
-        assertEquals(listOf(CheckRun("build", "completed", "success"), CheckRun("emulator", "in_progress", null)), page.runs)
-        assertEquals(2, page.totalCount)
-        val unnamed = PullJsonParser.parseCheckRuns("""{"check_runs":[{}]}""")
-        assertEquals(CheckRun("check", "unknown", null), unnamed.runs.single())
-        assertNull(unnamed.totalCount)
-        listOf("[]", "{}", """{"check_runs":[1]}""", "x").forEach { body ->
-            assertThrows(MalformedResponseException::class.java) { PullJsonParser.parseCheckRuns(body) }
+    @Test fun workflowRuns() {
+        val body = runsJson(
+            wfRun("CI", workflow = 7, number = 12, attempt = 2, id = 99),
+            wfRun("Lint", null, "in_progress", workflow = 8, createdAt = "not a date", event = "pull_request"),
+            total = 120,
+        )
+        val page = PullJsonParser.parseWorkflowRuns(body)
+        assertEquals(120L, page.totalCount)
+        val ci = page.runs[0]
+        assertEquals(listOf(99L, 7L, 12L, 2L), listOf(ci.id, ci.workflowId, ci.runNumber, ci.runAttempt))
+        assertEquals("CI" to SHA_A, ci.name to ci.headSha)
+        assertEquals(Instant.parse("2026-10-30T10:00:00Z"), ci.createdAt)
+        assertEquals("completed" to "success", ci.status to ci.conclusion)
+        val lint = page.runs[1]
+        assertEquals("in_progress", lint.status)
+        assertNull(lint.conclusion)
+        assertNull("an unreadable time is only a missing tie-breaker", lint.createdAt)
+        assertEquals("push" to "pull_request", ci.event to lint.event)
+    }
+
+    @Test fun workflowRunsWithMissingFields() {
+        val bare = PullJsonParser.parseWorkflowRuns("""﻿{"workflow_runs":[{"head_sha":"$SHA_A"},{"name":"  ","run_number":"x","head_sha":"$SHA_A"}]}""")
+        assertNull(bare.totalCount)
+        bare.runs.forEach { run ->
+            assertEquals("workflow", run.name)
+            assertEquals("unknown", run.status)
+            assertEquals(0L to 1L, run.runNumber to run.runAttempt)
+            assertNull(run.id)
+            assertNull(run.workflowId)
+            assertNull(run.event)
+        }
+        assertNull(PullJsonParser.parseWorkflowRuns("""{"total_count":-1,"workflow_runs":[]}""").totalCount)
+        assertEquals(emptyList<Any>(), PullJsonParser.parseWorkflowRuns("""{"total_count":0,"workflow_runs":[]}""").runs)
+    }
+
+    @Test fun malformedWorkflowRunsAreErrors() {
+        listOf("[]", "{}", """{"workflow_runs":[1]}""", """{"workflow_runs":{}}""", """{"check_runs":[]}""", "x", "",
+            // A run that can't be tied to a commit refuses the whole list rather than count (task #38 review).
+            """{"workflow_runs":[{"name":"CI","status":"completed","conclusion":"success"}]}""",
+            """{"workflow_runs":[{"name":"CI","head_sha":null,"status":"completed","conclusion":"success"}]}""",
+        ).forEach { body ->
+            assertThrows(body, MalformedResponseException::class.java) { PullJsonParser.parseWorkflowRuns(body) }
         }
     }
 

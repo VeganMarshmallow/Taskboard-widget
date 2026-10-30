@@ -28,28 +28,42 @@ class PullsApi(private val api: GitHubApi) {
         parsed?.string("default_branch")?.takeIf { it.isNotEmpty() } ?: throw MalformedResponseException("Repo without a default branch")
     }
 
-    /** Every check run on [sha], following pagination up to [MAX_CHECK_PAGES] pages. */
-    fun checkRuns(repo: Repo, sha: String): MergeStep<List<CheckRun>> {
-        val runs = ArrayList<CheckRun>()
+    /**
+     * Every GitHub Actions run on [sha], following the `Link` header up to [MAX_RUN_PAGES] pages
+     * (only api.github.com links are followed, so the token never leaves GitHub). Runs seen twice
+     * (a new run shifting the pages) are kept once. If GitHub's `total_count` says runs are missing
+     * after the last page, this refuses rather than judge on part of them. A 403/404 here means the
+     * token lacks Actions: Read-only ([MergeProblem.NoActionsAccess]): the PR itself was readable.
+     */
+    fun workflowRuns(repo: Repo, sha: String): MergeStep<List<WorkflowRun>> {
+        val runs = LinkedHashMap<Any, WorkflowRun>()
         var request: HttpRequest = try {
-            api.requests.checkRuns(repo, sha)
+            api.requests.workflowRuns(repo, sha)
         } catch (e: IllegalArgumentException) {
             return MergeStep.Stop(MergeProblem.Failed(BoardError.Unexpected("bad commit SHA")))
         }
-        repeat(MAX_CHECK_PAGES) {
-            val page = when (val step = read(repo, { request }) { it to PullJsonParser.parseCheckRuns(it.body) }) {
+        repeat(MAX_RUN_PAGES) {
+            val step = read(repo, { request }, { MergeErrors.forActions(it, api.clock.instant(), repo) }) {
+                it to PullJsonParser.parseWorkflowRuns(it.body)
+            }
+            val (response, page) = when (step) {
                 is MergeStep.Stop -> return step
                 is MergeStep.Ok -> step.value
             }
-            runs += page.second.runs
-            val next = LinkHeader.nextUrl(page.first.header("link")) ?: return MergeStep.Ok(runs)
+            page.runs.forEach { run -> runs.putIfAbsent(run.id ?: Any(), run) }
+            val next = LinkHeader.nextUrl(response.header("link"))
+            if (next == null) {
+                val total = page.totalCount ?: return MergeStep.Ok(runs.values.toList())
+                return if (runs.size >= total) MergeStep.Ok(runs.values.toList())
+                else MergeStep.Stop(MergeProblem.Failed(BoardError.Unexpected("GitHub listed $total workflow runs but sent ${runs.size}")))
+            }
             request = try {
                 api.requests.page(next)
             } catch (e: IllegalArgumentException) {
                 return MergeStep.Stop(MergeProblem.Failed(BoardError.Unexpected("bad pagination link")))
             }
         }
-        return MergeStep.Stop(MergeProblem.Failed(BoardError.Unexpected("more than ${MAX_CHECK_PAGES * 100} check runs")))
+        return MergeStep.Stop(MergeProblem.Failed(BoardError.Unexpected("more than ${MAX_RUN_PAGES * 100} workflow runs")))
     }
 
     /** Merges [pr] at its checked head SHA. Never retried: a lost response may still mean it merged. */
@@ -65,7 +79,15 @@ class PullsApi(private val api: GitHubApi) {
         }
     }
 
-    private fun <T> read(repo: Repo, build: () -> HttpRequest, parse: (HttpResponse) -> T): MergeStep<T> {
+    private fun <T> read(repo: Repo, build: () -> HttpRequest, parse: (HttpResponse) -> T): MergeStep<T> =
+        read(repo, build, { MergeErrors.forRead(it, api.clock.instant(), repo) }, parse)
+
+    private fun <T> read(
+        repo: Repo,
+        build: () -> HttpRequest,
+        errors: (HttpResponse) -> MergeProblem?,
+        parse: (HttpResponse) -> T,
+    ): MergeStep<T> {
         val request = try {
             build()
         } catch (e: IllegalArgumentException) {
@@ -75,7 +97,7 @@ class PullsApi(private val api: GitHubApi) {
             is Outcome.Failure -> return MergeStep.Stop(MergeProblem.Failed(sent.error))
             is Outcome.Success -> sent.value
         }
-        MergeErrors.forRead(response, api.clock.instant(), repo)?.let { return MergeStep.Stop(it) }
+        errors(response)?.let { return MergeStep.Stop(it) }
         return try {
             MergeStep.Ok(parse(response))
         } catch (e: MalformedResponseException) {
@@ -84,6 +106,6 @@ class PullsApi(private val api: GitHubApi) {
     }
 
     companion object {
-        const val MAX_CHECK_PAGES = 3
+        const val MAX_RUN_PAGES = 3
     }
 }

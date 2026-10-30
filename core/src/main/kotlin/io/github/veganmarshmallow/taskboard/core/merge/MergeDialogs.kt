@@ -69,9 +69,10 @@ class MergeDialogs(private val messages: ErrorMessages, private val board: Repo 
             is MergeProblem.MergeabilityUnknown -> refuse("Not ready yet", "GitHub is still working out whether PR #${problem.pr.number} can be merged. Try again in a minute.")
             is MergeProblem.ChecksRunning -> refuse("Checks still running", "Wait for ${names(problem.names)} to finish, then try again.")
             is MergeProblem.ChecksFailed -> refuse("Checks failed", "${names(problem.names).replaceFirstChar { it.uppercase() }} failed on PR #${problem.pr.number}.")
-            is MergeProblem.NoChecks -> refuse("No checks passed", "No check run has passed on PR #${problem.pr.number} (none reported yet, or all skipped).")
+            is MergeProblem.NoChecks -> refuse("No checks passed", "No workflow run has passed on PR #${problem.pr.number} (none reported yet, or all skipped).")
             is MergeProblem.HeadChanged -> refuse("PR changed; check again", "PR #${problem.pr.number} got new commits after it was checked. Nothing was merged.")
             is MergeProblem.NoRepoAccess -> noAccess(problem.repo)
+            is MergeProblem.NoActionsAccess -> noActionsAccess(problem.repo)
             is MergeProblem.Failed -> failed(problem.error, link)
         }
     }
@@ -109,7 +110,19 @@ class MergeDialogs(private val messages: ErrorMessages, private val board: Repo 
         listOf(
             "The token can't reach ${repo.fullName}'s pull requests. On GitHub, edit the token:",
             "1. Repository access: add ${repo.name}",
-            "2. Permissions: Pull requests: Read and write, Contents: Read and write, Checks: Read",
+            "2. Permissions: $PERMISSIONS",
+            "3. Save. The token itself doesn't change, so nothing to paste again.",
+        ),
+        primary = MergeButton.EDIT_TOKEN, secondary = MergeButton.CLOSE, link = TOKEN_SETTINGS,
+    )
+
+    /** The PR was readable but its CI result wasn't: only the Actions permission is missing. */
+    private fun noActionsAccess(repo: Repo) = MergeDialog(
+        MergeDialog.Kind.REFUSAL, "Token can't read CI",
+        listOf(
+            "The token can't read ${repo.fullName}'s GitHub Actions runs, so the checks can't be confirmed. On GitHub, edit the token:",
+            "1. Repository access: keep ${repo.name}",
+            "2. Permissions: add Actions: Read-only (all of them: $PERMISSIONS)",
             "3. Save. The token itself doesn't change, so nothing to paste again.",
         ),
         primary = MergeButton.EDIT_TOKEN, secondary = MergeButton.CLOSE, link = TOKEN_SETTINGS,
@@ -127,12 +140,15 @@ class MergeDialogs(private val messages: ErrorMessages, private val board: Repo 
     private fun names(all: List<String>): String {
         val shown = all.take(MAX_NAMES).joinToString(", ") { TitleCleaner.clean(it, NAME_MAX) }
         val more = all.size - MAX_NAMES
-        val label = if (all.size == 1) "check" else "checks"
+        val label = if (all.size == 1) "workflow" else "workflows"
         return if (more > 0) "$label $shown and $more more" else "$label $shown"
     }
 
     companion object {
         const val TOKEN_SETTINGS = "https://github.com/settings/personal-access-tokens"
+
+        /** What merging needs on a fine-grained token (task #38: Actions replaced Checks, which such tokens lack). */
+        const val PERMISSIONS = "Contents: Read and write, Pull requests: Read and write, Actions: Read-only"
         private const val TITLE_MAX = 200
         private const val NAME_MAX = 60
         private const val MAX_NAMES = 3

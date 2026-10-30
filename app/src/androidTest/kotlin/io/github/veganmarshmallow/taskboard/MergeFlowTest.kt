@@ -85,6 +85,10 @@ class MergeFlowTest {
         val s = serve(FakeMerges.script())
         val pr = (service().prepare(30) as MergeStep.Ok).value
         assertEquals(12, pr.number)
+        val runs = s.received.single { it.path.contains("/actions/runs") }
+        assertEquals("/repos/VeganMarshmallow/Taskboard-widget/actions/runs?head_sha=${FakeMerges.SHA}&per_page=100", runs.path)
+        assertEquals("Bearer github_pat_TESTONLY", runs.authorization)
+        assertTrue("no Checks permission needed", s.received.none { it.path.contains("check-runs") })
         assertEquals(FakeMerges.SHA, pr.headSha)
         assertTrue(service().merge(pr) is MergeStep.Ok)
         val put = s.received.single { it.method == "PUT" }
@@ -98,6 +102,12 @@ class MergeFlowTest {
         val s = serve(FakeMerges.script(stacked = true))
         val problem = (service().prepare(30) as MergeStep.Stop).problem as MergeProblem.Stacked
         assertEquals(11, problem.blocker)
+        assertTrue(s.received.none { it.method == "PUT" })
+    }
+
+    @Test fun missingActionsPermissionIsNamedAndNeverMerges() {
+        val s = serve(FakeMerges.script(actionsStatus = 403))
+        assertEquals(MergeProblem.NoActionsAccess(FakeMerges.WIDGET), (service().prepare(30) as MergeStep.Stop).problem)
         assertTrue(s.received.none { it.method == "PUT" })
     }
 

@@ -59,6 +59,7 @@ class MergeDialogsTest {
         assertEquals("PR changed; check again", refusal(MergeProblem.HeadChanged(pr(1))).title)
         assertEquals("Already merged", refusal(MergeProblem.AlreadyMerged(pr(1))).title)
         assertEquals("Token can't merge here", refusal(MergeProblem.NoRepoAccess(WIDGET)).title)
+        assertEquals("Token can't read CI", refusal(MergeProblem.NoActionsAccess(WIDGET)).title)
     }
 
     @Test fun conflictsIncludeGitHubsMessage() {
@@ -67,9 +68,10 @@ class MergeDialogsTest {
     }
 
     @Test fun checkNamesAreListedAndCapped() {
-        assertEquals("Wait for check emulator to finish, then try again.", refusal(MergeProblem.ChecksRunning(pr(1), listOf("emulator"))).lines[0])
+        assertEquals("Wait for workflow CI to finish, then try again.", refusal(MergeProblem.ChecksRunning(pr(1), listOf("CI"))).lines[0])
         val many = refusal(MergeProblem.ChecksFailed(pr(1), listOf("a", "b", "c", "d", "e"))).lines[0]
-        assertEquals("Checks a, b, c and 2 more failed on PR #1.", many)
+        assertEquals("Workflows a, b, c and 2 more failed on PR #1.", many)
+        assertEquals("No workflow run has passed on PR #1 (none reported yet, or all skipped).", refusal(MergeProblem.NoChecks(pr(1))).lines[0])
     }
 
     @Test fun tokenStepsArePrecise() {
@@ -79,9 +81,22 @@ class MergeDialogsTest {
         assertTrue(text.contains("Repository access: add site"))
         assertTrue(text.contains("Pull requests: Read and write"))
         assertTrue(text.contains("Contents: Read and write"))
-        assertTrue(text.contains("Checks: Read"))
-        // The app only reads check runs, so Commit statuses alone would not be enough.
-        assertTrue(!text.contains("Commit statuses"))
+        assertTrue(text.contains("Actions: Read-only"))
+        // Fine-grained tokens have no Checks permission (task #38): the app reads Actions runs instead.
+        assertTrue(!text.contains("Checks") && !text.contains("Commit statuses"))
+        assertEquals(MergeButton.EDIT_TOKEN, d.primary)
+        assertEquals(MergeDialogs.TOKEN_SETTINGS, d.link)
+    }
+
+    @Test fun missingActionsPermissionSaysExactlyWhatToAdd() {
+        val d = refusal(MergeProblem.NoActionsAccess(Repo("VeganMarshmallow", "site")))
+        val text = d.lines.joinToString("\n")
+        assertEquals("Token can't read CI", d.title)
+        assertTrue(text.contains("VeganMarshmallow/site's GitHub Actions runs"))
+        assertTrue(text.contains("Repository access: keep site"))
+        assertTrue(text.contains("add Actions: Read-only"))
+        assertTrue(text.contains("Contents: Read and write, Pull requests: Read and write, Actions: Read-only"))
+        assertTrue(!text.contains("Checks") && !text.contains("Commit statuses"))
         assertEquals(MergeButton.EDIT_TOKEN, d.primary)
         assertEquals(MergeDialogs.TOKEN_SETTINGS, d.link)
     }
@@ -135,7 +150,7 @@ class MergeDialogsTest {
             MergeProblem.NotFound, MergeProblem.Ambiguous(listOf(pr(1))), MergeProblem.NotLinked(listOf(pr(1), pr(2))), MergeProblem.AlreadyMerged(pr(1)), MergeProblem.Closed(pr(1)),
             MergeProblem.Draft(pr(1)), MergeProblem.Stacked(pr(1, base = "x"), null), MergeProblem.Conflicts(pr(1)),
             MergeProblem.MergeabilityUnknown(pr(1)), MergeProblem.ChecksRunning(pr(1), listOf("a")),
-            MergeProblem.ChecksFailed(pr(1), listOf("a")), MergeProblem.NoChecks(pr(1)), MergeProblem.HeadChanged(pr(1)),
+            MergeProblem.ChecksFailed(pr(1), listOf("a")), MergeProblem.NoChecks(pr(1)), MergeProblem.HeadChanged(pr(1)), MergeProblem.NoActionsAccess(WIDGET),
             MergeProblem.NoRepoAccess(WIDGET), MergeProblem.Failed(BoardError.Timeout),
         ).forEach { p ->
             val d = refusal(p)
