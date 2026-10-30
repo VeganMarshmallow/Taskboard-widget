@@ -68,14 +68,21 @@ class MarkdownTest {
         assertEquals(listOf(Heading(3, "H"), Paragraph("x y")), MarkdownBlocks.parse("### H\r\nx\ry"))
     }
 
-    @Test fun fencedCodeIsDroppedIncludingUnclosed() {
+    @Test fun fencedCodeKeepsItsRawLinesIncludingUnclosed() {
         assertEquals(
-            listOf(Paragraph("before"), MarkdownBlock.Code, Paragraph("after")),
+            listOf(Paragraph("before"), MarkdownBlock.Code("# not a heading\nval x = 1"), Paragraph("after")),
             MarkdownBlocks.parse("before\n```kotlin\n# not a heading\nval x = 1\n```\nafter"),
         )
-        assertEquals(listOf(MarkdownBlock.Code), MarkdownBlocks.parse("~~~\ncode\n### nope"))
+        assertEquals(listOf(MarkdownBlock.Code("code\n### nope")), MarkdownBlocks.parse("~~~\ncode\n### nope"))
         // A shorter closing fence does not close a longer one.
-        assertEquals(listOf(MarkdownBlock.Code, Paragraph("x")), MarkdownBlocks.parse("````\n```\n````\nx"))
+        assertEquals(listOf(MarkdownBlock.Code("```"), Paragraph("x")), MarkdownBlocks.parse("````\n```\n````\nx"))
+        assertEquals(listOf(MarkdownBlock.Code("")), MarkdownBlocks.parse("```\n```"))
+        assertEquals(listOf(MarkdownBlock.Code("a\n\nb")), MarkdownBlocks.parse("```\r\na\r\n\r\nb\r\n```"))
+    }
+
+    @Test fun hugeCodeBlockIsCapped() {
+        val code = MarkdownBlocks.parse("```\n" + "x".repeat(30_000) + "\n" + "y\n".repeat(30_000) + "```").single() as MarkdownBlock.Code
+        assertEquals(10_000, code.text.length)
     }
 
     @Test fun inlineTripleBackticksAreNotAFence() {

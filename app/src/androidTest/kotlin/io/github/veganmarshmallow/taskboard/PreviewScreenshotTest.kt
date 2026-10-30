@@ -22,10 +22,11 @@ class PreviewScreenshotTest {
         heightDp: Int = 420,
         widthDp: Int = 380,
         host: () -> PreviewHost = { PreviewHost(context) },
+        prepare: (View) -> Unit = {},
     ): View {
         lateinit var sheet: View
         instrumentation.runOnMainSync {
-            val rendered = host().render(screen, widthDp = widthDp, heightDp = heightDp)
+            val rendered = host().render(screen, widthDp = widthDp, heightDp = heightDp, prepare = prepare)
             sheet = rendered.sheet
             Screenshots.save(context, name, WidgetHost.toBitmap(rendered.root))
         }
@@ -46,7 +47,7 @@ class PreviewScreenshotTest {
 
     @Test fun blockedWithClaudeComment() {
         val v = capture("11-2-preview-blocked-claude-line", FakePreviews.blockedWithClaudeLine())
-        assertTrue(v.text(R.id.preview_claude).startsWith("⛔ Blocked: Chart.js"))
+        assertTrue(v.text(R.id.preview_claude_text).startsWith("⛔ Blocked: Chart.js"))
         assertEquals("Blocked: waiting on you", v.text(R.id.preview_status)) // #34
         assertTrue(!v.visible(R.id.preview_approve))
     }
@@ -101,6 +102,46 @@ class PreviewScreenshotTest {
         // The chip keeps readable text at night (it used to turn dark-on-dark).
         val chip = v.findViewById<TextView>(R.id.preview_status)
         assertTrue(contrast(chip.currentTextColor, chip.backgroundTintList!!.defaultColor) >= 4.5)
+    }
+
+    // --- task #43: Claude's full latest comment ---
+
+    @Test fun longClaudeCommentCollapsed() {
+        val v = capture("43-1-preview-claude-comment-collapsed", FakePreviews.blockedWithLongComment(), heightDp = 640)
+        assertTrue(v.visible(R.id.preview_claude_need))
+        assertTrue(v.text(R.id.preview_claude_need_text).startsWith("add a DEPLOY_KEY secret"))
+        assertEquals(4, v.findViewById<TextView>(R.id.preview_claude_text).maxLines)
+        assertEquals(context.getString(R.string.preview_show_more), v.text(R.id.preview_claude_toggle))
+    }
+
+    @Test fun longClaudeCommentExpanded() {
+        val v = capture(
+            "43-2-preview-claude-comment-expanded", FakePreviews.blockedWithLongComment(), heightDp = 760,
+            prepare = { it.findViewById<View>(R.id.preview_claude_toggle).performClick() },
+        )
+        assertEquals(Int.MAX_VALUE, v.findViewById<TextView>(R.id.preview_claude_text).maxLines)
+        assertEquals(context.getString(R.string.preview_show_less), v.text(R.id.preview_claude_toggle))
+        assertTrue(v.text(R.id.preview_claude_text).contains("ready apart from deploying"))
+    }
+
+    @Test fun hebrewClaudeCommentRtl() {
+        val v = capture("43-3-preview-claude-comment-hebrew", FakePreviews.hebrewBlockedComment(), heightDp = 640)
+        assertTrue(v.text(R.id.preview_claude_need_text).startsWith("כתובת ה־API"))
+        val body = v.findViewById<TextView>(R.id.preview_claude_text)
+        assertTrue("Hebrew comment lays out right to left", body.layout.getParagraphDirection(0) == android.text.Layout.DIR_RIGHT_TO_LEFT)
+    }
+
+    @Test fun hebrewClaudeCommentDark() {
+        val v = capture(
+            "43-4-preview-claude-comment-hebrew-dark", FakePreviews.hebrewBlockedComment(), heightDp = 640,
+            host = { PreviewHost(context, night = true) },
+        )
+        val need = v.findViewById<TextView>(R.id.preview_claude_need_text)
+        assertTrue(contrast(need.currentTextColor, context.createConfigurationContext(nightConfig()).getColor(R.color.claude_need_bg)) >= 4.5)
+    }
+
+    private fun nightConfig() = android.content.res.Configuration(context.resources.configuration).apply {
+        uiMode = (uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK.inv()) or android.content.res.Configuration.UI_MODE_NIGHT_YES
     }
 
     private fun contrast(a: Int, b: Int): Double {

@@ -142,7 +142,7 @@ class PreviewApiTest {
             .on({ it.url == second }) { ok(commentsJson("⛔ newest")) }
             .on({ true }) { ok(commentsJson("🤖 old"), "link" to "<$second>; rel=\"next\", <$second>; rel=\"last\"") }
         val comments = (preview(http).fetchRecentComments(7) as Outcome.Success).value
-        assertEquals("⛔ newest", ClaudeComments.latestLine(comments))
+        assertEquals("⛔ newest", ClaudeComments.latestMessage(comments)?.body)
         assertEquals(2, http.requests.size)
     }
 

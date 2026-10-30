@@ -9,7 +9,7 @@ import io.github.veganmarshmallow.taskboard.core.error.BoardError
  * - [task] is null only while nothing is known (not cached and not loaded yet, or the load failed).
  * - [loading] is true while the issue is being (re)loaded.
  * - [error] is the latest failure of the issue load or of an approval; a stale [task] stays visible.
- * - [claudeLine] is the latest Claude comment; comment failures just leave it null.
+ * - [claudeComment] is the latest Claude comment in full (task #43); comment failures just leave it null.
  * - [approving] hides the Approve button while an approval runs; [justApproved] shows a confirmation.
  * - [justMerged] shows that the owner merged the task's PR from here (task #30) and hides Merge.
  */
@@ -18,7 +18,7 @@ data class PreviewScreen(
     val task: TaskPreview?,
     val loading: Boolean,
     val error: PreviewError? = null,
-    val claudeLine: String? = null,
+    val claudeComment: ClaudeMessage? = null,
     val approving: Boolean = false,
     val justApproved: Boolean = false,
     val justMerged: Boolean = false,
@@ -55,7 +55,7 @@ data class PreviewScreen(
     /** A deleted or transferred issue keeps its stale row for context, but can no longer be approved. */
     fun issueFailed(error: BoardError) = copy(loading = false, error = PreviewError.Load(error), task = taskAfter(error))
 
-    fun commentsLoaded(comments: List<IssueComment>) = copy(claudeLine = ClaudeComments.latestLine(comments))
+    fun commentsLoaded(comments: List<IssueComment>) = copy(claudeComment = ClaudeComments.latestMessage(comments))
 
     fun approveStarted() = copy(approving = true, error = null, justApproved = false)
 

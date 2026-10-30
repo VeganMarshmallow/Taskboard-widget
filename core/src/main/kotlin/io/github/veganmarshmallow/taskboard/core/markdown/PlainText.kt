@@ -1,7 +1,9 @@
 package io.github.veganmarshmallow.taskboard.core.markdown
 
 /**
- * Joins Markdown blocks into one line of plain text. Blocks that already end in punctuation are
+ * Turns Markdown blocks into plain text: [of] joins them into one line, [lines] keeps one line per block.
+ *
+ * [of] joins Markdown blocks into one line of plain text. Blocks that already end in punctuation are
  * joined with a space; otherwise a list item is followed by "; " and other blocks by ". ", so a
  * bullet list reads as a sentence. Rules and code blocks are skipped.
  *
@@ -10,6 +12,9 @@ package io.github.veganmarshmallow.taskboard.core.markdown
  */
 object PlainText {
     const val MAX_OUTPUT = 2_000
+    /** [lines] stops reading blocks past this many characters. */
+    const val MAX_LINES_OUTPUT = 10_000
+    const val BULLET = "• "
     private const val ENDS_SENTENCE = ".!?:;,…—–-׃"
     private const val CLOSERS = "\"')]}»”’"
 
@@ -18,13 +23,7 @@ object PlainText {
         var previousWasItem = false
         for (block in blocks) {
             if (out.length >= MAX_OUTPUT) break
-            val text = when (block) {
-                is MarkdownBlock.Heading -> block.text
-                is MarkdownBlock.Paragraph -> block.text
-                is MarkdownBlock.ListItem -> block.text
-                MarkdownBlock.Rule, MarkdownBlock.Code -> continue
-            }.let(MarkdownInline::strip)
-            if (text.isEmpty()) continue
+            val text = visibleText(block) ?: continue
             if (out.isNotEmpty()) out.append(separatorAfter(out, previousWasItem))
             out.append(text)
             previousWasItem = block is MarkdownBlock.ListItem
@@ -33,6 +32,30 @@ object PlainText {
     }
 
     fun of(markdown: String): String = of(MarkdownBlocks.parse(markdown))
+
+    /**
+     * One line per block, list items starting with [BULLET], code blocks as their raw lines; rules are skipped.
+     * No further blocks are read once the output reaches [maxLength] characters.
+     */
+    fun lines(blocks: List<MarkdownBlock>, maxLength: Int = MAX_LINES_OUTPUT): String {
+        val out = StringBuilder()
+        for (block in blocks) {
+            if (out.length >= maxLength) break
+            val text = (if (block is MarkdownBlock.Code) block.text.takeIf { it.isNotBlank() } else visibleText(block)) ?: continue
+            if (out.isNotEmpty()) out.append('\n')
+            if (block is MarkdownBlock.ListItem) out.append(BULLET)
+            out.append(text)
+        }
+        return out.toString()
+    }
+
+    /** The block's text without inline Markdown, or null for rules, code and blocks with no text. */
+    private fun visibleText(block: MarkdownBlock): String? = when (block) {
+        is MarkdownBlock.Heading -> block.text
+        is MarkdownBlock.Paragraph -> block.text
+        is MarkdownBlock.ListItem -> block.text
+        MarkdownBlock.Rule, is MarkdownBlock.Code -> null
+    }?.let(MarkdownInline::strip)?.takeIf { it.isNotEmpty() }
 
     private fun separatorAfter(text: CharSequence, wasItem: Boolean): String {
         val last = text.trimEnd { it in CLOSERS }.lastOrNull()

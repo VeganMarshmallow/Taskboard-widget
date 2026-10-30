@@ -14,6 +14,9 @@ sealed class MarkdownBlock {
     /** A thematic break (`---`, `***`, `___`). */
     data object Rule : MarkdownBlock()
 
-    /** A fenced code block. Its content is deliberately dropped: code is noise in a one-line summary. */
-    data object Code : MarkdownBlock()
+    /**
+     * A fenced code block with its raw lines (joined by `\n`). One-line summaries drop it as noise;
+     * the full Claude comment in the preview shows it (task #43).
+     */
+    data class Code(val text: String) : MarkdownBlock()
 }

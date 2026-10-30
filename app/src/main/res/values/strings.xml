@@ -40,6 +40,9 @@
     <string name="preview_load_failed">Couldn\'t load the latest: %1$s</string>
     <string name="preview_approved">Approved. Claude picks it up in the next run</string>
     <string name="preview_approving">Approving…</string>
+    <string name="preview_claude_need_label">What I need from you</string>
+    <string name="preview_show_more">Show more</string>
+    <string name="preview_show_less">Show less</string>
 
     <string name="setup_title">Connect to GitHub</string>
     <string name="setup_instructions">The widget reads your task board in <b>VeganMarshmallow/claude-workspace</b>. Create a <b>fine-grained</b> personal access token:\n\n1. Resource owner: VeganMarshmallow\n2. Repository access: <b>Only select repositories</b> → claude-workspace, and (optional, for update checks) Taskboard-widget\n3. Permissions → Repository: <b>Issues: Read and write</b> (Metadata: Read-only is added automatically). For update checks, also <b>Contents: Read-only</b>, which lets the app see when Taskboard-widget has a new build. It can\'t change any code. New builds are downloaded in your browser, not by the app.\n4. Pick an expiration, generate, and copy the token (starts with github_pat_).\n\nThe token stays on this phone, in app-private storage, and is never backed up.</string>

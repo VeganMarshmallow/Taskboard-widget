@@ -62,9 +62,9 @@ class SummaryAdversarialTest {
         assertEquals(listOf(Paragraph("tick `")), MarkdownBlocks.parse("tick ` <!-- x")) // a lone backtick is not a code span
     }
 
-    @Test fun claudeLineWithACommentOpenerInCodeIsNotTruncated() {
-        val line = ClaudeComments.latestLine(listOf(IssueComment(1, "🤖 Started\n$fence\n<!-- x\n$fence\nPlan: a", null)))
-        assertEquals("🤖 Started. Plan: a", line)
+    @Test fun claudeMessageWithACommentOpenerInCodeKeepsTheCodeAndWhatFollows() {
+        val text = ClaudeComments.latestMessage(listOf(IssueComment(1, "🤖 Started\n$fence\n<!-- x\n$fence\nPlan: a", null)))?.body
+        assertEquals("🤖 Started\n<!-- x\nPlan: a", text)
     }
 
     // --- lists, HTML, tables, links ---
@@ -126,7 +126,7 @@ class SummaryAdversarialTest {
         fast("unclosed target") { assertTrue(summary("[x](" + "y".repeat(60_000))!!.isNotEmpty()) }
         fast("claude line") {
             val body = "🤖 Screenshot [x](data:image/png;base64," + "A".repeat(50_000) + ") attached" // under the 64 KB input cap
-            assertEquals("🤖 Screenshot x attached", ClaudeComments.latestLine(listOf(IssueComment(1, body, null))))
+            assertEquals("🤖 Screenshot x attached", ClaudeComments.latestMessage(listOf(IssueComment(1, body, null)))?.body)
         }
         // More than 8 nested groups is past the bounded pattern: left as text, but no crash and no hang.
         fast("nested parens") { assertTrue(MarkdownInline.strip("[a](" + "(x)".repeat(20_000) + ")").startsWith("[a](")) }
@@ -147,7 +147,7 @@ class SummaryAdversarialTest {
     @Test fun thousandsOfUnclosedEmphasisMarkersStayFast() {
         fast("stars") { assertTrue(summary("### What should be done\n*a" + " *b".repeat(30_000))!!.length <= TaskSummary.MAX_LENGTH) }
         fast("underscores") { assertTrue(summary("_a" + " _b".repeat(30_000))!!.length <= TaskSummary.MAX_LENGTH) }
-        fast("claude stars") { assertTrue(ClaudeComments.latestLine(listOf(IssueComment(1, "✅ *a" + " *b".repeat(30_000), null)))!!.startsWith("✅ *a *b")) }
+        fast("claude stars") { assertTrue(ClaudeComments.latestMessage(listOf(IssueComment(1, "✅ *a" + " *b".repeat(30_000), null)))!!.body.startsWith("✅ *a *b")) }
         fast("many blocks") { assertTrue(summary("*a *b\n\n".repeat(20_000))!!.length <= TaskSummary.MAX_LENGTH) }
     }
 }
