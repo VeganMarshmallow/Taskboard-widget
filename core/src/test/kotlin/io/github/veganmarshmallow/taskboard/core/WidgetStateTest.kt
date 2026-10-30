@@ -26,7 +26,7 @@ class WidgetStateTest {
     @Test fun codecRoundTripsBoardAndEveryError() {
         val errors = listOf(
             null, BoardError.NoToken, BoardError.BadToken(401), BoardError.NoAccess,
-            BoardError.RateLimited(NOW), BoardError.RateLimited(null), BoardError.Network,
+            BoardError.RateLimited(NOW), BoardError.RateLimited(null), BoardError.Network, BoardError.Unreachable,
             BoardError.Server(503), BoardError.Unexpected("x \"y\""),
         )
         errors.forEach { error ->
