@@ -13,6 +13,14 @@ sealed class MergeProblem {
     /** Several open PRs fit and none stands out: the owner picks on GitHub. */
     data class Ambiguous(val candidates: List<PullRequest>) : MergeProblem()
 
+    /**
+     * Open PRs are linked from the task or mention it, but none says `Closes <board>#<n>`, so none
+     * is merged from the widget. [pr] is the single one, so "Open on GitHub" goes straight to it.
+     */
+    data class NotLinked(val candidates: List<PullRequest>) : MergeProblem() {
+        override val pr: PullRequest? get() = candidates.singleOrNull()
+    }
+
     data class AlreadyMerged(override val pr: PullRequest) : MergeProblem()
     data class Closed(override val pr: PullRequest) : MergeProblem()
     data class Draft(override val pr: PullRequest) : MergeProblem()

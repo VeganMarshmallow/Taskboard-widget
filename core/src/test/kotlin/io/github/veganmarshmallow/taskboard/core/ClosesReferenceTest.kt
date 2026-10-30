@@ -16,6 +16,18 @@ class ClosesReferenceTest {
         assertEquals(TaskMatch.EXACT, match("שינויים\nCloses VeganMarshmallow/claude-workspace#30 ✅"))
     }
 
+    @Test fun exactOnlyAtTheStartOfALine() {
+        assertEquals(TaskMatch.MENTION, match("This doesn't close VeganMarshmallow/claude-workspace#30 yet"))
+        assertEquals(TaskMatch.MENTION, match("Does not Closes VeganMarshmallow/claude-workspace#30"))
+        assertEquals(TaskMatch.EXACT, match("- Closes VeganMarshmallow/claude-workspace#30"))
+        assertEquals(TaskMatch.EXACT, match("**Closes** VeganMarshmallow/claude-workspace#30"))
+        assertEquals(TaskMatch.EXACT, match("> Closes VeganMarshmallow/claude-workspace#30"))
+        assertEquals(TaskMatch.EXACT, match("Intro\r\n  Closes VeganMarshmallow/claude-workspace#30\r\n"))
+        assertEquals(TaskMatch.NONE, match("Closes evilVeganMarshmallow/claude-workspace#30"))
+        // Past the 64 KB input cap: ignored rather than scanned.
+        assertEquals(TaskMatch.NONE, match("x".repeat(70_000) + "\nCloses VeganMarshmallow/claude-workspace#30"))
+    }
+
     @Test fun numbersMustMatchExactly() {
         assertEquals(TaskMatch.NONE, match("Closes VeganMarshmallow/claude-workspace#300"))
         assertEquals(TaskMatch.NONE, match("Closes VeganMarshmallow/claude-workspace#3"))

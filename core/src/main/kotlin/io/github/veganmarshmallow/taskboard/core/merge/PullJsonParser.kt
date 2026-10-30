@@ -14,7 +14,7 @@ import io.github.veganmarshmallow.taskboard.core.model.Repo
  * The PR's repo is the one that was asked, never read from the response.
  */
 object PullJsonParser {
-    private val SHA = Regex("^[0-9a-fA-F]{7,64}$")
+    private val SHA = GitHubNames.SHA
 
     fun parsePull(body: String, repo: Repo): PullRequest =
         pull(parse(body) as? Map<*, *> ?: throw MalformedResponseException("Expected a JSON pull request"), repo)

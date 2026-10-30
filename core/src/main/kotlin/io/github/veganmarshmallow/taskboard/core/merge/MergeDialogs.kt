@@ -48,6 +48,11 @@ class MergeDialogs(private val messages: ErrorMessages, private val board: Repo 
                 "Task #$issue has ${problem.candidates.size} open PRs (${problem.candidates.joinToString { "${it.repo.name} #${it.number}" }}) " +
                     "and none is clearly the one to merge. Pick it on GitHub.",
             )
+            is MergeProblem.NotLinked -> refuse(
+                "Not clearly this task's PR",
+                "${problem.candidates.joinToString { "${it.repo.name} #${it.number}" }} is linked from task #$issue, but its " +
+                    "description doesn't say \"Closes ${board.fullName}#$issue\", so it isn't merged from here. Check it on GitHub.",
+            )
             is MergeProblem.AlreadyMerged -> refuse("Already merged", "PR #${problem.pr.number} is already merged. Claude closes the task on its next run.")
             is MergeProblem.Closed -> refuse("PR closed", "PR #${problem.pr.number} was closed without merging.")
             is MergeProblem.Draft -> refuse("Still a draft", "PR #${problem.pr.number} is a draft: it hasn't passed Claude's review yet.")
@@ -57,7 +62,7 @@ class MergeDialogs(private val messages: ErrorMessages, private val board: Repo 
                     (problem.blocker?.let { "merge #$it first." } ?: "merge that branch's PR first."),
                 "Merging it now would put it on that branch instead of ${problem.pr.defaultBranch ?: "the default branch"}.",
             )
-            is MergeProblem.Conflicts -> refuse("Has conflicts", *listOfNotNull(
+            is MergeProblem.Conflicts -> refuse(conflictsTitle(problem.detail), *listOfNotNull(
                 "PR #${problem.pr.number} can't be merged as it is.",
                 problem.detail?.let { "GitHub says: $it" },
             ).toTypedArray())
@@ -77,11 +82,26 @@ class MergeDialogs(private val messages: ErrorMessages, private val board: Repo 
      */
     fun mergeFailed(problem: MergeProblem, issue: Int): MergeDialog {
         val dialog = refusal(problem, issue)
-        val unsure = problem is MergeProblem.Failed && problem.error.let {
-            it == BoardError.Network || it == BoardError.Timeout || it is BoardError.Server || it is BoardError.Unexpected
-        }
+        val unsure = problem is MergeProblem.Failed && !isDefiniteAnswer(problem.error)
         return if (unsure) dialog.copy(lines = dialog.lines + "It may have merged anyway: check on GitHub before trying again.") else dialog
     }
+
+    /**
+     * Errors where GitHub clearly answered "no" before merging anything. Everything else (network,
+     * timeout, server errors, an unreadable answer, and any error kind added later) may hide a merge
+     * that went through, so the dialog says to look first.
+     */
+    private fun isDefiniteAnswer(error: BoardError) =
+        error is BoardError.RateLimited || error is BoardError.BadToken || error == BoardError.NoToken ||
+            error == BoardError.NoAccess || error is BoardError.IssueGone
+
+    /** 405 also covers branch protection ("Required status check ... is expected"), which is not a conflict. */
+    private fun conflictsTitle(detail: String?) =
+        if (detail == null || detail.contains("conflict", ignoreCase = true) || detail.contains("not mergeable", ignoreCase = true)) {
+            "Has conflicts"
+        } else {
+            "GitHub refused the merge"
+        }
 
     /** Precise steps: the token needs the project repo and three permissions. Editing keeps the same token. */
     private fun noAccess(repo: Repo) = MergeDialog(
@@ -89,8 +109,7 @@ class MergeDialogs(private val messages: ErrorMessages, private val board: Repo 
         listOf(
             "The token can't reach ${repo.fullName}'s pull requests. On GitHub, edit the token:",
             "1. Repository access: add ${repo.name}",
-            "2. Permissions: Pull requests: Read and write, Contents: Read and write, Checks: Read " +
-                "(or Commit statuses: Read if Checks isn't offered)",
+            "2. Permissions: Pull requests: Read and write, Contents: Read and write, Checks: Read",
             "3. Save. The token itself doesn't change, so nothing to paste again.",
         ),
         primary = MergeButton.EDIT_TOKEN, secondary = MergeButton.CLOSE, link = TOKEN_SETTINGS,

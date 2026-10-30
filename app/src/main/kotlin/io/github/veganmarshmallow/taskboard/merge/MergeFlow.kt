@@ -53,6 +53,9 @@ class MergeFlow(
     private var checked: PullRequest? = null
     private var closed = false
 
+    /** Set on the first Merge tap: a second tap queued before the button hid never sends a second PUT. */
+    private var mergeStarted = false
+
     /** The step on screen now; read by instrumented tests. */
     var shown: MergeDialog? = null
         private set
@@ -97,8 +100,10 @@ class MergeFlow(
     }
 
     private fun merge() {
+        if (mergeStarted) return
         val pr = checked ?: return
         val merge = service ?: return
+        mergeStarted = true
         show(dialogs.merging(pr))
         val work = {
             merge.merge(pr).also { step ->

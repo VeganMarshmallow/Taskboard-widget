@@ -17,8 +17,8 @@ import io.github.veganmarshmallow.taskboard.core.model.Repo
 object PrLinks {
     const val MAX_LINKS = 5
     private const val MAX_INPUT = 64 * 1024
-    private const val OWNER = """[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})"""
-    private const val NAME = """[A-Za-z0-9._-]{1,100}"""
+    private const val OWNER = GitHubNames.OWNER
+    private const val NAME = GitHubNames.NAME
     private val URL = Regex("""(?i)\bhttps?://(?:www\.)?github\.com/($OWNER)/($NAME)/pull/(\d{1,9})(?![\d])""")
     private val SHORT = Regex("""(?<![\w./-])(?:($OWNER)/)?($NAME)\s+PR\s*#(\d{1,9})(?![\d])""", RegexOption.IGNORE_CASE)
 

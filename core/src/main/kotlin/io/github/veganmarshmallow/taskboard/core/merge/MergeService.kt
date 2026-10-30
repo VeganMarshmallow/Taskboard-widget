@@ -9,8 +9,8 @@ import java.time.Duration
 
 /**
  * Merging a task's PR from the widget (task #30), in two blocking steps with the owner's
- * confirmation between them: [prepare] finds the PR and runs every check, [merge] merges exactly
- * the head SHA that was checked. Neither throws.
+ * confirmation between them: [prepare] finds the PR and runs every check, [merge] re-reads the PR
+ * ([MergeChecker.recheck]) and merges exactly the head SHA that was checked. Neither throws.
  */
 class MergeService(
     private val api: GitHubApi,
@@ -32,7 +32,9 @@ class MergeService(
         }
     }
 
-    fun merge(pr: PullRequest): MergeStep<PullRequest> = guarded { pulls.merge(pr).then { MergeStep.Ok(pr) } }
+    fun merge(pr: PullRequest): MergeStep<PullRequest> = guarded {
+        checker.recheck(pr).then { pulls.merge(pr) }.then { MergeStep.Ok(pr) }
+    }
 
     private fun <T> guarded(block: () -> MergeStep<T>): MergeStep<T> = try {
         block()

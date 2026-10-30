@@ -93,18 +93,44 @@ class MergeServiceTest {
         s.issueBody = "### Repo\n\n_No response_"
         s.comments = listOf("🤖 התחלתי", "✅ ה-PR מוכן: https://github.com/VeganMarshmallow/site/pull/3 — לבדיקה")
         val site = "$API_REPOS/VeganMarshmallow/site"
-        s.override({ _, u -> u == "$site/pulls/3" }) { ok(JsonWriter.write(pullJson(3, body = "no closes line"))) }
+        s.override({ _, u -> u == "$site/pulls/3" }) { ok(JsonWriter.write(pullJson(3))) }
         s.override({ _, u -> u.startsWith("$site/commits/") }) { ok(checkRunsJson(passed())) }
         val pr = s.prepare().pr()
         assertEquals("VeganMarshmallow/site", pr.repo.fullName)
         assertEquals(3, pr.number)
     }
 
+    @Test fun aLinkedPrInAnotherRepoThatDoesNotCloseTheTaskIsNeverMerged() {
+        val s = Script()
+        s.issueBody = "### Repo\n\n_No response_"
+        s.comments = listOf("FYI this depends on https://github.com/VeganMarshmallow/site/pull/3")
+        val site = "$API_REPOS/VeganMarshmallow/site"
+        s.override({ _, u -> u == "$site/pulls/3" }) { ok(JsonWriter.write(pullJson(3, body = "Unrelated work"))) }
+        val p = s.prepare().problem() as MergeProblem.NotLinked
+        assertEquals(listOf(3), p.candidates.map { it.number })
+        assertTrue("never checked or merged", s.urls().none { "check-runs" in it || it.startsWith("PUT") })
+    }
+
+    @Test fun aLinkedPrWhoseBodyOnlyMentionsTheTaskIsNeverMerged() {
+        val s = Script()
+        s.open = listOf(pullJson(12, body = "Part of VeganMarshmallow/claude-workspace#30, doesn't close it"))
+        s.comments = listOf("✅ Taskboard-widget PR #12 is ready for review")
+        assertTrue(s.prepare().problem() is MergeProblem.NotLinked)
+        assertTrue(s.urls().none { "check-runs" in it })
+    }
+
     @Test fun shortFormCommentUsesTheRepoField() {
         val s = Script()
-        s.open = listOf(pullJson(12, body = "unrelated"))
+        s.open = emptyList()
+        s.detail(12, pullJson(12))
         s.comments = listOf("✅ Taskboard-widget PR #12 is ready for review")
         assertEquals(12, s.prepare().pr().number)
+    }
+
+    @Test fun aMidSentenceCloseIsNotAClaim() {
+        val s = Script()
+        s.open = listOf(pullJson(12, body = "Note: this doesn't close VeganMarshmallow/claude-workspace#30"))
+        assertTrue(s.prepare().problem() is MergeProblem.NotLinked)
     }
 
     @Test fun exactBodyMatchIsPreferredOverALinkedPr() {
@@ -285,6 +311,62 @@ class MergeServiceTest {
         val pr = s.prepare().pr()
         s.mergeResponse = status(403, body = """{"message":"Resource not accessible by personal access token"}""")
         assertEquals(MergeProblem.NoRepoAccess(WIDGET, pr), s.service().merge(pr).problem())
+    }
+
+    // --- the re-check right before the PUT (after the owner confirmed) ---
+
+    @Test fun mergedElsewhereWhileTheDialogWasOpen() {
+        val s = Script()
+        val pr = s.prepare().pr()
+        s.detail(12, pullJson(12, state = "closed", merged = true))
+        assertTrue(s.service().merge(pr).problem() is MergeProblem.AlreadyMerged)
+        assertTrue(s.urls().none { it.startsWith("PUT") })
+    }
+
+    @Test fun retargetedOntoAnotherBranchWhileTheDialogWasOpen() {
+        val s = Script()
+        val pr = s.prepare().pr()
+        s.detail(12, pullJson(12, base = "claude/11-first"))
+        s.open = listOf(pullJson(11, head = "claude/11-first", body = "Closes VeganMarshmallow/claude-workspace#29"), pullJson(12, base = "claude/11-first"))
+        assertEquals(11, (s.service().merge(pr).problem() as MergeProblem.Stacked).blocker)
+        assertTrue(s.urls().none { it.startsWith("PUT") })
+    }
+
+    @Test fun newCommitsOrDraftWhileTheDialogWasOpen() {
+        val s = Script()
+        val pr = s.prepare().pr()
+        s.detail(12, pullJson(12, sha = SHA_B))
+        assertEquals(MergeProblem.HeadChanged(pr), s.service().merge(pr).problem())
+        s.detail(12, pullJson(12, draft = true))
+        assertTrue(s.service().merge(pr).problem() is MergeProblem.Draft)
+        s.detail(12, pullJson(12, mergeable = false))
+        assertTrue(s.service().merge(pr).problem() is MergeProblem.Conflicts)
+        assertTrue(s.urls().none { it.startsWith("PUT") })
+    }
+
+    @Test fun mergeableStillComputingAtTheRecheckIsLeftToGitHub() {
+        val s = Script()
+        val pr = s.prepare().pr()
+        s.detail(12, pullJson(12, mergeable = null))
+        assertEquals(12, s.service().merge(pr).pr().number)
+        val put = s.http.requests.single { it.method == "PUT" }
+        assertEquals(mapOf("merge_method" to "merge", "sha" to SHA_A), JsonParser.parse(put.body!!))
+    }
+
+    @Test fun aFailedRecheckSendsNoPut() {
+        val s = Script()
+        val pr = s.prepare().pr()
+        s.override({ m, u -> m == "GET" && u == "$repo/pulls/12" }) { throw IOException("down") }
+        assertEquals(MergeProblem.Failed(BoardError.Network), s.service().merge(pr).problem())
+        assertTrue(s.urls().none { it.startsWith("PUT") })
+    }
+
+    @Test fun branchProtectionAtMergeTimeKeepsGitHubsMessage() {
+        val s = Script()
+        val pr = s.prepare().pr()
+        s.mergeResponse = status(405, body = """{"message":"At least 1 approving review is required by reviewers with write access."}""")
+        val p = s.service().merge(pr).problem() as MergeProblem.Conflicts
+        assertTrue(p.detail!!.startsWith("At least 1 approving review"))
     }
 
     @Test fun mergeIsNeverRetried() {

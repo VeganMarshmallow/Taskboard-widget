@@ -6,6 +6,7 @@ import io.github.veganmarshmallow.taskboard.core.merge.PrCandidate
 import io.github.veganmarshmallow.taskboard.core.merge.PrSelector
 import io.github.veganmarshmallow.taskboard.core.merge.PullRequest
 import io.github.veganmarshmallow.taskboard.core.merge.TaskMatch
+import io.github.veganmarshmallow.taskboard.core.model.Repo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -23,9 +24,27 @@ class PrSelectorTest {
         assertEquals(5, chosen(select(c(pr(4), linked = true, match = TaskMatch.MENTION), c(pr(5)))))
     }
 
-    @Test fun withoutAnExactMatchLinkedOrMentioningOnesCount() {
-        assertEquals(4, chosen(select(c(pr(4), linked = true, match = TaskMatch.NONE))))
-        assertEquals(6, chosen(select(c(pr(6), match = TaskMatch.MENTION))))
+    @Test fun linkedOrMentioningOnesAreNeverChosen() {
+        assertEquals(MergeProblem.NotLinked(listOf(pr(4))), problem(select(c(pr(4), linked = true, match = TaskMatch.NONE))))
+        assertEquals(MergeProblem.NotLinked(listOf(pr(6))), problem(select(c(pr(6), match = TaskMatch.MENTION))))
+        assertEquals(MergeProblem.NotLinked(listOf(pr(4), pr(6))).candidates.size,
+            (problem(select(c(pr(4), linked = true, match = TaskMatch.MENTION), c(pr(6), match = TaskMatch.MENTION))) as MergeProblem.NotLinked).candidates.size)
+    }
+
+    @Test fun notLinkedPointsAtTheSingleCandidate() {
+        assertEquals(pr(4), MergeProblem.NotLinked(listOf(pr(4))).pr)
+        assertEquals(null, MergeProblem.NotLinked(listOf(pr(4), pr(5))).pr)
+    }
+
+    @Test fun exactPrsInDifferentReposAreAmbiguousEvenIfOneIsStacked() {
+        val other = pr(3, repo = Repo("VeganMarshmallow", "site"))
+        val p = problem(select(c(pr(7, base = "claude/6-first")), c(other, linked = true)))
+        assertTrue(p is MergeProblem.Ambiguous)
+    }
+
+    @Test fun repoCaseDoesNotCreateTwoCandidates() {
+        val upper = pr(4, repo = Repo("veganmarshmallow", "TASKBOARD-WIDGET"))
+        assertEquals(4, chosen(select(c(pr(4)), c(upper, linked = true))))
     }
 
     @Test fun unrelatedPrsAreIgnored() {

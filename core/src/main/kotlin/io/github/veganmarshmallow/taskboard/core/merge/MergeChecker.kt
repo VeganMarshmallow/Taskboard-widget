@@ -27,6 +27,21 @@ class MergeChecker(
         }
     }
 
+    /**
+     * Right before the merge PUT, after the owner confirmed: the PR is fetched once more and refused
+     * if it was merged, closed, turned into a draft or retargeted onto another branch meanwhile, or
+     * got new commits. The PUT is also pinned to the SHA, but a base change is not covered by that.
+     * A `mergeable` still being computed is left to GitHub, which refuses a non-mergeable PR itself.
+     */
+    fun recheck(checked: PullRequest): MergeStep<PullRequest> = pulls.pull(checked.ref).then { fresh ->
+        val current = fresh.copy(defaultBranch = fresh.defaultBranch ?: checked.defaultBranch)
+        refuse(current, null) ?: when {
+            current.headSha != checked.headSha -> MergeStep.Stop(MergeProblem.HeadChanged(checked))
+            current.mergeable == false -> MergeStep.Stop(MergeProblem.Conflicts(current))
+            else -> MergeStep.Ok(checked)
+        }
+    }
+
     private fun withDefaultBranch(pr: PullRequest): MergeStep<PullRequest> =
         if (pr.defaultBranch != null) MergeStep.Ok(pr) else pulls.defaultBranch(pr.repo).then { MergeStep.Ok(pr.copy(defaultBranch = it)) }
 

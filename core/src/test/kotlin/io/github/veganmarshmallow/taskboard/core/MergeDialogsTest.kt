@@ -80,7 +80,8 @@ class MergeDialogsTest {
         assertTrue(text.contains("Pull requests: Read and write"))
         assertTrue(text.contains("Contents: Read and write"))
         assertTrue(text.contains("Checks: Read"))
-        assertTrue(text.contains("Commit statuses: Read"))
+        // The app only reads check runs, so Commit statuses alone would not be enough.
+        assertTrue(!text.contains("Commit statuses"))
         assertEquals(MergeButton.EDIT_TOKEN, d.primary)
         assertEquals(MergeDialogs.TOKEN_SETTINGS, d.link)
     }
@@ -91,6 +92,33 @@ class MergeDialogsTest {
         assertEquals(MergeButton.OPEN_GITHUB, network.primary)
         assertEquals(MergeButton.SET_UP, refusal(MergeProblem.Failed(BoardError.BadToken(401))).primary)
         assertTrue(refusal(MergeProblem.Failed(BoardError.RateLimited(null))).lines[0].startsWith("Rate-limited"))
+    }
+
+    @Test fun aNotLinkedPrIsNamedAndOpenedOnGitHub() {
+        val d = refusal(MergeProblem.NotLinked(listOf(pr(4, repo = Repo("VeganMarshmallow", "site")))))
+        assertEquals("Not clearly this task's PR", d.title)
+        assertTrue(d.lines[0].startsWith("site #4 is linked from task #30"))
+        assertTrue(d.lines[0].contains("\"Closes VeganMarshmallow/claude-workspace#30\""))
+        assertEquals(MergeButton.OPEN_GITHUB, d.primary)
+        assertEquals("https://github.com/VeganMarshmallow/site/pull/4", d.link)
+        assertEquals("several go to the task", "https://github.com/VeganMarshmallow/claude-workspace/issues/30",
+            refusal(MergeProblem.NotLinked(listOf(pr(4), pr(5)))).link)
+    }
+
+    @Test fun branchProtectionIsNotCalledAConflict() {
+        assertEquals("GitHub refused the merge", refusal(MergeProblem.Conflicts(pr(1), "At least 1 approving review is required by reviewers with write access.")).title)
+        assertEquals("Has conflicts", refusal(MergeProblem.Conflicts(pr(1), "Pull Request is not mergeable")).title)
+        assertEquals("Has conflicts", refusal(MergeProblem.Conflicts(pr(1), "Merge conflict")).title)
+    }
+
+    @Test fun onlyAClearNoSkipsTheMayHaveMergedWarning() {
+        val warn = "It may have merged anyway: check on GitHub before trying again."
+        listOf(BoardError.Network, BoardError.Timeout, BoardError.Server(500), BoardError.Unexpected("HTTP 422")).forEach {
+            assertEquals("$it", warn, dialogs.mergeFailed(MergeProblem.Failed(it), 30).lines.last())
+        }
+        listOf(BoardError.RateLimited(null), BoardError.BadToken(401), BoardError.NoToken, BoardError.NoAccess, BoardError.IssueGone(30)).forEach {
+            assertTrue("$it", dialogs.mergeFailed(MergeProblem.Failed(it), 30).lines.none { line -> line == warn })
+        }
     }
 
     @Test fun notFoundAndAmbiguousLinkSomewhereUseful() {
@@ -104,7 +132,7 @@ class MergeDialogsTest {
 
     @Test fun everyRefusalHasACloseButton() {
         listOf(
-            MergeProblem.NotFound, MergeProblem.Ambiguous(listOf(pr(1))), MergeProblem.AlreadyMerged(pr(1)), MergeProblem.Closed(pr(1)),
+            MergeProblem.NotFound, MergeProblem.Ambiguous(listOf(pr(1))), MergeProblem.NotLinked(listOf(pr(1), pr(2))), MergeProblem.AlreadyMerged(pr(1)), MergeProblem.Closed(pr(1)),
             MergeProblem.Draft(pr(1)), MergeProblem.Stacked(pr(1, base = "x"), null), MergeProblem.Conflicts(pr(1)),
             MergeProblem.MergeabilityUnknown(pr(1)), MergeProblem.ChecksRunning(pr(1), listOf("a")),
             MergeProblem.ChecksFailed(pr(1), listOf("a")), MergeProblem.NoChecks(pr(1)), MergeProblem.HeadChanged(pr(1)),

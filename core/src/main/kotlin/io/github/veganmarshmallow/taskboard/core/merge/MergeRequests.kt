@@ -9,12 +9,10 @@ import io.github.veganmarshmallow.taskboard.core.model.Repo
  * Requests for merging a task's PR (task #30), in the project repo rather than the board. Repo
  * names are checked here, because they come from issue text and end up in the URL path.
  */
-private val OWNER = Regex("^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$")
-private val NAME = Regex("^[A-Za-z0-9._-]{1,100}$")
-private val SHA = Regex("^[0-9a-fA-F]{7,64}$")
+private val SHA = GitHubNames.SHA
 
 internal fun repoPath(repo: Repo): String {
-    require(OWNER.matches(repo.owner) && NAME.matches(repo.name) && repo.name != "." && repo.name != "..") {
+    require(GitHubNames.isOwner(repo.owner) && GitHubNames.isName(repo.name)) {
         "not a GitHub repo name"
     }
     return "$API/repos/${repo.owner}/${repo.name}"
