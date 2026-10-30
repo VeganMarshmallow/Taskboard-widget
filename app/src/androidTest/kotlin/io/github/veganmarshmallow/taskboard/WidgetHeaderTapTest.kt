@@ -47,7 +47,7 @@ class WidgetHeaderTapTest {
     )
 
     private val setupErrors = listOf(BoardError.NoToken, BoardError.BadToken(401), BoardError.BadToken(403), BoardError.NoAccess)
-    private val retryErrors = listOf(BoardError.Network, BoardError.RateLimited(null), BoardError.Server(502), BoardError.Unexpected("HTTP 418"))
+    private val retryErrors = listOf(BoardError.Network, BoardError.Unreachable, BoardError.Timeout, BoardError.RateLimited(null), BoardError.Server(502), BoardError.Unexpected("HTTP 418"))
 
     @Test fun headerTextHasNoClickIntent() = states.forEach { state ->
         val v = widget(state)

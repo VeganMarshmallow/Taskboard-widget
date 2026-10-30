@@ -1,9 +1,12 @@
 package io.github.veganmarshmallow.taskboard.widget
 
 import android.content.Context
+import android.util.Log
 import io.github.veganmarshmallow.taskboard.core.board.BoardLoader
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
+import io.github.veganmarshmallow.taskboard.core.error.Reachability
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
+import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.core.work.RefreshRunner
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTrigger
 import io.github.veganmarshmallow.taskboard.core.work.TimeLimit
@@ -24,28 +27,32 @@ class WidgetRefresher(private val context: Context) {
 
     fun refresh(): RefreshRunner.Result {
         val result = renderAfter(runner.run(onStarted = ::onStarted) { previous ->
-            BoardLoader(AppGraph.clock).refresh(previous, AppGraph.apiOrNull(context))
+            val next = BoardLoader(AppGraph.clock).refresh(previous, AppGraph.apiOrNull(context))
+            // "No network" only when the device really has none; otherwise GitHub is unreachable (#29).
+            if (next.error == null) next else Reachability.refine(next, Connectivity.isOnline(context))
         })
         UpdateController.checkInBackgroundIfDue(context) // queued on its own thread; never delays the board
         return result
     }
 
-    /** Offline: records "No network" right away instead of waiting on a job that cannot run. */
-    fun recordOffline() {
-        renderAfter(runner.run { it.withError(BoardError.Network, AppGraph.clock.instant()) })
-    }
+    /** Offline: records "No network" right away instead of waiting on a job that cannot run. Returns the state shown. */
+    fun recordOffline(): WidgetState =
+        rendered(runner.run { it.withError(BoardError.Network, AppGraph.clock.instant()) }).also(::show)
 
     /** If a refresh died with its process, shows an error instead of "updating…". */
     fun recoverIfStale() {
-        runner.recoverIfStale()?.let { renderer.render(it) }
+        runner.recoverIfStale()?.let(::show)
     }
 
     /**
      * The sweep job: recovers a dead run, and otherwise just redraws what is stored, so a stray
      * "updating…" left in the launcher by any race is gone within a minute. Never saves a good board.
+     * Returns the recovered (timeout) state, or null when no run had died.
      */
-    fun sweep() {
-        renderer.render(runner.recoverIfStale() ?: StateStore(context).load())
+    fun sweep(): WidgetState? {
+        val recovered = runner.recoverIfStale()
+        show(recovered ?: StateStore(context).load())
+        return recovered
     }
 
     /**
@@ -53,10 +60,24 @@ class WidgetRefresher(private val context: Context) {
      * launcher after the newer run's final render. The header then shows the tracker's truth.
      */
     private fun renderAfter(result: RefreshRunner.Result): RefreshRunner.Result {
-        val state = (result as? RefreshRunner.Result.Committed)?.state ?: StateStore(context).load()
-        renderer.render(state)
+        show(rendered(result))
         return result
     }
+
+    /**
+     * Draws [state] on every widget. A drawing failure is logged, never thrown: the caller must still
+     * plan the next retry, or the widget could stay on an error after the network is back (#29).
+     */
+    private fun show(state: WidgetState) {
+        try {
+            renderer.render(state)
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "drawing the widget failed: ${e.javaClass.simpleName}")
+        }
+    }
+
+    private fun rendered(result: RefreshRunner.Result): WidgetState =
+        (result as? RefreshRunner.Result.Committed)?.state ?: StateStore(context).load()
 
     /** Adds `ready-for-claude`, then asks for a refresh. Returns the failure, if any, for the caller to report. */
     fun approve(issue: Int): Outcome<Unit> {
@@ -72,6 +93,7 @@ class WidgetRefresher(private val context: Context) {
     }
 
     private companion object {
+        const val TAG = "WidgetRefresher"
         val APPROVE_BUDGET: Duration = Duration.ofSeconds(30)
     }
 }

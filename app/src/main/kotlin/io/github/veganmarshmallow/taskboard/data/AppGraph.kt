@@ -7,6 +7,8 @@ import io.github.veganmarshmallow.taskboard.core.update.UpdateSchedule
 import io.github.veganmarshmallow.taskboard.core.http.HttpClient
 import io.github.veganmarshmallow.taskboard.core.work.RefreshRunner
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTracker
+import io.github.veganmarshmallow.taskboard.core.work.RetryBackoff
+import io.github.veganmarshmallow.taskboard.core.work.RetryPlanner
 import io.github.veganmarshmallow.taskboard.net.UrlConnectionHttpClient
 import io.github.veganmarshmallow.taskboard.widget.TimeText
 import java.time.Clock
@@ -35,6 +37,20 @@ object AppGraph {
     }
 
     fun refreshRunner(context: Context): RefreshRunner = RefreshRunner(refreshTracker(context), StateStore(context), clock)
+
+    /** Swapped only by instrumented tests (seconds instead of minutes). Setting it rebuilds the planner. */
+    @Volatile var retryBackoff: RetryBackoff = RetryBackoff.DEFAULT
+        set(value) = synchronized(this) {
+            field = value
+            planner = null
+        }
+
+    @Volatile private var planner: RetryPlanner? = null
+
+    /** One per process, like the tracker, so the failure streak is updated under one lock. */
+    fun retryPlanner(context: Context): RetryPlanner = planner ?: synchronized(this) {
+        planner ?: RetryPlanner(RetryStreakPrefs(context), DeviceUptime(context), retryBackoff).also { planner = it }
+    }
 
     /** User-facing error text, with times in the device's zone and 12/24-hour setting. */
     fun messages(context: Context): ErrorMessages = ErrorMessages(TimeText(context)::format)

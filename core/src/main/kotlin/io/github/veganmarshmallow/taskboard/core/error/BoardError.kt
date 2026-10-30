@@ -19,8 +19,18 @@ sealed class BoardError {
     /** Approving failed because issue [number] was deleted, transferred, or is no longer visible. */
     data class IssueGone(val number: Int) : BoardError()
 
-    /** The request never got a response. */
+    /**
+     * The request never got a response. After [Reachability.refine] (the widget's refreshes) it
+     * means the device had no network at all; elsewhere it covers every connection failure.
+     */
     data object Network : BoardError()
+
+    /**
+     * The request never got a response although the device has a network: DNS failed, the
+     * connection was refused or reset, or TLS failed. Typical of a VPN or hotspot that is up but
+     * not passing traffic. See [Reachability].
+     */
+    data object Unreachable : BoardError()
 
     /** The request or the whole refresh took too long (a hanging connection, or a refresh killed mid-way). */
     data object Timeout : BoardError()

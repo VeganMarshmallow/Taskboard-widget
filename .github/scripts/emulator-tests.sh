@@ -20,4 +20,23 @@ done
 ls -l screenshots
 
 grep -q '^OK (' instrument.log || { echo "Screenshot run did not pass"; status=1; }
+
+# #29: a widget stuck on an error recovers by itself after an app update (a new APK installed over
+# the old one). An instrumentation cannot reinstall its own app, so AppUpdateRecoveryTest runs in
+# two steps around `adb install -r`. Its output is appended to instrument.log for the annotations.
+update_step() {
+  adb shell am instrument -w -e appUpdateStep "$1" -e class "$pkg.AppUpdateRecoveryTest#$1" \
+    "$pkg.test/androidx.test.runner.AndroidJUnitRunner" 2>&1 | tee "update-$1.log" >> instrument.log
+  cat "update-$1.log"
+  grep -q '^OK (1 test)' "update-$1.log"
+}
+adb shell appwidget grantbind --package "$pkg" || adb shell cmd appwidget grantbind --package "$pkg"
+if update_step prepare &&
+  adb install -r -t app/build/outputs/apk/debug/app-debug.apk 2>&1 | tee -a instrument.log &&
+  update_step verify; then
+  echo "App-update recovery passed"
+else
+  echo "App-update recovery did not pass" | tee -a instrument.log
+  status=1
+fi
 exit "$status"
