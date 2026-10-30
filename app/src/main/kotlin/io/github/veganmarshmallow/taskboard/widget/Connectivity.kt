@@ -11,8 +11,11 @@ object Connectivity {
         return try {
             val caps = cm.getNetworkCapabilities(cm.activeNetwork ?: return false) ?: return false
             caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-        } catch (e: SecurityException) {
-            true // cannot tell: let the job's own network constraint decide
+        } catch (e: RuntimeException) {
+            // Cannot tell (a SecurityException, or a binder failure on some builds): let the job's own
+            // network constraint decide. Throwing here would turn a refresh's network error into an
+            // unexpected one, which is never retried (#29).
+            true
         }
     }
 }
