@@ -38,6 +38,12 @@ class RowViews(private val context: Context) {
         } else {
             setViewVisibility(R.id.item_approve, View.GONE)
         }
+        if (item.canMerge) {
+            setViewVisibility(R.id.item_merge, View.VISIBLE)
+            setOnClickFillInIntent(R.id.item_merge, RowAction.Merge(item.number).toFillIn())
+        } else {
+            setViewVisibility(R.id.item_merge, View.GONE)
+        }
     }
 
     private fun note(text: String, row: BoardRow) = RemoteViews(context.packageName, R.layout.row_note).apply {

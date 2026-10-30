@@ -8,11 +8,14 @@ sealed class RowAction {
     data class Approve(val issue: Int, val title: String) : RowAction()
     /** Opens the task preview over the home screen. */
     data class Preview(val issue: Int) : RowAction()
+    /** Finds, checks and (after confirmation) merges the task's PR (task #30). */
+    data class Merge(val issue: Int) : RowAction()
 
     fun toFillIn(): Intent = when (this) {
         is Open -> Intent().putExtra(KIND, OPEN).putExtra(URL, url)
         is Approve -> Intent().putExtra(KIND, APPROVE).putExtra(ISSUE, issue).putExtra(TITLE, title)
         is Preview -> Intent().putExtra(KIND, PREVIEW).putExtra(ISSUE, issue)
+        is Merge -> Intent().putExtra(KIND, MERGE).putExtra(ISSUE, issue)
     }
 
     companion object {
@@ -20,6 +23,7 @@ sealed class RowAction {
         private const val OPEN = "open"
         private const val APPROVE = "approve"
         private const val PREVIEW = "preview"
+        private const val MERGE = "merge"
         private const val URL = "row_url"
         private const val ISSUE = "row_issue"
         private const val TITLE = "row_title"
@@ -34,6 +38,7 @@ sealed class RowAction {
             APPROVE -> intent.getIntExtra(ISSUE, 0).takeIf { it > 0 }
                 ?.let { Approve(it, intent.getStringExtra(TITLE).orEmpty()) }
             PREVIEW -> intent.getIntExtra(ISSUE, 0).takeIf { it > 0 }?.let(::Preview)
+            MERGE -> intent.getIntExtra(ISSUE, 0).takeIf { it > 0 }?.let(::Merge)
             else -> null
         }
     }

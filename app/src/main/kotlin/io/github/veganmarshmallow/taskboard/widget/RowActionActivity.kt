@@ -5,22 +5,38 @@ import android.content.ActivityNotFoundException
 import android.os.Bundle
 import android.widget.Toast
 import io.github.veganmarshmallow.taskboard.R
+import io.github.veganmarshmallow.taskboard.merge.MergeFlow
 import io.github.veganmarshmallow.taskboard.preview.TaskPreviewActivity
 
 /**
  * Invisible trampoline for list-row taps. Collection rows can only share one PendingIntent template,
  * and rows need several behaviours: previewing a task or opening a link (activities) and approving (a broadcast).
  * Approving asks for confirmation first, because widget mis-taps are easy and approval lets Claude start work.
+ * Merging (task #30) runs the shared [MergeFlow]: its checks, then a confirmation with the PR's title.
  */
 class RowActionActivity : Activity() {
+    /** The merge dialog's flow, for a Merge tap; read by instrumented tests. */
+    var mergeFlow: MergeFlow? = null
+        private set
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         when (val action = RowAction.from(intent)) {
             is RowAction.Open -> open(action.url)
             is RowAction.Approve -> confirmApprove(action)
             is RowAction.Preview -> preview(action.issue)
+            is RowAction.Merge -> merge(action.issue)
             null -> finish()
         }
+    }
+
+    override fun onDestroy() {
+        mergeFlow?.close()
+        super.onDestroy()
+    }
+
+    private fun merge(issue: Int) {
+        mergeFlow = MergeFlow(this, issue, onClosed = { finish() }).also { it.start() }
     }
 
     private fun open(url: String) {

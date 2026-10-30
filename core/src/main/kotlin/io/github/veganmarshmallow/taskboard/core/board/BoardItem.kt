@@ -15,6 +15,8 @@ data class BoardItem(
     val priority: Priority,
     val canApprove: Boolean,
     val needsYouReason: NeedsYouReason? = null,
+    /** In review: the row offers Merge (task #30). */
+    val canMerge: Boolean = false,
 ) {
     /** What the widget row shows: just the title, without the leading `#n`. */
     val displayText: String get() = title

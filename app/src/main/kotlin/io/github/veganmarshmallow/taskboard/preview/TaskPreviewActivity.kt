@@ -16,6 +16,7 @@ import io.github.veganmarshmallow.taskboard.core.preview.PreviewScreen
 import io.github.veganmarshmallow.taskboard.core.preview.TaskPreview
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.StateStore
+import io.github.veganmarshmallow.taskboard.merge.MergeFlow
 import io.github.veganmarshmallow.taskboard.setup.SetupActivity
 import io.github.veganmarshmallow.taskboard.widget.ApproveDialog
 import io.github.veganmarshmallow.taskboard.widget.WidgetIntents
@@ -29,6 +30,10 @@ class TaskPreviewActivity : Activity() {
     private lateinit var views: PreviewViews
     private lateinit var worker: PreviewWorker
     private lateinit var screen: PreviewScreen
+
+    /** The merge dialog's flow while it is open (task #30); read by instrumented tests. */
+    var mergeFlow: MergeFlow? = null
+        private set
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,20 +50,31 @@ class TaskPreviewActivity : Activity() {
         worker = PreviewWorker(this)
         findViewById<View>(R.id.preview_open).setOnClickListener { openOnGitHub(number) }
         findViewById<View>(R.id.preview_approve).setOnClickListener { confirmApprove() }
+        findViewById<View>(R.id.preview_merge).setOnClickListener { startMerge() }
         findViewById<View>(R.id.preview_retry).setOnClickListener { onRetry() }
 
         val cached = TaskPreview.fromBoard(StateStore(this).load().board, number)
-        update(PreviewScreen.initial(number, cached, approvedEarlier = savedInstanceState?.getBoolean(STATE_APPROVED) == true))
+        update(
+            PreviewScreen.initial(
+                number, cached,
+                approvedEarlier = savedInstanceState?.getBoolean(STATE_APPROVED) == true,
+                mergedEarlier = savedInstanceState?.getBoolean(STATE_MERGED) == true,
+            ),
+        )
         load()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        if (::screen.isInitialized) outState.putBoolean(STATE_APPROVED, screen.justApproved)
+        if (::screen.isInitialized) {
+            outState.putBoolean(STATE_APPROVED, screen.justApproved)
+            outState.putBoolean(STATE_MERGED, screen.justMerged)
+        }
     }
 
     override fun onDestroy() {
         if (::worker.isInitialized) worker.close()
+        mergeFlow?.close()
         super.onDestroy()
     }
 
@@ -93,6 +109,15 @@ class TaskPreviewActivity : Activity() {
         }
     }
 
+    private fun startMerge() {
+        if (mergeFlow != null) return
+        mergeFlow = MergeFlow(
+            this, screen.number,
+            onMerged = { update(screen.mergeSucceeded()); load() },
+            onClosed = { mergeFlow = null },
+        ).also { it.start() }
+    }
+
     private fun onRetry() {
         if (views.opensSetup(screen)) {
             startActivity(Intent(this, SetupActivity::class.java))
@@ -119,6 +144,7 @@ class TaskPreviewActivity : Activity() {
     companion object {
         private const val EXTRA_ISSUE = "issue"
         private const val STATE_APPROVED = "approved"
+        private const val STATE_MERGED = "merged"
 
         fun intent(context: Context, issue: Int): Intent =
             Intent(context, TaskPreviewActivity::class.java)

@@ -18,6 +18,8 @@ data class TaskPreview(
     val summary: String? = null,
     val isFromIssue: Boolean = false,
     val tags: List<TagPill> = emptyList(),
+    /** In review: the preview offers Merge (task #30). */
+    val canMerge: Boolean = false,
 ) {
     val hasDescription: Boolean get() = summary != null
 
@@ -26,7 +28,10 @@ data class TaskPreview(
         fun fromBoard(board: Board?, number: Int): TaskPreview? {
             val content = board?.sections?.firstOrNull { s -> s.items.any { it.number == number } } ?: return null
             val item = content.items.first { it.number == number }
-            return TaskPreview(number, item.title, PreviewStatus.of(content.section, item.needsYouReason), item.canApprove)
+            return TaskPreview(
+                number, item.title, PreviewStatus.of(content.section, item.needsYouReason), item.canApprove,
+                canMerge = item.canMerge,
+            )
         }
 
         /** From a freshly loaded issue, with the board's Approve rule ([Placement.canApprove]). */
@@ -41,6 +46,7 @@ data class TaskPreview(
                 summary = TaskSummary.of(details.body),
                 isFromIssue = true,
                 tags = TagPills.of(issue.labels.associateWith { details.labelColors[it] }, details.body),
+                canMerge = Placement.canMerge(issue),
             )
         }
 
