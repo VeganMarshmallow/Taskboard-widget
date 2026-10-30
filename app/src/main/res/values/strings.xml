@@ -88,4 +88,9 @@
     <string name="task_labels_missing">GitHub didn\'t add these labels (token may lack permission): %1$s</string>
     <string name="task_may_exist">If it was sent, it may already be on the board: check before trying again.</string>
     <string name="task_failed">Couldn\'t create the task: %1$s</string>
+    <string name="task_recovery_checking">The app was closed while creating “%1$s”. Checking GitHub…</string>
+    <string name="task_recovered_created">“%1$s” was created as #%2$d before the app was closed. No need to send it again.</string>
+    <string name="task_recovered_not_created">“%1$s” isn\'t on GitHub: it wasn\'t created before the app was closed. Your draft is below; tap Create task to try again.</string>
+    <string name="task_recovered_check_failed">The app was closed while creating “%1$s”, and checking GitHub failed: %2$s. Check the board before trying again.</string>
+    <string name="task_recovered_too_old">The app was closed while creating “%1$s” over a day ago. Check the board before trying again.</string>
 </resources>

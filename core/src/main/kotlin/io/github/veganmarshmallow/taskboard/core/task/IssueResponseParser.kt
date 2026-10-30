@@ -2,6 +2,9 @@ package io.github.veganmarshmallow.taskboard.core.task
 
 import io.github.veganmarshmallow.taskboard.core.json.JsonParser
 import io.github.veganmarshmallow.taskboard.core.model.Labels
+import java.time.Instant
+import java.time.OffsetDateTime
+import java.time.format.DateTimeParseException
 
 /** Reads the responses of the task-creation calls. Never throws. */
 object IssueResponseParser {
@@ -24,6 +27,24 @@ object IssueResponseParser {
         .filterIsInstance<Map<*, *>>()
         .filter { it["pull_request"] !is Map<*, *> }
         .mapNotNull { it["body"] as? String }
+
+    /**
+     * Number, title and creation time of each entry in one page of an issues listing, pull requests
+     * flagged. Entries without a positive number or a title are skipped; malformed input gives an empty list.
+     */
+    fun recentIssues(body: String): List<RecentIssue> = (parse(body) as? List<*>).orEmpty()
+        .filterIsInstance<Map<*, *>>()
+        .mapNotNull { obj ->
+            val number = (obj["number"] as? Long)?.takeIf { it in 1..Int.MAX_VALUE }?.toInt() ?: return@mapNotNull null
+            val title = obj["title"] as? String ?: return@mapNotNull null
+            RecentIssue(number, title, instant(obj["created_at"] as? String), obj["pull_request"] is Map<*, *>)
+        }
+
+    private fun instant(raw: String?): Instant? = try {
+        raw?.let { OffsetDateTime.parse(it).toInstant() }
+    } catch (e: DateTimeParseException) {
+        null
+    }
 
     /** GitHub's `message` from an error body, plus the first `errors[].message` or field, if any. */
     fun errorMessage(body: String): String? {
