@@ -13,6 +13,7 @@ import io.github.veganmarshmallow.taskboard.core.merge.MergeProblem
 import io.github.veganmarshmallow.taskboard.core.merge.MergeService
 import io.github.veganmarshmallow.taskboard.core.merge.MergeStep
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
+import io.github.veganmarshmallow.taskboard.core.work.RefreshTracker
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.StateStore
 import io.github.veganmarshmallow.taskboard.data.TokenStore
@@ -121,9 +122,16 @@ class MergeFlowTest {
             assertEquals(FakeMerges.TITLE, flow!!.shown!!.lines[0])
             assertEquals("VeganMarshmallow/Taskboard-widget #12", flow!!.shown!!.lines[1])
             assertTrue("nothing merged before confirming", s.received.none { it.method == "PUT" })
-            instrumentation.runOnMainSync { clickPrimary(flow!!) }
+            // A double tap: the second click arrives before the first one's work is done.
+            instrumentation.runOnMainSync { clickPrimary(flow!!); clickPrimary(flow!!) }
             waitUntil("merged and closed") { activity.mergeFlow == null && activity.findViewById<View>(R.id.preview_merged).isShown }
-            assertEquals(1, s.received.count { it.method == "PUT" })
+            // The refresh the merge starts must end inside this test, so its job can't leave a
+            // running mark for later tests; by then a second merge would also have sent its PUT.
+            waitUntil("the refresh after the merge ended", timeoutMs = 60_000) {
+                s.received.any { it.path.startsWith("/repos/VeganMarshmallow/claude-workspace/issues?") } &&
+                    AppGraph.refreshTracker(context).status() != RefreshTracker.Status.RUNNING
+            }
+            assertEquals("a double tap merges once", 1, s.received.count { it.method == "PUT" })
             instrumentation.runOnMainSync { assertTrue(!activity.findViewById<View>(R.id.preview_merge).isShown) }
         } finally {
             instrumentation.runOnMainSync { activity.finish() }
