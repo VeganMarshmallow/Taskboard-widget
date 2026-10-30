@@ -46,10 +46,10 @@ class TabsTest {
     @Test fun tabsShowShortLabelsWithCounts() {
         val v = apply(realistic, Section.NEEDS_YOU)
         val labels = Section.entries.map { v.shownTab(it).text.toString() }
-        // Needs you is exclusive: the blocked question and the PR are counted there only. No Review tab.
-        assertEquals(listOf("Needs you 2", "Todo 2", "Doing 2", "Blocked 1", "Done 3"), labels)
+        // Tabs are exclusive: the PR is counted in Needs you only, the blocked question in Blocked only (#34). No Review tab.
+        assertEquals(listOf("Needs you 1", "Todo 2", "Doing 2", "Blocked 2", "Done 3"), labels)
         assertEquals("Todo: 2", v.tabSlot(Section.TODO).contentDescription.toString())
-        assertEquals("Needs you: 2, selected", v.tabSlot(Section.NEEDS_YOU).contentDescription.toString())
+        assertEquals("Needs you: 1, selected", v.tabSlot(Section.NEEDS_YOU).contentDescription.toString())
     }
 
     @Test fun fiveTabsSitInTwoRowsOfThreeAndTwo() {

@@ -7,9 +7,8 @@ import io.github.veganmarshmallow.taskboard.R
 import io.github.veganmarshmallow.taskboard.core.board.BoardItem
 import io.github.veganmarshmallow.taskboard.core.board.BoardLinks
 import io.github.veganmarshmallow.taskboard.core.board.BoardRow
-import io.github.veganmarshmallow.taskboard.core.board.NeedsYouReason
+import io.github.veganmarshmallow.taskboard.core.board.RowBadge
 import io.github.veganmarshmallow.taskboard.core.board.Section
-import io.github.veganmarshmallow.taskboard.core.model.Priority
 
 /** Maps one [BoardRow] to its RemoteViews, with fill-in intents for taps. */
 class RowViews(private val context: Context) {
@@ -28,7 +27,7 @@ class RowViews(private val context: Context) {
 
     private fun item(item: BoardItem) = RemoteViews(context.packageName, R.layout.row_item).apply {
         setTextViewText(R.id.item_text, item.displayText)
-        val badge = badge(item)
+        val badge = RowBadge.of(item)
         setTextViewText(R.id.item_badge, badge)
         setViewVisibility(R.id.item_badge, if (badge.isEmpty()) View.GONE else View.VISIBLE)
         setOnClickFillInIntent(R.id.item_root, RowAction.Preview(item.number).toFillIn())
@@ -51,16 +50,6 @@ class RowViews(private val context: Context) {
         // Rows are recycled, so a non-tappable note still needs a (harmless) fill-in to clear the old one.
         val action = links.forRow(row)?.let { RowAction.Open(it).toFillIn() } ?: RowAction.NONE
         setOnClickFillInIntent(R.id.note_text, action)
-    }
-
-    /** Short marker before the title: high priority, and why it needs the owner. */
-    private fun badge(item: BoardItem): String = buildString {
-        if (item.priority == Priority.HIGH) append("!")
-        when (item.needsYouReason) {
-            NeedsYouReason.QUESTION -> append("?")
-            NeedsYouReason.REVIEW -> append("PR")
-            null -> Unit
-        }
     }
 
     companion object {
