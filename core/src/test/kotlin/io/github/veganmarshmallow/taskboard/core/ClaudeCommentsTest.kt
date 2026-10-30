@@ -45,40 +45,41 @@ class ClaudeCommentsTest {
 
     @Test fun noneOrNoClaudeComments() {
         assertNull(ClaudeComments.latest(emptyList()))
-        assertNull(ClaudeComments.latestLine(listOf(c("hi"), c("there"))))
+        assertNull(ClaudeComments.latestMessage(listOf(c("hi"), c("there"))))
     }
 
-    @Test fun lineIsPlainSingleLineAndKeepsTheMarker() {
+    @Test fun messageIsPlainTextAndKeepsTheMarker() {
         val body = "⛔ **Blocked**: the repo `owner/x` doesn't exist.\n\n- Create it\n- Or give [access](https://github.com/settings)"
-        assertEquals("⛔ Blocked: the repo owner/x doesn't exist. Create it; Or give access", ClaudeComments.latestLine(listOf(c(body))))
+        assertEquals("⛔ Blocked: the repo owner/x doesn't exist.\n• Create it\n• Or give access", body(c(body)))
     }
 
-    @Test fun lineDropsInvisiblePrefixBeforeTheMarker() {
-        assertEquals("⛔ Blocked: why", ClaudeComments.latestLine(listOf(c("\u200B⛔ **Blocked**: why"))))
-        assertEquals("🤖 hi", ClaudeComments.latestLine(listOf(c("\uFEFF\u2060 🤖 hi"))))
+    @Test fun messageDropsInvisiblePrefixBeforeTheMarker() {
+        assertEquals("⛔ Blocked: why", body(c("\u200B⛔ **Blocked**: why")))
+        assertEquals("🤖 hi", body(c("\uFEFF\u2060 🤖 hi")))
     }
 
-    @Test fun lineIsCapped() {
-        val line = ClaudeComments.latestLine(listOf(c("🤖 " + "word ".repeat(200))))!!
-        assertTrue(line.length <= ClaudeComments.MAX_LENGTH)
-        assertTrue(line.endsWith("…"))
+    @Test fun messageIsNotCappedToALine() {
+        val text = body(c("🤖 " + "word ".repeat(200)))!!
+        assertEquals("🤖 " + "word ".repeat(200).trim(), text)
     }
 
     @Test fun markerOnlyCommentStillShows() {
-        assertEquals("✅", ClaudeComments.latestLine(listOf(c("✅"))))
+        assertEquals("✅", body(c("✅")))
     }
 
     @Test fun hebrewComment() {
-        assertEquals("🤖 התחלתי לעבוד: תוכנית קצרה", ClaudeComments.latestLine(listOf(c("🤖 התחלתי לעבוד:\n\n**תוכנית** קצרה"))))
+        assertEquals("🤖 התחלתי לעבוד:\nתוכנית קצרה", body(c("🤖 התחלתי לעבוד:\n\n**תוכנית** קצרה")))
     }
 
     @Test fun manyComments() {
         val comments = (1..5_000).map { c(if (it % 7 == 0) "🤖 run $it" else "note $it") }
-        assertEquals("🤖 run 4998", ClaudeComments.latestLine(comments))
+        assertEquals("🤖 run 4998", ClaudeComments.latestMessage(comments)?.body)
     }
 
-    @Test fun claudeCommentOfOnlyCodeFallsBackToNull() {
-        // After stripping, nothing is left but the fence; the marker was inside the code block.
-        assertNull(ClaudeComments.latestLine(listOf(c("```\n🤖 inside code\n```"))))
+    @Test fun commentStartingWithAFenceIsNotClaudes() {
+        // The marker is inside the code block, so the comment doesn't start with it.
+        assertNull(ClaudeComments.latestMessage(listOf(c("```\n🤖 inside code\n```"))))
     }
+
+    private fun body(comment: IssueComment): String? = ClaudeComments.latestMessage(listOf(comment))?.body
 }

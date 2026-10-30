@@ -10,6 +10,7 @@ import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.preview.PreviewScreen
 import io.github.veganmarshmallow.taskboard.core.preview.TaskSummary
 import io.github.veganmarshmallow.taskboard.core.preview.ClaudeComments
+import io.github.veganmarshmallow.taskboard.core.preview.ClaudeMessage
 import io.github.veganmarshmallow.taskboard.core.preview.IssueComment
 import io.github.veganmarshmallow.taskboard.widget.RowAction
 import org.junit.Assert.assertEquals
@@ -124,7 +125,7 @@ class PreviewViewsTest {
     }
 
     /** Android's regex engine is ICU, not the JDK's: run the Markdown rules on it. */
-    @Test fun summaryAndClaudeLineOnAndroidRuntime() {
+    @Test fun summaryAndClaudeMessageOnAndroidRuntime() {
         assertTrue(TaskSummary.of(FakePreviews.TODO_BODY)!!.startsWith("Tapping a task opens a preview inside the app"))
         assertEquals(
             "Note: see docs/README.md and img. Add --flag to the CLI; Remove old code & tests; Final line_here",
@@ -134,9 +135,13 @@ class PreviewViewsTest {
         assertEquals("ready_for_claude a*b", TaskSummary.of("ready_for_claude a*b"))
         assertNull(TaskSummary.of("### Repo\nx/y\n\n---\nfooter"))
         assertEquals(
-            "⛔ Blocked: why",
-            ClaudeComments.latestLine(listOf(IssueComment(1, "🤖 a", null), IssueComment(2, "\u200B⛔ **Blocked**: why", null), IssueComment(3, "ok", null))),
+            ClaudeMessage("a token", "⛔ Blocked: why"),
+            ClaudeComments.latestMessage(
+                listOf(IssueComment(1, "🤖 a", null), IssueComment(2, "\u200B⛔ **Blocked**: why\n\n👉 **What I need from you?** a token", null), IssueComment(3, "ok", null)),
+            ),
         )
+        assertEquals("X", ClaudeMessage.of("⛔ B\n\n### What I need from you:\nX")!!.needFromYou)
+        assertNull(ClaudeMessage.of("⛔ What I need from your side")!!.needFromYou)
     }
 
     /** Hostile Markdown on Android's ICU regex engine: no stack overflow, no near-minute stall (review of #11). */
@@ -151,7 +156,7 @@ class PreviewViewsTest {
         assertEquals("a [b] c", TaskSummary.of("[a [b] c](https://x.y)"))
         assertEquals(
             "🤖 Screenshot x attached",
-            ClaudeComments.latestLine(listOf(IssueComment(1, "🤖 Screenshot [x](data:image/png;base64," + "A".repeat(40_000) + ") attached", null))),
+            ClaudeComments.latestMessage(listOf(IssueComment(1, "🤖 Screenshot [x](data:image/png;base64," + "A".repeat(40_000) + ") attached", null)))?.body,
         )
         val ms = android.os.SystemClock.uptimeMillis() - start
         assertTrue("took $ms ms", ms < 10_000)

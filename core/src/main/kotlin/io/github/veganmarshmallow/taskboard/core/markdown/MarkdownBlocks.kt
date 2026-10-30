@@ -5,7 +5,7 @@ package io.github.veganmarshmallow.taskboard.core.markdown
  * produce readable plain text from GitHub issue and comment bodies. It never throws.
  *
  * Handles ATX and setext headings, paragraphs, bullet / numbered / task-list items with lazy
- * continuation lines, block quotes (markers dropped), fenced code (content dropped, an unclosed fence
+ * continuation lines, block quotes (markers dropped), fenced code (content kept raw, an unclosed fence
  * runs to the end), thematic breaks, table rows (one paragraph per row, cells joined with ", ",
  * separator rows dropped), link reference definitions (dropped) and HTML comments (dropped outside
  * code, see [HtmlComments]). Line shapes that would need a repeated regex group are in [LineShapes].
@@ -18,6 +18,8 @@ object MarkdownBlocks {
     private val TASK_BOX = Regex("""^\[[ xX]][ \t]+""")
     private val REFERENCE_DEFINITION = Regex("""^ {0,3}\[[^\]]+]:[ \t]*\S.*$""")
     private val LINE_BREAK = Regex("""\r\n|\r|\n""")
+    /** A code block keeps at most this many characters; the rest is dropped. */
+    private const val MAX_CODE = 10_000
 
     fun parse(markdown: String): List<MarkdownBlock> {
         val lines = HtmlComments.strip(markdown.split(LINE_BREAK))
@@ -29,15 +31,15 @@ object MarkdownBlocks {
         private val current = StringBuilder()
         private var currentIsItem = false
         private var fence: String? = null
+        private val code = StringBuilder()
 
         fun line(raw: String) {
             fence?.let { open ->
-                if (CodeFence.closes(raw, open)) fence = null
+                if (CodeFence.closes(raw, open)) closeFence() else codeLine(raw)
                 return
             }
             CodeFence.opening(raw)?.let { marker ->
                 flush()
-                blocks.add(MarkdownBlock.Code)
                 fence = marker
                 return
             }
@@ -66,8 +68,21 @@ object MarkdownBlocks {
         }
 
         fun finish(): List<MarkdownBlock> {
+            if (fence != null) closeFence()
             flush()
             return blocks
+        }
+
+        private fun codeLine(raw: String) {
+            if (code.length >= MAX_CODE) return
+            if (code.isNotEmpty()) code.append('\n')
+            code.append(raw, 0, minOf(raw.length, MAX_CODE - code.length))
+        }
+
+        private fun closeFence() {
+            blocks.add(MarkdownBlock.Code(code.toString()))
+            code.clear()
+            fence = null
         }
 
         private fun append(text: String) {

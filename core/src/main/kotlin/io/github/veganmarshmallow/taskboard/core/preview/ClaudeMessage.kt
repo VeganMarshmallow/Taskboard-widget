@@ -21,7 +21,7 @@ data class ClaudeMessage(val needFromYou: String?, val body: String) {
          * text), optionally after an emoji. Matched on the raw Markdown so the rest keeps its formatting.
          */
         private val NEED_LABEL = Regex(
-            """^\s*(?:\p{So}️?\s*)?(?:[*_]{1,3})?\s*What I need from you(?![\p{L}\p{N}])[\s:：.\-–—]*(?:[*_]{1,3})?[\s:：.\-–—]*""",
+            """^\s*(?:\p{So}️?\s*)?(?:[*_]{1,3})?\s*What I need from you(?![\p{L}\p{N}])[\s:：.?？!\-–—]*(?:[*_]{1,3})?[\s:：.?？!\-–—]*""",
             RegexOption.IGNORE_CASE,
         )
         private val FOOTER = Regex("""^(?:\p{So}️?\s*)?Generated (?:by|with)\b""", RegexOption.IGNORE_CASE)
@@ -41,8 +41,9 @@ data class ClaudeMessage(val needFromYou: String?, val body: String) {
 
         /**
          * The text after the label, then: for a heading, its section (up to the next heading of the
-         * same or a higher level, or a `---`); for a paragraph or item, the list right after it, or
-         * the next paragraph when there is neither text nor a list.
+         * same or a higher level, or a `---`); for a paragraph, the list items and code blocks right
+         * after it, or the next paragraph when there is neither text nor a list. A list item with text
+         * after the label stands alone: the items after it are its siblings, not part of it.
          */
         private fun needPart(blocks: List<MarkdownBlock>, start: Int): NeedPart {
             val first = blocks[start]
@@ -53,7 +54,8 @@ data class ClaudeMessage(val needFromYou: String?, val body: String) {
                 while (end < blocks.size && !endsSection(blocks[end], first.level)) out.add(blocks[end++])
                 return NeedPart(out, end)
             }
-            while (end < blocks.size && blocks[end] is MarkdownBlock.ListItem) out.add(blocks[end++])
+            if (first is MarkdownBlock.ListItem && out.isNotEmpty()) return NeedPart(out, end)
+            while (end < blocks.size && (blocks[end] is MarkdownBlock.ListItem || blocks[end] is MarkdownBlock.Code)) out.add(blocks[end++])
             if (out.isEmpty() && end < blocks.size && blocks[end] is MarkdownBlock.Paragraph) out.add(blocks[end++])
             return NeedPart(out, end)
         }
@@ -82,7 +84,7 @@ data class ClaudeMessage(val needFromYou: String?, val body: String) {
             is MarkdownBlock.Heading -> block.text
             is MarkdownBlock.Paragraph -> block.text
             is MarkdownBlock.ListItem -> block.text
-            MarkdownBlock.Rule, MarkdownBlock.Code -> null
+            MarkdownBlock.Rule, is MarkdownBlock.Code -> null
         }
 
         /** Plain text, each line cleaned of bidi controls and broken UTF-16, empty lines dropped. */

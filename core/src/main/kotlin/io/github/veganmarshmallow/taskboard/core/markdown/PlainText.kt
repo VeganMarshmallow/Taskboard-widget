@@ -34,14 +34,14 @@ object PlainText {
     fun of(markdown: String): String = of(MarkdownBlocks.parse(markdown))
 
     /**
-     * One line per block, list items starting with [BULLET]; rules and code blocks are skipped.
+     * One line per block, list items starting with [BULLET], code blocks as their raw lines; rules are skipped.
      * No further blocks are read once the output reaches [maxLength] characters.
      */
     fun lines(blocks: List<MarkdownBlock>, maxLength: Int = MAX_LINES_OUTPUT): String {
         val out = StringBuilder()
         for (block in blocks) {
             if (out.length >= maxLength) break
-            val text = visibleText(block) ?: continue
+            val text = (if (block is MarkdownBlock.Code) block.text.takeIf { it.isNotBlank() } else visibleText(block)) ?: continue
             if (out.isNotEmpty()) out.append('\n')
             if (block is MarkdownBlock.ListItem) out.append(BULLET)
             out.append(text)
@@ -54,7 +54,7 @@ object PlainText {
         is MarkdownBlock.Heading -> block.text
         is MarkdownBlock.Paragraph -> block.text
         is MarkdownBlock.ListItem -> block.text
-        MarkdownBlock.Rule, MarkdownBlock.Code -> null
+        MarkdownBlock.Rule, is MarkdownBlock.Code -> null
     }?.let(MarkdownInline::strip)?.takeIf { it.isNotEmpty() }
 
     private fun separatorAfter(text: CharSequence, wasItem: Boolean): String {
