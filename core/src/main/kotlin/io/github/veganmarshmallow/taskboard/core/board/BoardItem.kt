@@ -2,7 +2,7 @@ package io.github.veganmarshmallow.taskboard.core.board
 
 import io.github.veganmarshmallow.taskboard.core.model.Priority
 
-/** Why an item is in "Needs you". */
+/** Why the owner is needed: in Needs you, or (a QUESTION on a blocked task, #34) in Blocked. */
 enum class NeedsYouReason { QUESTION, REVIEW }
 
 /**

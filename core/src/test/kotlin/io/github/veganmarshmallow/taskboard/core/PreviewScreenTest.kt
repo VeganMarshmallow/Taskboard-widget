@@ -56,6 +56,24 @@ class PreviewScreenTest {
         }
     }
 
+    /** Every mix of status labels, needs-owner and priority: the loaded issue and its cached row agree. */
+    @Test fun fromBoardAndFromIssueAgreeForEveryLabelMix() {
+        val statuses = listOf(Labels.TODO, Labels.IN_PROGRESS, Labels.BLOCKED, Labels.IN_REVIEW, Labels.DONE)
+        var compared = 0
+        for (mask in 0 until (1 shl statuses.size)) {
+            val status = statuses.filterIndexed { i, _ -> mask and (1 shl i) != 0 }
+            for (extra in listOf(emptyList(), listOf(Labels.NEEDS_OWNER), listOf(Labels.NEEDS_OWNER, Labels.PRIORITY_HIGH), listOf(Labels.PRIORITY_LOW))) {
+                val labels = (status + extra).toTypedArray()
+                val cached = BoardBuilder().build(listOf(issue(7, *labels)), NOW)
+                val fromBoard = TaskPreview.fromBoard(cached, 7)?.status ?: continue // open with only `status: done`: on no tab
+                assertEquals(labels.toList().toString(), TaskPreview.fromIssue(details(7, *labels)).status, fromBoard)
+                compared++
+            }
+        }
+        assertTrue(compared >= 120)
+        assertEquals(PreviewStatus.DONE, TaskPreview.fromIssue(details(7, Labels.DONE)).status) // open, about to close
+    }
+
     private val issueLabels = mapOf(
         2 to arrayOf(Labels.TODO), 3 to arrayOf(Labels.TODO, Labels.READY_FOR_CLAUDE), 4 to arrayOf(Labels.IN_REVIEW),
         5 to arrayOf(Labels.BLOCKED, Labels.NEEDS_OWNER), 6 to arrayOf(Labels.IN_PROGRESS), 8 to arrayOf(Labels.BLOCKED),

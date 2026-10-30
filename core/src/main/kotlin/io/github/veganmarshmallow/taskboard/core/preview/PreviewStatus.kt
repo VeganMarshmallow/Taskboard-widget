@@ -1,9 +1,9 @@
 package io.github.veganmarshmallow.taskboard.core.preview
 
 import io.github.veganmarshmallow.taskboard.core.board.NeedsYouReason
+import io.github.veganmarshmallow.taskboard.core.board.Placement
 import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.core.model.Issue
-import io.github.veganmarshmallow.taskboard.core.model.Labels
 import io.github.veganmarshmallow.taskboard.core.model.Status
 
 /** The status line of the preview. */
@@ -21,22 +21,14 @@ enum class PreviewStatus(val text: String) {
 
     companion object {
         /**
-         * From the issue's labels, with the board's rules: blocked stays blocked (waiting on you with
-         * `needs-owner`), otherwise `needs-owner` wins, and no status label is Todo.
+         * From the issue's labels, through the board's own [Placement] rules, so a loaded issue and
+         * its cached row always agree (#34: blocked stays blocked, waiting on you with `needs-owner`).
+         * Open with only `status: done` (about to be closed, on no tab) reads Done.
          */
         fun of(issue: Issue): PreviewStatus {
-            val status = Status.from(issue.labels)
-            if (!issue.isOpen) return if (status == Status.DONE) DONE else CLOSED
-            val needsOwner = Labels.NEEDS_OWNER in issue.labels
-            if (status == Status.BLOCKED) return if (needsOwner) BLOCKED_ON_YOU else BLOCKED
-            if (needsOwner) return NEEDS_YOU
-            return when (status) {
-                Status.IN_REVIEW -> IN_REVIEW
-                Status.BLOCKED -> BLOCKED
-                Status.IN_PROGRESS -> IN_PROGRESS
-                Status.TODO, null -> TODO
-                Status.DONE -> DONE
-            }
+            if (!issue.isOpen) return if (Status.from(issue.labels) == Status.DONE) DONE else CLOSED
+            val section = Placement.sectionsOf(issue).singleOrNull() ?: return DONE
+            return of(section, Placement.needsYouReason(issue))
         }
 
         /** From where the widget's cached board placed the task (before the issue has loaded). */
