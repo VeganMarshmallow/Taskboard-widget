@@ -171,3 +171,70 @@ jobs:
           tag="$(.github/scripts/release-tag.sh "$BRANCH")"
           gh release upload "$tag" "${pngs[@]}" --clobber
           echo "::notice title=Screenshots uploaded::${#pngs[@]} PNGs to $tag"
+
+  # #40: the real-host tab tests on Android 12+ (API 35), where the list's rows travel inside the
+  # widget update instead of through a RemoteViewsService; API 30 above only covers the old path.
+  # (API 36 never finished booting on these runners.) Only the tab tests run, to keep it short.
+  # It costs ~10 emulator minutes, so the "scope" step skips it (the job still passes) unless the
+  # push is to main or the branch changes the widget code, these tests, their host or this file.
+  emulator-recent:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GRADLE_OPTS: -Dorg.gradle.daemon=false
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Scope (skip unless the widget list code changed)
+        id: scope
+        run: |
+          widget='^app/src/main/kotlin/.*/widget/|^app/src/main/res/layout/(widget_board|row_item|row_note)\.xml$'
+          tests='^app/src/androidTest/kotlin/.*/(TabFlashRealHostTest|TabTapRealHostTest|InlineListTest|RealWidgetHost)\.kt$'
+          if [ "$GITHUB_REF_NAME" = main ]; then run=true
+          elif ! base="$(git merge-base origin/main HEAD 2>/dev/null)"; then run=true
+          elif git diff --name-only "$base" HEAD > changed.txt && grep -qE "$widget|$tests|^\.github/workflows/build\.yml$" changed.txt; then run=true
+          else run=false; fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          [ "$run" = true ] || echo "::notice title=Recent-Android tab tests skipped::no widget list changes on this branch"
+
+      - uses: actions/setup-java@v5
+        if: steps.scope.outputs.run == 'true'
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v5
+        if: steps.scope.outputs.run == 'true'
+
+      - name: Enable KVM
+        if: steps.scope.outputs.run == 'true'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Tab tests on a recent Android
+        id: emulator
+        if: steps.scope.outputs.run == 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_5
+          disable-animations: true
+          emulator-boot-timeout: 1200
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: ./gradlew :app:connectedDebugAndroidTest --console=plain -Pandroid.testInstrumentationRunnerArguments.class=io.github.veganmarshmallow.taskboard.TabFlashRealHostTest,io.github.veganmarshmallow.taskboard.TabTapRealHostTest,io.github.veganmarshmallow.taskboard.InlineListTest > connected.log 2>&1; s=$?; cat connected.log; exit $s
+
+      - name: Annotate instrumented test failure
+        if: failure() && steps.emulator.outcome == 'failure'
+        run: .github/scripts/annotate-failure.sh connected.log "tab tests, recent Android"
+
+      - name: Tab test summary
+        if: always() && steps.emulator.outcome != 'skipped'
+        run: .github/scripts/test-summary.sh app/build/outputs/androidTest-results/connected/debug "Tab tests, recent Android"
