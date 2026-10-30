@@ -8,7 +8,7 @@ object BoardRows {
     fun of(board: Board, tab: Section): List<BoardRow> {
         val content = board.section(tab)
         if (content.totalCount <= 0 && content.items.isEmpty()) return listOf(BoardRow.Empty(tab))
-        val rows: List<BoardRow> = content.items.map { BoardRow.Item(it) }
+        val rows: List<BoardRow> = content.items.map { BoardRow.Item(it, content.section) }
         return if (content.hiddenCount > 0) rows + BoardRow.More(tab, content.hiddenCount) else rows
     }
 }
