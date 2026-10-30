@@ -17,6 +17,9 @@ import io.github.veganmarshmallow.taskboard.core.model.Status
  *   in-progress > todo > done, see [Status]). No status label → Todo (a freshly filed task). Only
  *   `status: done` but still open → no tab (it is about to be closed).
  * - The Approve button shows only on Todo issues without `ready-for-claude` or `needs-owner`.
+ * - The Merge button (task #30) shows on open issues whose status is in-review, which are always
+ *   in Needs you; also with `needs-owner`, since the PR is still waiting. Finding the PR and checking
+ *   it can be merged happens only when the button is tapped.
  *
  * Closed issues are never placed here; the Done tab is built from them separately.
  */
@@ -39,6 +42,9 @@ object Placement {
     fun canApprove(issue: Issue): Boolean =
         issue.isOpen && statusSection(issue) == Section.TODO &&
             Labels.READY_FOR_CLAUDE !in issue.labels && Labels.NEEDS_OWNER !in issue.labels
+
+    fun canMerge(issue: Issue): Boolean =
+        issue.isOpen && !issue.isPullRequest && Status.from(issue.labels) == Status.IN_REVIEW
 
     private fun statusSection(issue: Issue): Section? = when (Status.from(issue.labels)) {
         Status.IN_REVIEW -> Section.NEEDS_YOU // already caught by needsYouReason; never dropped

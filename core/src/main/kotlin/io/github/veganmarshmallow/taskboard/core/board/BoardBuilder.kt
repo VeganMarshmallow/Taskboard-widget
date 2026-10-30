@@ -57,6 +57,7 @@ class BoardBuilder(
         priority = Priority.from(issue.labels),
         canApprove = Placement.canApprove(issue),
         needsYouReason = Placement.needsYouReason(issue),
+        canMerge = Placement.canMerge(issue),
     )
 
     private fun isRecentlyDone(issue: Issue, now: Instant): Boolean {
