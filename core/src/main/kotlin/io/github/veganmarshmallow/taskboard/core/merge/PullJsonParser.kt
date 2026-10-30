@@ -7,9 +7,11 @@ import io.github.veganmarshmallow.taskboard.core.json.list
 import io.github.veganmarshmallow.taskboard.core.json.long
 import io.github.veganmarshmallow.taskboard.core.json.string
 import io.github.veganmarshmallow.taskboard.core.model.Repo
+import java.time.Instant
+import java.time.format.DateTimeParseException
 
 /**
- * Parses the pulls, check-runs and merge responses. Throws [MalformedResponseException] when a
+ * Parses the pulls, workflow-runs and merge responses. Throws [MalformedResponseException] when a
  * field merging depends on (number, state, head SHA, base ref) is missing or has the wrong type.
  * The PR's repo is the one that was asked, never read from the response.
  */
@@ -25,16 +27,32 @@ object PullJsonParser {
         return array.map { pull(it as? Map<*, *> ?: throw MalformedResponseException("PR is not an object"), repo) }
     }
 
-    /** `{"total_count": n, "check_runs": [...]}`. Runs without a name are kept as "check". */
-    fun parseCheckRuns(body: String): CheckRunPage {
-        val obj = parse(body) as? Map<*, *> ?: throw MalformedResponseException("Expected a check-runs object")
-        val runs = obj.list("check_runs") ?: throw MalformedResponseException("Missing check_runs")
-        return CheckRunPage(
+    /**
+     * `{"total_count": n, "workflow_runs": [...]}` from the Actions runs list. A run without a name
+     * is kept as "workflow"; a run without `head_sha` is malformed (it can't be tied to the commit
+     * being merged); a missing status is "unknown" (counted as still running), and an
+     * unreadable `created_at` is null (it only breaks ties between attempts).
+     */
+    fun parseWorkflowRuns(body: String): WorkflowRunPage {
+        val obj = parse(body) as? Map<*, *> ?: throw MalformedResponseException("Expected a workflow-runs object")
+        val runs = obj.list("workflow_runs") ?: throw MalformedResponseException("Missing workflow_runs")
+        return WorkflowRunPage(
             runs.map { raw ->
-                val run = raw as? Map<*, *> ?: throw MalformedResponseException("Check run is not an object")
-                CheckRun(run.string("name") ?: "check", run.string("status") ?: "unknown", run.string("conclusion"))
+                val run = raw as? Map<*, *> ?: throw MalformedResponseException("Workflow run is not an object")
+                WorkflowRun(
+                    id = run.long("id"),
+                    workflowId = run.long("workflow_id"),
+                    name = run.string("name")?.takeIf { it.isNotBlank() } ?: "workflow",
+                    headSha = run.string("head_sha") ?: throw MalformedResponseException("Workflow run without head_sha"),
+                    runNumber = run.long("run_number") ?: 0,
+                    runAttempt = run.long("run_attempt") ?: 1,
+                    createdAt = run.string("created_at")?.let(::instant),
+                    status = run.string("status") ?: "unknown",
+                    conclusion = run.string("conclusion"),
+                    event = run.string("event"),
+                )
             },
-            obj.long("total_count")?.toInt(),
+            obj.long("total_count")?.takeIf { it >= 0 },
         )
     }
 
@@ -75,6 +93,12 @@ object PullJsonParser {
         )
     }
 
+    private fun instant(text: String): Instant? = try {
+        Instant.parse(text)
+    } catch (e: DateTimeParseException) {
+        null
+    }
+
     private fun parse(body: String): Any? = try {
         JsonParser.parse(body.removePrefix("﻿"))
     } catch (e: JsonParseException) {
@@ -82,5 +106,5 @@ object PullJsonParser {
     }
 }
 
-/** One page of check runs, and GitHub's total across all pages (null when not sent). */
-data class CheckRunPage(val runs: List<CheckRun>, val totalCount: Int?)
+/** One page of workflow runs, and GitHub's total across all pages (null when not sent). */
+data class WorkflowRunPage(val runs: List<WorkflowRun>, val totalCount: Long?)

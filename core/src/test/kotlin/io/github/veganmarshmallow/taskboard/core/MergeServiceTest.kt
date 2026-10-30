@@ -31,7 +31,7 @@ class MergeServiceTest {
         var comments: List<String> = listOf("🤖 Started")
         var open: List<Map<String, Any?>> = listOf(pullJson(12))
         val details = HashMap<Int, ArrayDeque<Map<String, Any?>>>()
-        var checks: String = checkRunsJson(passed("build"), passed("emulator"))
+        var checks: String = runsJson(passed("CI"), passed("Lint"))
         var mergeResponse: HttpResponse = ok("""{"merged":true}""")
 
         init {
@@ -59,7 +59,7 @@ class MergeServiceTest {
                     }
                     ok(JsonWriter.write(json))
                 }
-                url.contains("/check-runs") -> ok(checks)
+                url.contains("/actions/runs?") -> ok(checks)
                 else -> throw IOException("no route for $method $url")
             }
         }
@@ -94,7 +94,7 @@ class MergeServiceTest {
         s.comments = listOf("🤖 התחלתי", "✅ ה-PR מוכן: https://github.com/VeganMarshmallow/site/pull/3 — לבדיקה")
         val site = "$API_REPOS/VeganMarshmallow/site"
         s.override({ _, u -> u == "$site/pulls/3" }) { ok(JsonWriter.write(pullJson(3))) }
-        s.override({ _, u -> u.startsWith("$site/commits/") }) { ok(checkRunsJson(passed())) }
+        s.override({ _, u -> u.startsWith("$site/actions/runs?") }) { ok(runsJson(passed())) }
         val pr = s.prepare().pr()
         assertEquals("VeganMarshmallow/site", pr.repo.fullName)
         assertEquals(3, pr.number)
@@ -108,7 +108,7 @@ class MergeServiceTest {
         s.override({ _, u -> u == "$site/pulls/3" }) { ok(JsonWriter.write(pullJson(3, body = "Unrelated work"))) }
         val p = s.prepare().problem() as MergeProblem.NotLinked
         assertEquals(listOf(3), p.candidates.map { it.number })
-        assertTrue("never checked or merged", s.urls().none { "check-runs" in it || it.startsWith("PUT") })
+        assertTrue("never checked or merged", s.urls().none { "actions/runs" in it || it.startsWith("PUT") })
     }
 
     @Test fun aLinkedPrWhoseBodyOnlyMentionsTheTaskIsNeverMerged() {
@@ -116,7 +116,7 @@ class MergeServiceTest {
         s.open = listOf(pullJson(12, body = "Part of VeganMarshmallow/claude-workspace#30, doesn't close it"))
         s.comments = listOf("✅ Taskboard-widget PR #12 is ready for review")
         assertTrue(s.prepare().problem() is MergeProblem.NotLinked)
-        assertTrue(s.urls().none { "check-runs" in it })
+        assertTrue(s.urls().none { "actions/runs" in it })
     }
 
     @Test fun shortFormCommentUsesTheRepoField() {
@@ -157,7 +157,7 @@ class MergeServiceTest {
         s.open = listOf(pullJson(12), pullJson(14))
         val p = s.prepare().problem() as MergeProblem.Ambiguous
         assertEquals(listOf(12, 14), p.candidates.map { it.number })
-        assertTrue("never merges or checks when ambiguous", s.urls().none { "check-runs" in it || it.startsWith("PUT") })
+        assertTrue("never merges or checks when ambiguous", s.urls().none { "actions/runs" in it || it.startsWith("PUT") })
     }
 
     @Test fun noRepoFieldAndNoLinksIsNotFound() {
@@ -222,10 +222,11 @@ class MergeServiceTest {
     @Test fun mergeableNullIsRepolledUntilKnown() {
         val s = Script()
         s.detail(12, pullJson(12, mergeable = null), pullJson(12, mergeable = null), pullJson(12, mergeable = true, sha = SHA_B))
+        s.checks = runsJson(wfRun("CI", sha = SHA_B))
         val pr = s.prepare().pr()
         assertEquals("merges the SHA that was checked", SHA_B, pr.headSha)
         assertEquals(listOf(Duration.ofMillis(1500), Duration.ofMillis(3000)), sleeps)
-        assertTrue(s.urls().any { it.contains("/commits/$SHA_B/check-runs") })
+        assertTrue(s.urls().any { it.contains("/actions/runs?head_sha=$SHA_B&") })
     }
 
     @Test fun mergeableStillNullGivesUp() {
@@ -239,7 +240,7 @@ class MergeServiceTest {
         val s = Script()
         s.detail(12, pullJson(12, mergeable = false))
         assertTrue(s.prepare().problem() is MergeProblem.Conflicts)
-        assertTrue(s.urls().none { "check-runs" in it })
+        assertTrue(s.urls().none { "actions/runs" in it })
     }
 
     @Test fun prClosedWhileChecking() {
@@ -248,46 +249,144 @@ class MergeServiceTest {
         assertTrue(s.prepare().problem() is MergeProblem.Closed)
     }
 
+    @Test fun happyPathReadsActionsRunsOnTheHeadSha() {
+        val s = Script()
+        assertEquals(12, s.prepare().pr().number)
+        assertTrue(s.urls().contains("GET /VeganMarshmallow/Taskboard-widget/actions/runs?head_sha=$SHA_A&per_page=100"))
+        assertTrue("check runs need a permission fine-grained tokens lack", s.urls().none { "check-runs" in it || "/status" in it })
+    }
+
     @Test fun checksMixed() {
         val s = Script()
-        s.checks = checkRunsJson(passed("build"), Triple("emulator", "in_progress", null), Triple("lint", "completed", "skipped"))
-        assertEquals(listOf("emulator"), (s.prepare().problem() as MergeProblem.ChecksRunning).names)
+        s.checks = runsJson(passed("CI"), wfRun("Emulator", null, "in_progress"), wfRun("Deploy", "skipped"))
+        assertEquals(listOf("Emulator"), (s.prepare().problem() as MergeProblem.ChecksRunning).names)
+        s.checks = runsJson(passed("CI"), wfRun("Approval", null, "waiting"), wfRun("Queued", null, "queued"))
+        assertEquals(listOf("Approval", "Queued"), (s.prepare().problem() as MergeProblem.ChecksRunning).names)
     }
 
     @Test fun checksFailed() {
         val s = Script()
-        s.checks = checkRunsJson(passed("build"), Triple("emulator", "completed", "failure"))
-        assertEquals(listOf("emulator"), (s.prepare().problem() as MergeProblem.ChecksFailed).names)
+        listOf("failure", "cancelled", "timed_out", "action_required").forEach { c ->
+            s.checks = runsJson(passed("CI"), wfRun("Emulator", c))
+            assertEquals(c, listOf("Emulator"), (s.prepare().problem() as MergeProblem.ChecksFailed).names)
+        }
+    }
+
+    @Test fun aFailedRunReRunGreenMerges() {
+        val s = Script()
+        s.checks = runsJson(wfRun("CI", "failure", attempt = 1), passed("Lint"), wfRun("CI", "success", attempt = 2))
+        assertEquals(12, s.prepare().pr().number)
+        s.checks = runsJson(wfRun("CI", "failure", number = 4), wfRun("CI", "success", number = 5))
+        assertEquals("a newer run of the workflow supersedes the failed one", 12, s.prepare().pr().number)
+        s.checks = runsJson(wfRun("CI", "success", attempt = 1), wfRun("CI", null, "in_progress", attempt = 2))
+        assertTrue("a re-run in progress is still running", s.prepare().problem() is MergeProblem.ChecksRunning)
+    }
+
+    @Test fun aNewerPushRunDoesNotHideAFailedPullRequestRun() {
+        val s = Script()
+        s.checks = runsJson(wfRun("CI", "failure", number = 4, event = "pull_request"), wfRun("CI", "success", number = 5, event = "push"))
+        assertEquals(MergeProblem.ChecksFailed::class, s.prepare().problem()!!::class)
+        s.checks = runsJson(wfRun("CI", sha = null), wfRun("Lint"))
+        assertTrue("a run without head_sha refuses", s.prepare().problem() is MergeProblem.Failed)
+        assertTrue("never merges", s.urls().none { it.startsWith("PUT") })
     }
 
     @Test fun noChecksOrOnlySkipped() {
         val s = Script()
-        s.checks = checkRunsJson()
+        s.checks = runsJson()
         assertTrue(s.prepare().problem() is MergeProblem.NoChecks)
-        s.checks = checkRunsJson(Triple("deploy", "completed", "skipped"), Triple("lint", "completed", "neutral"))
+        s.checks = runsJson(wfRun("Deploy", "skipped"), wfRun("Docs", "neutral"))
         assertTrue(s.prepare().problem() is MergeProblem.NoChecks)
+        s.checks = runsJson(wfRun("CI", sha = SHA_B))
+        assertTrue("runs for another commit don't count", s.prepare().problem() is MergeProblem.NoChecks)
     }
 
     @Test fun neutralAndSkippedPassWithASuccess() {
         val s = Script()
-        s.checks = checkRunsJson(passed(), Triple("deploy", "completed", "skipped"), Triple("lint", "completed", "neutral"))
+        s.checks = runsJson(passed(), wfRun("Deploy", "skipped"), wfRun("Docs", "neutral"))
         assertEquals(12, s.prepare().pr().number)
     }
 
-    @Test fun checkRunsArePaginated() {
+    @Test fun workflowRunsArePaginated() {
         val s = Script()
-        val next = "$repo/commits/$SHA_A/check-runs?per_page=100&page=2"
-        s.override({ _, u -> u == next }) { ok(checkRunsJson(Triple("late", "completed", "failure"))) }
-        s.override({ _, u -> u.endsWith("/check-runs?per_page=100") }) {
-            ok(checkRunsJson(passed()), "Link" to "<$next>; rel=\"next\"")
-        }
-        assertEquals(listOf("late"), (s.prepare().problem() as MergeProblem.ChecksFailed).names)
+        val first = "$repo/actions/runs?head_sha=$SHA_A&per_page=100"
+        val next = "$first&page=2"
+        val page1 = (1..100).map { wfRun("W$it", workflow = it.toLong()) }.toTypedArray()
+        s.override({ _, u -> u == next }) { ok(runsJson(wfRun("Late", "failure"), total = 101)) }
+        s.override({ _, u -> u == first }) { ok(runsJson(*page1, total = 101), "Link" to "<$next>; rel=\"next\", <$next>; rel=\"last\"") }
+        assertEquals(listOf("Late"), (s.prepare().problem() as MergeProblem.ChecksFailed).names)
+        assertEquals(1, s.urls().count { it.endsWith("&page=2") })
     }
 
-    @Test fun checksNeedingAPermissionTheTokenLacks() {
+    @Test fun aReRunOnTheNextPageStillSupersedes() {
         val s = Script()
-        s.override({ _, u -> "check-runs" in u }) { status(403, body = """{"message":"Resource not accessible by personal access token"}""") }
-        assertEquals(MergeProblem.NoRepoAccess(WIDGET), s.prepare().problem())
+        val first = "$repo/actions/runs?head_sha=$SHA_A&per_page=100"
+        val next = "$first&page=2"
+        s.override({ _, u -> u == next }) { ok(runsJson(wfRun("CI", "failure", attempt = 1, id = 1), total = 2)) }
+        s.override({ _, u -> u == first }) { ok(runsJson(wfRun("CI", attempt = 2, id = 2), total = 2), "Link" to "<$next>; rel=\"next\"") }
+        assertEquals(12, s.prepare().pr().number)
+    }
+
+    @Test fun aRunSeenOnTwoPagesIsCountedOnce() {
+        val s = Script()
+        val first = "$repo/actions/runs?head_sha=$SHA_A&per_page=100"
+        val next = "$first&page=2"
+        val dup = wfRun("CI", id = 7)
+        s.override({ _, u -> u == next }) { ok(runsJson(dup, wfRun("Lint", id = 8), total = 2)) }
+        s.override({ _, u -> u == first }) { ok(runsJson(dup, total = 2), "Link" to "<$next>; rel=\"next\"") }
+        assertEquals(12, s.prepare().pr().number)
+    }
+
+    @Test fun missingRunsRefuseInsteadOfJudgingPart() {
+        val s = Script()
+        val page1 = (1..100).map { passed("W$it") }.toTypedArray()
+        s.checks = runsJson(*page1, total = 150) // total_count > 100 but no Link header
+        val p = s.prepare().problem() as MergeProblem.Failed
+        assertEquals(BoardError.Unexpected("GitHub listed 150 workflow runs but sent 100"), p.error)
+        assertTrue(s.urls().none { it.startsWith("PUT") })
+    }
+
+    @Test fun paginationOnlyFollowsApiGitHubCom() {
+        listOf("https://evil.example/repos/x?page=2", "http://api.github.com/x", "https://api.github.com.evil.example/x").forEach { link ->
+            val s = Script()
+            s.override({ _, u -> u.contains("/actions/runs?") }) { ok(runsJson(passed(), total = 2), "Link" to "<$link>; rel=\"next\"") }
+            val p = s.prepare().problem() as MergeProblem.Failed
+            assertEquals(link, BoardError.Unexpected("bad pagination link"), p.error)
+            assertTrue(link, s.http.requests.none { it.url == link })
+        }
+    }
+
+    @Test fun tooManyPagesRefuse() {
+        val s = Script()
+        var page = 0
+        s.override({ _, u -> u.contains("/actions/runs?") }) {
+            page++
+            ok(runsJson(passed("W$page"), total = 1000), "Link" to "<$repo/actions/runs?head_sha=$SHA_A&per_page=100&page=${page + 1}>; rel=\"next\"")
+        }
+        val p = s.prepare().problem() as MergeProblem.Failed
+        assertEquals(BoardError.Unexpected("more than 300 workflow runs"), p.error)
+        assertEquals(3, page)
+    }
+
+    @Test fun malformedRunsRefuse() {
+        val s = Script()
+        s.checks = """{"total_count":1,"check_runs":[]}"""
+        assertTrue(s.prepare().problem() is MergeProblem.Failed)
+        assertTrue(s.urls().none { it.startsWith("PUT") })
+    }
+
+    @Test fun actionsNeedingAPermissionTheTokenLacks() {
+        listOf(403, 404).forEach { code ->
+            val s = Script()
+            s.override({ _, u -> "actions/runs" in u }) { status(code, body = """{"message":"Resource not accessible by personal access token"}""") }
+            assertEquals("$code", MergeProblem.NoActionsAccess(WIDGET), s.prepare().problem())
+        }
+        val limited = Script().override({ _, u -> "actions/runs" in u }) { status(403, "x-ratelimit-remaining" to "0") }
+        assertTrue((limited.prepare().problem() as MergeProblem.Failed).error is BoardError.RateLimited)
+        val bad = Script().override({ _, u -> "actions/runs" in u }) { status(401) }
+        assertEquals(MergeProblem.Failed(BoardError.BadToken(401)), bad.prepare().problem())
+        val down = Script().override({ _, u -> "actions/runs" in u }) { status(502) }
+        assertTrue((down.prepare().problem() as MergeProblem.Failed).error is BoardError.Server)
     }
 
     // --- the merge ---
@@ -390,7 +489,7 @@ class MergeServiceTest {
     @Test fun networkAndTimeoutStopAtOnce() {
         val s = Script().override({ _, u -> u.startsWith("$repo/pulls?") }) { throw IOException("down") }
         assertEquals(MergeProblem.Failed(BoardError.Network), s.prepare().problem())
-        val t = Script().override({ _, u -> "check-runs" in u }) { throw SocketTimeoutException() }
+        val t = Script().override({ _, u -> "actions/runs" in u }) { throw SocketTimeoutException() }
         assertEquals(MergeProblem.Failed(BoardError.Timeout), t.prepare().problem())
     }
 
