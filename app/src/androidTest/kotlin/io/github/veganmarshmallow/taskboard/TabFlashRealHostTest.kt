@@ -24,9 +24,11 @@ import org.junit.runner.RunWith
  * later. Each test taps a tab on a real widget host and then keeps watching for [WATCH_MS]: the
  * highlight must stay on the tapped tab the whole time, and the list must show that tab's rows.
  *
- * The CI also runs this on a recent Android (see build.yml), where AppWidgetManager converts a
- * RemoteViewsService list itself and re-sends the system's last views on a list change: that is
- * where the old highlight came back from.
+ * CI also runs this on API 35 (see build.yml), so the Android 12+ path, where the rows travel inside
+ * the widget update ([io.github.veganmarshmallow.taskboard.widget.ListBinding]), is checked too.
+ * The suspected cause (AppWidgetManager converting a RemoteViewsService list itself on Android
+ * 15/16 and re-sending the system's previous views on a list change) is behind a platform flag
+ * that the API 35 emulator image leaves off, so this test could not show the revert itself there.
  */
 @RunWith(AndroidJUnit4::class)
 class TabFlashRealHostTest {

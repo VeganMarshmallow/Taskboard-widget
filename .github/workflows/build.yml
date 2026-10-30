@@ -172,9 +172,9 @@ jobs:
           gh release upload "$tag" "${pngs[@]}" --clobber
           echo "::notice title=Screenshots uploaded::${#pngs[@]} PNGs to $tag"
 
-  # #40: the tab tests again on a recent Android (API 35; 36 does not boot here). From Android 15/16, AppWidgetManager converts a
-  # RemoteViewsService list itself and re-sends the system's last views when the list changes,
-  # which API 30 never does. Only the real-host tab tests run here, to keep the job short.
+  # #40: the real-host tab tests on Android 12+ (API 35), where the list's rows travel inside the
+  # widget update instead of through a RemoteViewsService; API 30 above only covers the old path.
+  # (API 36 never finished booting on these runners.) Only the tab tests run, to keep it short.
   emulator-recent:
     needs: build
     runs-on: ubuntu-latest
