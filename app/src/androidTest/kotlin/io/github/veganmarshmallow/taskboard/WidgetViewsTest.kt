@@ -6,6 +6,7 @@ import android.widget.ListView
 import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import io.github.veganmarshmallow.taskboard.TabTestViews.isHighlighted
 import io.github.veganmarshmallow.taskboard.core.board.BoardItem
 import io.github.veganmarshmallow.taskboard.core.board.BoardRow
 import io.github.veganmarshmallow.taskboard.core.board.BoardRows
@@ -72,11 +73,14 @@ class WidgetViewsTest {
         assertTrue(v.text(R.id.updated).startsWith("last updated "))
     }
 
-    @Test fun updatingPartialUpdateOnlyChangesTheHeaderText() {
-        val v = applyWidget(WidgetState(FakeBoards.realistic(), null, FakeBoards.NOW))
-        onMain { WidgetViews(context).updating().reapply(context, v) }
+    @Test fun updatingIsAFullUpdateThatKeepsTheTabsAndList() {
+        // #33: "updating…" is no longer a partial update, so it carries the tab highlight too.
+        val state = WidgetState(FakeBoards.realistic(), null, FakeBoards.NOW)
+        val v = applyWidget(state)
+        onMain { WidgetViews(context).build(state, 1, Section.BLOCKED, updating = true).reapply(context, v) }
         assertEquals(context.getString(R.string.updating), v.text(R.id.updated))
         assertEquals(View.VISIBLE, v.visibilityOf(R.id.board_list))
+        Section.entries.forEach { assertEquals("$it", it == Section.BLOCKED, v.isHighlighted(it)) }
     }
 
     @Test fun everyRowOfEveryTabOfTheRealisticBoardApplies() {
