@@ -15,7 +15,7 @@ class RowViews(private val context: Context) {
     private val links = BoardLinks()
 
     fun build(row: BoardRow): RemoteViews = when (row) {
-        is BoardRow.Item -> item(row.item)
+        is BoardRow.Item -> item(row.item, row.section)
         is BoardRow.More -> note(moreText(row), row)
         is BoardRow.Empty -> note(context.getString(EmptyText.of(row.section)), row)
     }
@@ -25,9 +25,9 @@ class RowViews(private val context: Context) {
         return context.resources.getQuantityString(plural, row.hidden, row.hidden)
     }
 
-    private fun item(item: BoardItem) = RemoteViews(context.packageName, R.layout.row_item).apply {
+    private fun item(item: BoardItem, section: Section) = RemoteViews(context.packageName, R.layout.row_item).apply {
         setTextViewText(R.id.item_text, item.displayText)
-        val badge = RowBadge.of(item)
+        val badge = RowBadge.of(item, section)
         setTextViewText(R.id.item_badge, badge)
         setViewVisibility(R.id.item_badge, if (badge.isEmpty()) View.GONE else View.VISIBLE)
         setOnClickFillInIntent(R.id.item_root, RowAction.Preview(item.number).toFillIn())

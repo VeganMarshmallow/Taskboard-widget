@@ -82,7 +82,7 @@ class BlockedTabScreenshotTest {
         assertTrue(widget.isHighlighted(Section.BLOCKED))
         assertEquals("Needs you 0", widget.shownTab(Section.NEEDS_YOU).text.toString())
         assertEquals("Blocked 2", widget.shownTab(Section.BLOCKED).text.toString())
-        assertEquals(listOf("?" to "Which payment provider?", "" to "Waiting on the API key rotation"), widget.rows())
+        assertEquals(listOf("!?" to "Which payment provider?", "" to "Waiting on the API key rotation"), widget.rows())
     }
 
     @Test fun previewSaysBlockedWaitingOnYou() {
