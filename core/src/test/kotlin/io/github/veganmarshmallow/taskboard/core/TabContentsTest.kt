@@ -16,6 +16,7 @@ import io.github.veganmarshmallow.taskboard.core.model.Labels.NEEDS_OWNER
 import io.github.veganmarshmallow.taskboard.core.model.Labels.PRIORITY_HIGH
 import io.github.veganmarshmallow.taskboard.core.model.Labels.READY_FOR_CLAUDE
 import io.github.veganmarshmallow.taskboard.core.model.Labels.TODO
+import io.github.veganmarshmallow.taskboard.core.model.Status
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetStateCodec
 import org.junit.Assert.assertEquals
@@ -41,13 +42,14 @@ class TabContentsTest {
         assertEquals(listOf(6), board.numbers(Section.DONE))
     }
 
-    @Test fun needsYouIsExclusive() {
-        val board = build(issue(2, BLOCKED, NEEDS_OWNER), issue(3, IN_REVIEW), issue(4, IN_REVIEW, NEEDS_OWNER), issue(5, BLOCKED))
-        assertEquals(listOf(2, 3, 4), board.numbers(Section.NEEDS_YOU))
-        assertEquals(listOf(5), board.numbers(Section.BLOCKED)) // 2 is a question: not here
-        assertEquals(1, board.count(Section.BLOCKED))
-        val reasons = board.section(Section.NEEDS_YOU).items.associate { it.number to it.needsYouReason }
-        assertEquals(mapOf(2 to NeedsYouReason.QUESTION, 3 to NeedsYouReason.REVIEW, 4 to NeedsYouReason.QUESTION), reasons)
+    @Test fun tabsAreExclusiveAndBlockedWinsOverNeedsOwner() {
+        val board = build(issue(2, BLOCKED, NEEDS_OWNER), issue(3, IN_REVIEW), issue(4, IN_REVIEW, NEEDS_OWNER), issue(5, BLOCKED), issue(6, TODO, NEEDS_OWNER))
+        assertEquals(listOf(3, 4, 6), board.numbers(Section.NEEDS_YOU))
+        assertEquals(listOf(2, 5), board.numbers(Section.BLOCKED)) // #34: 2 is blocked, so only here
+        assertEquals(3, board.count(Section.NEEDS_YOU))
+        assertEquals(2, board.count(Section.BLOCKED))
+        val reasons = (board.section(Section.NEEDS_YOU).items + board.section(Section.BLOCKED).items).associate { it.number to it.needsYouReason }
+        assertEquals(mapOf(3 to NeedsYouReason.REVIEW, 4 to NeedsYouReason.QUESTION, 6 to NeedsYouReason.QUESTION, 2 to NeedsYouReason.QUESTION, 5 to null), reasons)
     }
 
     @Test fun everyOpenIssueIsListedAndCountedInExactlyOneTab() {
@@ -71,9 +73,17 @@ class TabContentsTest {
         // Each open issue's one tab is exactly what Placement says.
         issues.forEach { assertEquals("#${it.number}", 1, Placement.sectionsOf(it).size) }
         issues.forEach { i -> assertEquals("#${i.number}", Placement.sectionsOf(i), open.filter { i.number in board.numbers(it) }.toSet()) }
-        // Only items in Needs you carry a Needs-you badge.
-        open.filter { it != Section.NEEDS_YOU }.forEach { tab ->
+        // Every blocked issue is in Blocked, needs-owner or not (#34), and none is in Needs you.
+        val blocked = issues.filter { Status.from(it.labels) == Status.BLOCKED }.map { it.number }
+        assertTrue(blocked.any { n -> NEEDS_OWNER in issues.first { it.number == n }.labels })
+        assertEquals(blocked.sorted(), board.numbers(Section.BLOCKED).sorted())
+        // Badges outside Needs you: only blocked questions; Todo and In progress never carry one.
+        listOf(Section.TODO, Section.IN_PROGRESS).forEach { tab ->
             assertTrue("$tab", board.section(tab).items.all { it.needsYouReason == null })
+        }
+        board.section(Section.BLOCKED).items.forEach { item ->
+            val expected = if (NEEDS_OWNER in issues.first { it.number == item.number }.labels) NeedsYouReason.QUESTION else null
+            assertEquals("#${item.number}", expected, item.needsYouReason)
         }
     }
 
@@ -81,7 +91,12 @@ class TabContentsTest {
         assertEquals(setOf(Section.TODO), Placement.sectionsOf(issue(2)))
         assertEquals(setOf(Section.NEEDS_YOU), Placement.sectionsOf(issue(2, NEEDS_OWNER)))
         assertEquals(setOf(Section.NEEDS_YOU), Placement.sectionsOf(issue(2, IN_REVIEW)))
-        assertEquals(setOf(Section.NEEDS_YOU), Placement.sectionsOf(issue(2, BLOCKED, NEEDS_OWNER)))
+        assertEquals(setOf(Section.BLOCKED), Placement.sectionsOf(issue(2, BLOCKED, NEEDS_OWNER))) // #34
+        assertEquals(NeedsYouReason.QUESTION, Placement.needsYouReason(issue(2, BLOCKED, NEEDS_OWNER)))
+        assertEquals(setOf(Section.BLOCKED), Placement.sectionsOf(issue(2, BLOCKED, NEEDS_OWNER, PRIORITY_HIGH)))
+        assertEquals(setOf(Section.BLOCKED), Placement.sectionsOf(issue(2, BLOCKED, IN_PROGRESS, NEEDS_OWNER))) // blocked beats in-progress
+        assertEquals(setOf(Section.NEEDS_YOU), Placement.sectionsOf(issue(2, BLOCKED, IN_REVIEW, NEEDS_OWNER))) // in-review beats blocked
+        assertFalse(Placement.canApprove(issue(2, BLOCKED, NEEDS_OWNER)))
         assertEquals(setOf(Section.BLOCKED), Placement.sectionsOf(issue(2, BLOCKED)))
         // In review, with or without other status labels: always Needs you (there is no In review tab).
         assertEquals(setOf(Section.NEEDS_YOU), Placement.sectionsOf(issue(2, IN_REVIEW, DONE)))

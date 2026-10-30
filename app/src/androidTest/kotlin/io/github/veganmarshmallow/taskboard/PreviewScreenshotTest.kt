@@ -47,7 +47,7 @@ class PreviewScreenshotTest {
     @Test fun blockedWithClaudeComment() {
         val v = capture("11-2-preview-blocked-claude-line", FakePreviews.blockedWithClaudeLine())
         assertTrue(v.text(R.id.preview_claude).startsWith("⛔ Blocked: Chart.js"))
-        assertEquals("Needs you", v.text(R.id.preview_status))
+        assertEquals("Blocked: waiting on you", v.text(R.id.preview_status)) // #34
         assertTrue(!v.visible(R.id.preview_approve))
     }
 
