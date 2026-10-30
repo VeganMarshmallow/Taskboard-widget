@@ -5,7 +5,8 @@ sealed class BoardRow {
     /** Stable id for RemoteViewsFactory.getItemId. Unique within one tab's rows. */
     abstract val id: Long
 
-    data class Item(val item: BoardItem) : BoardRow() {
+    /** [section] is the tab the row is listed in (it decides the badge, see [RowBadge]). */
+    data class Item(val item: BoardItem, val section: Section = Section.TODO) : BoardRow() {
         override val id: Long get() = item.number.toLong()
     }
 
