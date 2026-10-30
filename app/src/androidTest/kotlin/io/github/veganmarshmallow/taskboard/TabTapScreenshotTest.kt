@@ -4,7 +4,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
-import io.github.veganmarshmallow.taskboard.data.StateStore
 import io.github.veganmarshmallow.taskboard.data.TabStore
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -16,9 +15,9 @@ class TabTapScreenshotTest {
     private val context = instrumentation.targetContext
 
     @Test fun oneTapOnARealHost() {
-        StateStore(context).save(WidgetState(FakeBoards.realistic(), null, FakeBoards.NOW))
         RealWidgetHost(instrumentation).use { host ->
             try {
+                host.seed(WidgetState(FakeBoards.realistic(), null, FakeBoards.NOW))
                 host.awaitHighlighted(Section.NEEDS_YOU, "default tab")
                 Screenshots.save(context, "33-real-host-before-tap", host.headerBitmap())
                 host.tap(Section.BLOCKED)

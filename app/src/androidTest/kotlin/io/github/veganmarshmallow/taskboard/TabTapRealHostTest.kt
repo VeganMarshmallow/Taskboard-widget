@@ -32,8 +32,8 @@ class TabTapRealHostTest {
     private lateinit var host: RealWidgetHost
 
     @Before fun setUp() {
-        StateStore(context).save(WidgetState(board, null, FakeBoards.NOW))
         host = RealWidgetHost(instrumentation)
+        host.seed(WidgetState(board, null, FakeBoards.NOW))
         host.awaitHighlighted(Section.NEEDS_YOU, "a new widget starts on the default tab")
     }
 
@@ -42,7 +42,12 @@ class TabTapRealHostTest {
         host.close()
     }
 
-    /** One tap, then: the host highlights that tab only, it stays so, and the list shows that tab's rows. */
+    /**
+     * One tap, then: the host highlights that tab only, it stays so, and the list shows that tab's
+     * rows. The rows are read through [BoardListFactory], the code the launcher's list binds to: a
+     * test host binds RemoteViewsService collections asynchronously, so its adapter isn't readable
+     * at a fixed moment, but the factory reads the same stored board and tab.
+     */
     private fun tapOnce(section: Section, why: String) {
         host.tap(section)
         host.awaitHighlighted(section, why)

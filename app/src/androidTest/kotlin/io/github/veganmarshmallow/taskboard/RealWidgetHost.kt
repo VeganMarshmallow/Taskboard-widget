@@ -14,8 +14,13 @@ import android.os.SystemClock
 import android.view.View
 import android.widget.FrameLayout
 import io.github.veganmarshmallow.taskboard.core.board.Section
+import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
+import io.github.veganmarshmallow.taskboard.data.AppGraph
+import io.github.veganmarshmallow.taskboard.data.StateStore
+import io.github.veganmarshmallow.taskboard.data.TokenStore
 import io.github.veganmarshmallow.taskboard.widget.BoardWidgetProvider
 import io.github.veganmarshmallow.taskboard.widget.TabViews
+import io.github.veganmarshmallow.taskboard.widget.WidgetRenderer
 import org.junit.Assert.fail
 
 /**
@@ -49,6 +54,33 @@ class RealWidgetHost(private val instrumentation: Instrumentation) : AutoCloseab
             frame.addView(view, FrameLayout.LayoutParams((WIDTH_DP * d).toInt(), (HEIGHT_DP * d).toInt()))
         }
         awaitOnMain("the first widget update") { view.findViewById<View>(R.id.tabs) != null }
+    }
+
+    /**
+     * Binding sent APPWIDGET_UPDATE, so the provider queued a refresh job, exactly as on a phone.
+     * The emulator has no token, so that refresh would save "no token" with no board and wipe
+     * whatever board the test seeded. Cancels pending jobs and waits until no refresh is running
+     * (stable for [SETTLE_MS]), so the test can seed its board after this and keep it.
+     */
+    private fun stopBackgroundRefresh() {
+        val jobs = context.getSystemService(JobScheduler::class.java)
+        val tracker = AppGraph.refreshTracker(context)
+        val deadline = SystemClock.uptimeMillis() + TIMEOUT_MS
+        var quietSince = SystemClock.uptimeMillis()
+        while (SystemClock.uptimeMillis() - quietSince < SETTLE_MS) {
+            jobs?.cancelAll()
+            if (tracker.isUpdating()) quietSince = SystemClock.uptimeMillis()
+            if (SystemClock.uptimeMillis() > deadline) fail("a refresh started by binding the widget never finished")
+            SystemClock.sleep(POLL_MS)
+        }
+    }
+
+    /** Stores [state] as the cached board and draws it, after binding's own refresh is out of the way. */
+    fun seed(state: WidgetState) {
+        TokenStore(context).clear() // no refresh here may touch the network
+        stopBackgroundRefresh()
+        StateStore(context).save(state)
+        WidgetRenderer(context).render(state, intArrayOf(widgetId), updating = false)
     }
 
     /** A real click on the tab's slot, on the main thread like a finger would be. */
