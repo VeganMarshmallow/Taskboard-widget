@@ -214,3 +214,7 @@ jobs:
       - name: Annotate instrumented test failure
         if: failure() && steps.emulator.outcome == 'failure'
         run: .github/scripts/annotate-failure.sh connected.log "tab tests, recent Android"
+
+      - name: Tab test summary
+        if: always() && steps.emulator.outcome != 'skipped'
+        run: .github/scripts/test-summary.sh app/build/outputs/androidTest-results/connected/debug "Tab tests, recent Android"
