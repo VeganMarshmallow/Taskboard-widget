@@ -153,8 +153,8 @@ class ScreenshotTest {
 
     @Test fun tabNeedsYouIsTheDefault() {
         val widget = capture("10-1-tab-needs-you-default", board)
-        assertEquals("Needs you 2", widget.tabText(Section.NEEDS_YOU))
-        assertEquals(2, widget.rowCount())
+        assertEquals("Needs you 1", widget.tabText(Section.NEEDS_YOU))
+        assertEquals(1, widget.rowCount())
     }
 
     @Test fun tabTodo() {
@@ -241,7 +241,7 @@ class ScreenshotTest {
 
     @Test fun rowsWithoutNumbersNeedsYou() {
         val texts = capture("12-1-rows-needs-you", board).rowTexts()
-        assertEquals(listOf("Which charting library for the dashboard?", "Add dark mode to the portfolio site"), texts)
+        assertEquals(listOf("Add dark mode to the portfolio site"), texts) // the blocked question is in Blocked (#34)
     }
 
     @Test fun rowsWithoutNumbersTodo() {

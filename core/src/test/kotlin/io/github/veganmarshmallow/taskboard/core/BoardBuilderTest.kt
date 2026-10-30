@@ -36,9 +36,9 @@ class BoardBuilderTest {
             issue(2, TODO), issue(3, IN_PROGRESS), issue(4, BLOCKED), issue(5, IN_REVIEW),
             issue(6, BLOCKED, NEEDS_OWNER),
         )
-        assertEquals(listOf(5, 6), board.numbers(Section.NEEDS_YOU))
+        assertEquals(listOf(5), board.numbers(Section.NEEDS_YOU))
         assertEquals(listOf(3), board.numbers(Section.IN_PROGRESS))
-        assertEquals(listOf(4), board.numbers(Section.BLOCKED)) // 6 needs you, so it is only there
+        assertEquals(listOf(4, 6), board.numbers(Section.BLOCKED)) // #34: blocked wins over needs-owner
         assertEquals(listOf(2), board.numbers(Section.TODO))
     }
 
@@ -47,15 +47,25 @@ class BoardBuilderTest {
         assertEquals(listOf("Needs you", "Todo", "In progress", "Blocked", "Done"), Section.entries.map { it.title })
     }
 
-    @Test fun needsOwnerIsAQuestionWhateverItsStatusAndLeavesItsStatusTab() {
+    @Test fun needsOwnerIsAQuestionWhateverItsStatusAndLeavesItsStatusTabUnlessBlocked() {
         val statuses = listOf(TODO, IN_PROGRESS, BLOCKED, IN_REVIEW)
         val issues = statuses.mapIndexed { i, s -> issue(10 + i, s, NEEDS_OWNER) } + issue(20, NEEDS_OWNER)
         val board = builder.build(issues, NOW)
-        assertEquals(listOf(10, 11, 12, 13, 20), board.numbers(Section.NEEDS_YOU))
+        assertEquals(listOf(10, 11, 13, 20), board.numbers(Section.NEEDS_YOU))
         assertTrue(board.section(Section.NEEDS_YOU).items.all { it.needsYouReason == NeedsYouReason.QUESTION })
-        assertEquals(emptyList<Int>(), board.statusTabs()) // Needs you is exclusive
-        assertEquals(5, board.count(Section.NEEDS_YOU))
-        statusTabSections.forEach { assertEquals("$it", 0, board.count(it)) }
+        assertEquals(listOf(12), board.statusTabs()) // only the blocked one, and only in Blocked
+        assertEquals(4, board.count(Section.NEEDS_YOU))
+        assertEquals(1, board.count(Section.BLOCKED))
+        assertEquals(NeedsYouReason.QUESTION, board.section(Section.BLOCKED).items.single().needsYouReason) // keeps its badge
+        listOf(Section.TODO, Section.IN_PROGRESS).forEach { assertEquals("$it", 0, board.count(it)) }
+    }
+
+    @Test fun blockedWithNeedsOwnerIsOnlyInBlockedWithTheQuestionBadge() {
+        val board = build(issue(4, BLOCKED, NEEDS_OWNER, PRIORITY_HIGH), issue(5, BLOCKED))
+        assertEquals(listOf(4, 5), board.numbers(Section.BLOCKED))
+        assertEquals(0, board.count(Section.NEEDS_YOU))
+        val reasons = board.section(Section.BLOCKED).items.associate { it.number to it.needsYouReason }
+        assertEquals(mapOf(4 to NeedsYouReason.QUESTION, 5 to null), reasons)
     }
 
     @Test fun inReviewGoesToNeedsYouWithReviewReason() {

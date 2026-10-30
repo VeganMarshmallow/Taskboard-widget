@@ -7,10 +7,12 @@ import io.github.veganmarshmallow.taskboard.core.model.Status
 /**
  * Where an open issue shows up, and what it offers. The rules:
  *
- * - Needs you when it carries `needs-owner` (a QUESTION) or its status is in-review (a REVIEW,
- *   whether or not a PR is linked: the owner has to look either way). Needs you is exclusive (the
- *   owner's decision on #10): such an item is listed and counted only there, as in the old widget.
- *   That is why there is no In review tab: it could never hold anything.
+ * - Blocked whenever its status is blocked, even with `needs-owner` (the owner's decision on #34:
+ *   "Blocked only"). Such a row keeps its QUESTION reason, so it still shows the needs-you badge.
+ * - Otherwise Needs you when it carries `needs-owner` (a QUESTION) or its status is in-review (a
+ *   REVIEW, whether or not a PR is linked: the owner has to look either way).
+ * - Every tab is exclusive (the owner's decision on #10): an item is listed and counted in one tab
+ *   only. That is why there is no In review tab: it could never hold anything.
  * - Otherwise its status tab, by the winning `status:` label (precedence in-review > blocked >
  *   in-progress > todo > done, see [Status]). No status label → Todo (a freshly filed task). Only
  *   `status: done` but still open → no tab (it is about to be closed).
@@ -22,10 +24,11 @@ object Placement {
     /** At most one tab: an issue is never listed (or counted) twice. */
     fun sectionsOf(issue: Issue): Set<Section> {
         if (!issue.isOpen) return emptySet()
-        if (needsYouReason(issue) != null) return setOf(Section.NEEDS_YOU)
+        if (Status.from(issue.labels) != Status.BLOCKED && needsYouReason(issue) != null) return setOf(Section.NEEDS_YOU)
         return setOfNotNull(statusSection(issue))
     }
 
+    /** Why the owner is needed, wherever the item is placed (a blocked QUESTION sits in Blocked). */
     fun needsYouReason(issue: Issue): NeedsYouReason? = when {
         !issue.isOpen -> null
         Labels.NEEDS_OWNER in issue.labels -> NeedsYouReason.QUESTION

@@ -12,8 +12,8 @@ import java.time.Instant
  * - Issue #[summaryIssueNumber] (the "📋 Board" summary) and pull requests are dropped.
  * - Duplicate issue numbers (an issue in both the open and the done listing) are kept once,
  *   preferring the open copy.
- * - Each open issue goes to the one tab [Placement] picks: Needs you for questions and reviews,
- *   otherwise its status tab.
+ * - Each open issue goes to the one tab [Placement] picks: Blocked for every blocked task, Needs you
+ *   for other questions and reviews, otherwise its status tab.
  * - Done = closed issues labelled `status: done` whose closed_at is no more than [doneWindow]
  *   before now (inclusive). Closed times slightly in the future (clock skew) also count. They are
  *   listed most recently closed first.

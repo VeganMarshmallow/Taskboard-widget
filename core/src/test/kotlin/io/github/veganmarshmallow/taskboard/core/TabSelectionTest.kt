@@ -16,6 +16,14 @@ class TabSelectionTest {
         assertEquals(Section.NEEDS_YOU, TabSelection.default(board(issue(2, Labels.IN_REVIEW), issue(3, Labels.TODO))))
     }
 
+    @Test fun defaultIsBlockedWhenOnlyABlockedTaskWaitsOnTheOwner() {
+        // #34 moved blocked questions out of Needs you; they still decide the first tab.
+        assertEquals(Section.BLOCKED, TabSelection.default(board(issue(2, Labels.BLOCKED, Labels.NEEDS_OWNER), issue(3, Labels.TODO))))
+        // Needs you still comes first when it has anything.
+        assertEquals(Section.NEEDS_YOU, TabSelection.default(board(issue(2, Labels.BLOCKED, Labels.NEEDS_OWNER), issue(3, Labels.IN_REVIEW))))
+        assertEquals(Section.NEEDS_YOU, TabSelection.default(board(issue(2, Labels.BLOCKED, Labels.NEEDS_OWNER), issue(3, Labels.TODO, Labels.NEEDS_OWNER))))
+    }
+
     @Test fun defaultIsTodoOtherwise() {
         assertEquals(Section.TODO, TabSelection.default(board(issue(2, Labels.IN_PROGRESS), issue(3, Labels.BLOCKED))))
         assertEquals(Section.TODO, TabSelection.default(board())) // empty board

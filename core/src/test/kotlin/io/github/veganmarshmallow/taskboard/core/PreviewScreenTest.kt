@@ -44,10 +44,22 @@ class PreviewScreenTest {
         assertEquals(PreviewStatus.TODO, TaskPreview.fromBoard(board, 3)!!.status)
         assertFalse(TaskPreview.fromBoard(board, 3)!!.canApprove)
         assertEquals(PreviewStatus.IN_REVIEW, TaskPreview.fromBoard(board, 4)!!.status)
-        assertEquals(PreviewStatus.NEEDS_YOU, TaskPreview.fromBoard(board, 5)!!.status)
+        assertEquals(PreviewStatus.BLOCKED_ON_YOU, TaskPreview.fromBoard(board, 5)!!.status) // #34: in Blocked
         assertEquals(PreviewStatus.IN_PROGRESS, TaskPreview.fromBoard(board, 6)!!.status)
         assertEquals(PreviewStatus.BLOCKED, TaskPreview.fromBoard(board, 8)!!.status)
     }
+
+    @Test fun fromBoardAndFromIssueAgreeForEveryBoardRow() {
+        listOf(2, 3, 4, 5, 6, 8).forEach { n ->
+            val fromIssue = TaskPreview.fromIssue(details(n, *issueLabels.getValue(n))).status
+            assertEquals("#$n", fromIssue, TaskPreview.fromBoard(board, n)!!.status)
+        }
+    }
+
+    private val issueLabels = mapOf(
+        2 to arrayOf(Labels.TODO), 3 to arrayOf(Labels.TODO, Labels.READY_FOR_CLAUDE), 4 to arrayOf(Labels.IN_REVIEW),
+        5 to arrayOf(Labels.BLOCKED, Labels.NEEDS_OWNER), 6 to arrayOf(Labels.IN_PROGRESS), 8 to arrayOf(Labels.BLOCKED),
+    )
 
     @Test fun fromBoardMissingTaskOrBoard() {
         assertNull(TaskPreview.fromBoard(board, 999))
@@ -63,7 +75,12 @@ class PreviewScreenTest {
         assertEquals(PreviewStatus.IN_PROGRESS, status(Labels.IN_PROGRESS))
         assertEquals(PreviewStatus.BLOCKED, status(Labels.BLOCKED))
         assertEquals(PreviewStatus.IN_REVIEW, status(Labels.IN_REVIEW))
-        assertEquals(PreviewStatus.NEEDS_YOU, status(Labels.BLOCKED, Labels.NEEDS_OWNER))
+        assertEquals(PreviewStatus.BLOCKED_ON_YOU, status(Labels.BLOCKED, Labels.NEEDS_OWNER))
+        assertEquals(PreviewStatus.BLOCKED_ON_YOU, status(Labels.BLOCKED, Labels.IN_PROGRESS, Labels.NEEDS_OWNER))
+        assertEquals(PreviewStatus.NEEDS_YOU, status(Labels.TODO, Labels.NEEDS_OWNER))
+        assertEquals(PreviewStatus.NEEDS_YOU, status(Labels.IN_REVIEW, Labels.BLOCKED, Labels.NEEDS_OWNER)) // in-review beats blocked
+        assertEquals(PreviewStatus.CLOSED, status(Labels.BLOCKED, Labels.NEEDS_OWNER, open = false))
+        assertEquals("Blocked: waiting on you", PreviewStatus.BLOCKED_ON_YOU.text)
         assertEquals(PreviewStatus.DONE, status(Labels.DONE))
         assertEquals(PreviewStatus.DONE, status(Labels.DONE, open = false))
         assertEquals(PreviewStatus.CLOSED, status(Labels.TODO, open = false))

@@ -2,11 +2,16 @@ package io.github.veganmarshmallow.taskboard.core.board
 
 /**
  * Which tab a widget shows. The user's pick, once made, is remembered (per widget, by the app) and
- * always wins. Until then: Needs you when it has items, otherwise Todo.
+ * always wins. Until then: Needs you when it has items; otherwise Blocked when a blocked task waits
+ * on the owner (#34 moved those out of Needs you, but they still come first); otherwise Todo.
  */
 object TabSelection {
-    fun default(board: Board?): Section =
-        if (board != null && board.count(Section.NEEDS_YOU) > 0) Section.NEEDS_YOU else Section.TODO
+    fun default(board: Board?): Section = when {
+        board == null -> Section.TODO
+        board.count(Section.NEEDS_YOU) > 0 -> Section.NEEDS_YOU
+        board.section(Section.BLOCKED).items.any { it.needsYouReason != null } -> Section.BLOCKED
+        else -> Section.TODO
+    }
 
     /** [savedKey] is what [key] stored for this widget, or null when the user never picked a tab. */
     fun resolve(savedKey: String?, board: Board?): Section = parse(savedKey) ?: default(board)
