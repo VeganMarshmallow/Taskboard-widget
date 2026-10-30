@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The preview's reply box (task #44). -->
+<resources>
+    <string name="reply_hint">Reply to Claude…</string>
+    <string name="reply_send">Send</string>
+    <string name="reply_sending">Sending…</string>
+    <string name="reply_retry_unblock">Retry unblock</string>
+    <string name="reply_unblock">This answers it: unblock the task</string>
+    <string name="reply_sent">Reply sent</string>
+    <string name="reply_sent_unblocked">Reply sent. The task is back in Todo for the next run</string>
+    <string name="reply_failed">Reply not sent: %1$s</string>
+    <string name="reply_may_have_posted">It may have reached GitHub: check the issue before sending again.</string>
+    <string name="reply_unblock_failed">Reply posted, but the task is still blocked: %1$s. Tap Retry unblock.</string>
+    <string name="reply_too_long">Too long: GitHub takes at most %1$d characters</string>
+</resources>
