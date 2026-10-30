@@ -11,7 +11,9 @@ package io.github.veganmarshmallow.taskboard.core.work
  * showed the new one. With every read and push inside one lock that order can no longer happen.
  *
  * [read] and [draw] must not block on slow work (network); they only read local state and hand
- * views to the system.
+ * views to the system. The widget's receivers draw on the main thread, so a tap may wait for one
+ * background draw to finish (milliseconds), never for a refresh. Nothing inside the gate waits for
+ * another thread, so it cannot deadlock, and a nested run on the same thread re-enters the lock.
  */
 class SerialRender {
     private val lock = Any()

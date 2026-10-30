@@ -124,4 +124,43 @@ class TabTapRealHostTest {
             }
         }
     }
+
+    /**
+     * Review of #33: a redraw of the cache (the sweep, the update dot, a tap) racing a refresh that
+     * saves and draws a newer board. The cache must be read inside the render gate: a board loaded
+     * before waiting for the gate and drawn after the refresh would leave the old tab counts above
+     * the new list.
+     */
+    @Test fun aRedrawOfTheCacheNeverLandsAfterANewerBoard() {
+        val boards = listOf(FakeBoards.busy(), board, FakeBoards.busy(), board)
+        boards.forEachIndexed { round, next ->
+            val running = AtomicBoolean(true)
+            val redraws = Thread {
+                val renderer = WidgetRenderer(context)
+                while (running.get()) {
+                    renderer.renderStored(intArrayOf(host.widgetId))
+                    Thread.sleep(1)
+                }
+            }
+            redraws.start()
+            SystemClock.sleep(20)
+            val state = WidgetState(next, null, FakeBoards.NOW)
+            StateStore(context).save(state) // a refresh saves first, then draws
+            WidgetRenderer(context).render(state, intArrayOf(host.widgetId))
+            SystemClock.sleep(20)
+            running.set(false)
+            redraws.join()
+            val expected = context.getString(R.string.tab_description, Section.TODO.title, next.count(Section.TODO))
+            host.assertTextSettles("round $round: Todo count", expected) { host.slotDescription(Section.TODO) }
+        }
+    }
+
+    /** "updating…" is a full update now: it keeps the picked tab, and with no refresh running it never shows. */
+    @Test fun showUpdatingKeepsTheTabAndNeverShowsUpdatingAfterTheRun() {
+        tapOnce(Section.BLOCKED, "tap before the header update")
+        WidgetRenderer(context).showUpdating(intArrayOf(host.widgetId))
+        host.assertStaysHighlighted(Section.BLOCKED, "after showUpdating")
+        val header = host.text(R.id.updated)
+        assertTrue("header: $header", header.isNotEmpty() && header != context.getString(R.string.updating))
+    }
 }

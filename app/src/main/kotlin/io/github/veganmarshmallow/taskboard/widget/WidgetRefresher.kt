@@ -36,8 +36,10 @@ class WidgetRefresher(private val context: Context) {
     }
 
     /** Offline: records "No network" right away instead of waiting on a job that cannot run. Returns the state shown. */
-    fun recordOffline(): WidgetState =
-        rendered(runner.run { it.withError(BoardError.Network, AppGraph.clock.instant()) }).also(::show)
+    fun recordOffline(): WidgetState {
+        val result = renderAfter(runner.run { it.withError(BoardError.Network, AppGraph.clock.instant()) })
+        return (result as? RefreshRunner.Result.Committed)?.state ?: StateStore(context).load()
+    }
 
     /** If a refresh died with its process, shows an error instead of "updating…". */
     fun recoverIfStale() {
@@ -51,7 +53,7 @@ class WidgetRefresher(private val context: Context) {
      */
     fun sweep(): WidgetState? {
         val recovered = runner.recoverIfStale()
-        show(recovered ?: StateStore(context).load())
+        draw { if (recovered != null) renderer.render(recovered) else renderer.renderStored() }
         return recovered
     }
 
@@ -60,7 +62,10 @@ class WidgetRefresher(private val context: Context) {
      * launcher after the newer run's final render. The header then shows the tracker's truth.
      */
     private fun renderAfter(result: RefreshRunner.Result): RefreshRunner.Result {
-        show(rendered(result))
+        when (result) {
+            is RefreshRunner.Result.Committed -> show(result.state)
+            RefreshRunner.Result.Superseded -> draw { renderer.renderStored() }
+        }
         return result
     }
 
@@ -68,16 +73,15 @@ class WidgetRefresher(private val context: Context) {
      * Draws [state] on every widget. A drawing failure is logged, never thrown: the caller must still
      * plan the next retry, or the widget could stay on an error after the network is back (#29).
      */
-    private fun show(state: WidgetState) {
+    private fun show(state: WidgetState) = draw { renderer.render(state) }
+
+    private fun draw(render: () -> Unit) {
         try {
-            renderer.render(state)
+            render()
         } catch (e: RuntimeException) {
             Log.w(TAG, "drawing the widget failed: ${e.javaClass.simpleName}")
         }
     }
-
-    private fun rendered(result: RefreshRunner.Result): WidgetState =
-        (result as? RefreshRunner.Result.Committed)?.state ?: StateStore(context).load()
 
     /** Adds `ready-for-claude`, then asks for a refresh. Returns the failure, if any, for the caller to report. */
     fun approve(issue: Int): Outcome<Unit> {
