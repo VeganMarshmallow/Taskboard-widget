@@ -5,12 +5,13 @@ import io.github.veganmarshmallow.taskboard.core.markdown.MarkdownBlock
 import io.github.veganmarshmallow.taskboard.core.markdown.MarkdownBlocks
 import io.github.veganmarshmallow.taskboard.core.markdown.MarkdownInline
 import io.github.veganmarshmallow.taskboard.core.markdown.MarkdownSections
+import io.github.veganmarshmallow.taskboard.core.model.Repo
 
 /**
  * The task's project repo from its issue body: the `### Repo` (or `### Repository`) section, the
  * issue form's field, or failing that a `Repo: owner/name` line outside code. Accepts `owner/name`,
  * a github.com URL (also `git@github.com:`), Markdown links and code spans around it, and a trailing
- * `.git`. Returns only the name part, or null.
+ * `.git`. [name] returns only the name part, [repo] the owner too; both null when there is none.
  */
 object RepoField {
     private val SECTIONS = listOf("Repo", "Repository")
@@ -21,16 +22,19 @@ object RepoField {
     private val OWNER_NAME = Regex("""^([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))/([A-Za-z0-9._-]{1,100})$""")
     private const val MAX_INPUT = 64 * 1024
 
-    fun name(body: String?): String? {
+    fun name(body: String?): String? = repo(body)?.name
+
+    /** The task's project repo as owner and name (task #30 merges its PR), or null. */
+    fun repo(body: String?): Repo? {
         if (body.isNullOrBlank()) return null
         val text = body.take(MAX_INPUT)
         val blocks = MarkdownBlocks.parse(text)
         val section = SECTIONS.firstNotNullOfOrNull { MarkdownSections.content(blocks, it) }
         // The whole first line, or just its first word ("owner/name (the new one)").
         section?.firstNotNullOfOrNull(::blockText)?.let { candidate ->
-            (parse(candidate) ?: parse(candidate.trim().substringBefore(' ')))?.let { return it }
+            (parseRepo(candidate) ?: parseRepo(candidate.trim().substringBefore(' ')))?.let { return it }
         }
-        return linesOutsideCode(text).firstNotNullOfOrNull { line -> LINE.find(line)?.let { parse(it.groupValues[1]) } }
+        return linesOutsideCode(text).firstNotNullOfOrNull { line -> LINE.find(line)?.let { parseRepo(it.groupValues[1]) } }
     }
 
     /** A `Repo:` line inside a code example is not the task's repo. */
@@ -55,7 +59,9 @@ object RepoField {
     }
 
     /** `owner/name` → `name`; null for anything else (including "_No response_" and a bare name). */
-    internal fun parse(raw: String): String? {
+    internal fun parse(raw: String): String? = parseRepo(raw)?.name
+
+    private fun parseRepo(raw: String): Repo? {
         var s = MarkdownInline.strip(raw).trim().trim('`', '"', '\'', '<', '>', '(', ')', '.', ',', ';')
         s = GITHUB_URL.replace(s, "")
         s = s.substringBefore('#').substringBefore('?').trimEnd('/')
@@ -63,6 +69,7 @@ object RepoField {
         if (parts.size > 2) s = parts.take(2).joinToString("/") // github.com/owner/name/issues/3
         s = s.removeSuffix(".git")
         val match = OWNER_NAME.find(s) ?: return null
-        return match.groupValues[2].takeUnless { it == "." || it == ".." }
+        val name = match.groupValues[2].takeUnless { it == "." || it == ".." } ?: return null
+        return Repo(match.groupValues[1], name)
     }
 }

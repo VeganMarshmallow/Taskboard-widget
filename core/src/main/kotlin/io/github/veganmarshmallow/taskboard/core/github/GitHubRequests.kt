@@ -60,6 +60,11 @@ class GitHubRequests(internal val repo: Repo, private val token: String) {
 
     internal fun get(url: String) = HttpRequest("GET", url, headers())
 
+    /** A write with a JSON body, for requests built elsewhere in core (the PR merge of task #30). */
+    internal fun withJson(method: String, url: String, body: Map<String, Any?>) = HttpRequest(
+        method, url, headers() + ("Content-Type" to "application/json; charset=utf-8"), JsonWriter.write(body),
+    )
+
     private fun issuesUrl(vararg params: Pair<String, String>): String {
         val query = (params.toList() + ("per_page" to PER_PAGE.toString()))
             .joinToString("&") { (k, v) -> "$k=${encode(v)}" }

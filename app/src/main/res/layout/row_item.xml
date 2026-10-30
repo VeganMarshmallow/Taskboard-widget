@@ -41,4 +41,18 @@
         android:textSize="12sp"
         android:textStyle="bold"
         android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/item_merge"
+        android:layout_width="wrap_content"
+        android:layout_height="28dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/merge_background"
+        android:gravity="center"
+        android:paddingHorizontal="12dp"
+        android:text="@string/merge"
+        android:textColor="@color/status_text"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
 </LinearLayout>

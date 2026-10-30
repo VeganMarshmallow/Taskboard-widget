@@ -27,6 +27,8 @@ class PreviewViews(private val root: View, private val messages: ErrorMessages) 
     private val error: TextView = root.findViewById(R.id.preview_error)
     private val approved: View = root.findViewById(R.id.preview_approved)
     private val approve: Button = root.findViewById(R.id.preview_approve)
+    private val merged: View = root.findViewById(R.id.preview_merged)
+    private val merge: Button = root.findViewById(R.id.preview_merge)
     private val retry: Button = root.findViewById(R.id.preview_retry)
 
     fun bind(screen: PreviewScreen) {
@@ -43,6 +45,8 @@ class PreviewViews(private val root: View, private val messages: ErrorMessages) 
         approve.visibility = if (screen.showApprove || screen.approving) View.VISIBLE else View.GONE
         approve.isEnabled = !screen.approving
         approve.text = context.getString(if (screen.approving) R.string.preview_approving else R.string.approve)
+        merged.visibility = if (screen.justMerged) View.VISIBLE else View.GONE
+        merge.visibility = if (screen.showMerge) View.VISIBLE else View.GONE
         bindRetry(screen.error)
     }
 
