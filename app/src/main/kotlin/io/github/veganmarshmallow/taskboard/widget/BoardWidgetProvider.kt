@@ -5,7 +5,6 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.util.Log
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTrigger
-import io.github.veganmarshmallow.taskboard.data.StateStore
 import io.github.veganmarshmallow.taskboard.data.TabStore
 
 /**
@@ -18,7 +17,7 @@ class BoardWidgetProvider : AppWidgetProvider() {
         try {
             WidgetRefresher(app).recoverIfStale()
             // New widget ids always get the cached board, even while a refresh is running.
-            WidgetRenderer(app).render(StateStore(app).load(), appWidgetIds)
+            WidgetRenderer(app).renderStored(appWidgetIds)
         } catch (e: RuntimeException) {
             // Drawing must never cost the refresh below: it is how a stuck widget recovers (#29).
             Log.w(TAG, "drawing the cached board failed: ${e.javaClass.simpleName}")

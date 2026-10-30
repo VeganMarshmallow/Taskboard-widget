@@ -107,6 +107,13 @@ class RealWidgetHost(private val instrumentation: Instrumentation) : AutoCloseab
         return text
     }
 
+    /** The text of a TextView in the hosted widget, e.g. the header's "last updated". */
+    fun text(viewId: Int): String {
+        var text = ""
+        instrumentation.runOnMainSync { text = view.findViewById<android.widget.TextView>(viewId)?.text?.toString().orEmpty() }
+        return text
+    }
+
     /** Waits until exactly [section] is highlighted, failing with what is shown instead. */
     fun awaitHighlighted(section: Section, why: String, timeoutMs: Long = TIMEOUT_MS) {
         val deadline = SystemClock.uptimeMillis() + timeoutMs
@@ -118,6 +125,16 @@ class RealWidgetHost(private val instrumentation: Instrumentation) : AutoCloseab
             SystemClock.sleep(POLL_MS)
         } while (SystemClock.uptimeMillis() < deadline)
         fail("$why: expected only $section highlighted, the host shows $shown")
+    }
+
+    /** Waits for [read] to start with [expected], then lets late updates arrive and checks it still does. */
+    fun assertTextSettles(why: String, expected: String, read: () -> String) {
+        val deadline = SystemClock.uptimeMillis() + TIMEOUT_MS
+        while (!read().startsWith(expected) && SystemClock.uptimeMillis() < deadline) SystemClock.sleep(POLL_MS)
+        SystemClock.sleep(SETTLE_MS)
+        instrumentation.waitForIdleSync()
+        val shown = read()
+        if (!shown.startsWith(expected)) fail("$why: expected \"$expected…\", the host shows \"$shown\"")
     }
 
     /** Lets any late update arrive (a racing render, a queued broadcast), then checks again. */

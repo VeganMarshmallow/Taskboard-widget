@@ -27,22 +27,34 @@ class WidgetRenderer(private val context: Context) {
 
     fun widgetIds(): IntArray = manager.getAppWidgetIds(ComponentName(context, BoardWidgetProvider::class.java))
 
-    /** [updating]: null reads it from the refresh tracker (inside the gate, so it is current). */
-    fun render(state: WidgetState, ids: IntArray = widgetIds(), updating: Boolean? = null) {
-        GATE.run({ build(state, ids, updating ?: AppGraph.refreshTracker(context).isUpdating()) }) { built ->
-            built.forEach { (id, remote) -> manager.updateAppWidget(id, remote) }
-            if (ids.isNotEmpty()) manager.notifyAppWidgetViewDataChanged(ids, R.id.board_list)
-        }
-    }
+    /**
+     * Draws [state]. Use this only for a state that may differ from the stored one (a refresh's
+     * result); for "redraw what is cached" use [renderStored], which reads it inside the gate.
+     * [updating]: null reads it from the refresh tracker (inside the gate, so it is current).
+     */
+    fun render(state: WidgetState, ids: IntArray = widgetIds(), updating: Boolean? = null) =
+        push(ids, notifyList = true, updating = updating) { state }
+
+    /**
+     * Draws the cached state, read inside the gate. A state loaded before waiting for the gate
+     * could be older than a refresh that saved and drew meanwhile; drawn last, it would leave the
+     * header (tab counts, time) behind the list, which re-reads the store itself.
+     */
+    fun renderStored(ids: IntArray = widgetIds()) = push(ids, notifyList = true) { StateStore(context).load() }
 
     /**
      * Shows "updating…" in the header while a refresh runs, without reloading the list. A full
      * update of the stored state, not a partial one: a partial update is merged into whatever the
      * system cached, and launchers differ in how they apply it, so the tabs could come out of step.
+     * The flag is read from the tracker like any render, so a late call never brings back
+     * "updating…" after the run has already ended.
      */
-    fun showUpdating(ids: IntArray = widgetIds()) {
-        GATE.run({ build(StateStore(context).load(), ids, updating = true) }) { built ->
+    fun showUpdating(ids: IntArray = widgetIds()) = push(ids, notifyList = false) { StateStore(context).load() }
+
+    private fun push(ids: IntArray, notifyList: Boolean, updating: Boolean? = null, load: () -> WidgetState) {
+        GATE.run({ build(load(), ids, updating ?: AppGraph.refreshTracker(context).isUpdating()) }) { built ->
             built.forEach { (id, remote) -> manager.updateAppWidget(id, remote) }
+            if (notifyList && ids.isNotEmpty()) manager.notifyAppWidgetViewDataChanged(ids, R.id.board_list)
         }
     }
 
