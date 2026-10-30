@@ -76,7 +76,7 @@ class ErrorClassifierTest {
         val messages = ErrorMessages { "14:05" }
         val all = listOf(
             BoardError.NoToken, BoardError.BadToken(401), BoardError.BadToken(403), BoardError.NoAccess,
-            BoardError.RateLimited(NOW), BoardError.RateLimited(null), BoardError.Network,
+            BoardError.RateLimited(NOW), BoardError.RateLimited(null), BoardError.Network, BoardError.Unreachable,
             BoardError.Server(502), BoardError.Unexpected("bad"),
         )
         all.forEach {

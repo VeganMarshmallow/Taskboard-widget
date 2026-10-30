@@ -1,7 +1,6 @@
 package io.github.veganmarshmallow.taskboard.core.work
 
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
-import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 
 /** What asked for a refresh. */
 enum class RefreshTrigger {
@@ -10,6 +9,9 @@ enum class RefreshTrigger {
 
     /** The widget's periodic update or its placement. */
     AUTOMATIC,
+
+    /** A scheduled retry after a failed refresh (see [RetryPlanner]). */
+    RETRY,
 }
 
 /** The small decisions around scheduling refreshes. */
@@ -22,12 +24,22 @@ object RefreshPolicy {
         trigger == RefreshTrigger.MANUAL || status != RefreshTracker.Status.RUNNING
 
     /**
-     * Retry with the scheduler's backoff only for automatic refreshes whose failure can fix itself.
-     * A manual refresh shows its error, and the user decides whether to tap again.
+     * Whether a refresh that ended with [error] should be retried automatically, whatever started
+     * it: only for failures that can fix themselves (no network, GitHub unreachable or too slow, a
+     * 5xx). Never for a success (null), token or access problems (401/403/404), rate limits (the
+     * periodic update tries again after the limit), or unexpected responses.
      */
-    fun shouldRetry(trigger: RefreshTrigger, state: WidgetState): Boolean =
-        trigger == RefreshTrigger.AUTOMATIC && when (state.error) {
-            BoardError.Network, BoardError.Timeout, is BoardError.Server -> true
-            else -> false
-        }
+    fun shouldAutoRetry(error: BoardError?): Boolean = when (error) {
+        BoardError.Network, BoardError.Unreachable, BoardError.Timeout, is BoardError.Server -> true
+        else -> false
+    }
+
+    /**
+     * Whether a retry planned after [finished] (null: not after a refresh job, e.g. an offline tap)
+     * must give way to the refresh already [pending]. All refreshes share one job id, so scheduling
+     * the retry replaces whatever is pending: a waiting tap or periodic refresh is kept (it plans
+     * the next retry when it ends), while an older retry, or the finished job itself, is replaced.
+     */
+    fun retryYieldsTo(pending: BoardJob.Refresh?, finished: BoardJob.Refresh?): Boolean =
+        pending != null && pending.trigger != RefreshTrigger.RETRY && pending != finished
 }
