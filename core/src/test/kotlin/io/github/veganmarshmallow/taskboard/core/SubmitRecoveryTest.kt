@@ -70,6 +70,34 @@ class SubmitRecoveryTest {
         )
     }
 
+    @Test fun fullPageThatMayHaveCutOffTheIssueIsACheckFailureNotNotCreated() {
+        val newer = (1..100).map { issue(1000 - it, "Other $it", at = started.plusSeconds(100L - it)) }
+        val result = SubmitRecovery.decide(marker, Outcome.Success(newer), pageSize = 100)
+        assertTrue(result.toString(), result is Result.CheckFailed)
+        // The page reached back before the window: the issue would have been on it.
+        val reachesBack = newer.dropLast(1) + issue(1, "Old", at = started.minus(Duration.ofHours(1)))
+        assertEquals(Result.NotCreated(marker.title), SubmitRecovery.decide(marker, Outcome.Success(reachesBack), pageSize = 100))
+        // Not a full page: everything since was listed.
+        assertEquals(Result.NotCreated(marker.title), SubmitRecovery.decide(marker, Outcome.Success(newer.drop(1)), pageSize = 100))
+        // An unreadable oldest date can't prove the page reached back.
+        val unknown = newer.dropLast(1) + issue(1, "Old", at = null)
+        assertTrue(SubmitRecovery.decide(marker, Outcome.Success(unknown), pageSize = 100) is Result.CheckFailed)
+        // A match on a full page is still a match.
+        assertEquals(Result.Created(marker.title, 7), SubmitRecovery.decide(marker, Outcome.Success(newer.dropLast(1) + issue(7)), pageSize = 100))
+    }
+
+    @Test fun lookupFailuresOfEveryKindAreCheckFailures() {
+        listOf(BoardError.NoToken, BoardError.BadToken(401), BoardError.NoAccess, BoardError.RateLimited(null), BoardError.Timeout, BoardError.Server(503))
+            .forEach { assertEquals(Result.CheckFailed(marker.title, it), SubmitRecovery.check(marker, NOW) { _ -> Outcome.Failure(it) }) }
+    }
+
+    @Test fun unicodeTitlesMatchExactly() {
+        val hebrew = SubmitMarker("לתקן את הווידג׳ט 🐛", started)
+        assertEquals(3, SubmitRecovery.match(hebrew, listOf(issue(2, "לתקן את הווידג׳ט"), issue(3, "לתקן את הווידג׳ט 🐛"))))
+        val huge = SubmitMarker("y".repeat(256), started)
+        assertEquals(4, SubmitRecovery.match(huge, listOf(issue(4, "y".repeat(256)), issue(5, "y".repeat(255)))))
+    }
+
     @Test fun checkLooksUpOnceFromBeforeTheMarker() {
         val asked = mutableListOf<Instant>()
         val result = SubmitRecovery.check(marker, NOW) { asked += it; Outcome.Success(listOf(issue(3))) }

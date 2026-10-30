@@ -1,6 +1,7 @@
 package io.github.veganmarshmallow.taskboard.core.task
 
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
+import io.github.veganmarshmallow.taskboard.core.github.GitHubRequests
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import java.time.Duration
 import java.time.Instant
@@ -30,7 +31,11 @@ object SubmitRecovery {
         data class TooOld(override val title: String) : Result()
     }
 
-    /** The `since` of the lookup. GitHub filters on updated_at, which is never before created_at. */
+    /**
+     * The `since` of the lookup. GitHub filters on updated_at, which is never before created_at, so
+     * every issue created in the window is included; older issues edited since come too, but sort
+     * after it (`sort=created`, newest first) and fail the time check.
+     */
     fun lookupSince(marker: SubmitMarker): Instant = marker.startedAt.minus(LOOK_BEFORE)
 
     fun isTooOld(marker: SubmitMarker, now: Instant): Boolean =
@@ -50,11 +55,25 @@ object SubmitRecovery {
         }.minOfOrNull { it.number }
     }
 
-    fun decide(marker: SubmitMarker, lookup: Outcome<List<RecentIssue>>): Result = when (lookup) {
-        is Outcome.Failure -> Result.CheckFailed(marker.title, lookup.error)
-        is Outcome.Success -> match(marker, lookup.value)?.let { Result.Created(marker.title, it) }
-            ?: Result.NotCreated(marker.title)
+    /**
+     * [pageSize] is the lookup's page size: a full page whose oldest entry is still inside the window
+     * may have cut off the issue (over a page of issues created since), so no match there is not a
+     * "not created" but a failed check.
+     */
+    fun decide(marker: SubmitMarker, lookup: Outcome<List<RecentIssue>>, pageSize: Int = GitHubRequests.PER_PAGE): Result =
+        when (lookup) {
+            is Outcome.Failure -> Result.CheckFailed(marker.title, lookup.error)
+            is Outcome.Success -> match(marker, lookup.value)?.let { Result.Created(marker.title, it) }
+                ?: if (mayBeCutOff(marker, lookup.value, pageSize)) Result.CheckFailed(marker.title, TOO_MANY) else Result.NotCreated(marker.title)
+        }
+
+    private fun mayBeCutOff(marker: SubmitMarker, issues: List<RecentIssue>, pageSize: Int): Boolean {
+        if (issues.size < pageSize) return false
+        val oldest = issues.last().createdAt ?: return true
+        return oldest >= marker.startedAt.minus(LOOK_BEFORE)
     }
+
+    private val TOO_MANY = BoardError.Unexpected("too many new issues since then to tell")
 
     /** Runs the whole check: [lookup] (given [lookupSince]) is called at most once, and not at all for a too-old marker. */
     fun check(marker: SubmitMarker, now: Instant, lookup: (since: Instant) -> Outcome<List<RecentIssue>>): Result =

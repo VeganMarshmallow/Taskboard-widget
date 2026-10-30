@@ -20,8 +20,8 @@ import io.github.veganmarshmallow.taskboard.core.task.TaskDraft
  * reopened form still shows it with the draft intact.
  *
  * Process death: the draft and a submit marker go to disk ([SubmitJournal]); the first form of a
- * new process gets the draft back, and a marker left by a dead submit is checked against GitHub
- * ([SubmitRecovery]) before the user can submit again.
+ * new process gets the draft back, and a marker left by a dead submit (or by a request that timed
+ * out) is checked against GitHub ([RecoveryCheck]) before the user can submit again.
  *
  * One instance per process ([io.github.veganmarshmallow.taskboard.data.AppGraph.newTask]), so the
  * session survives Activity recreation. GitHub and threads come from [deps]. Main thread only.
@@ -32,18 +32,18 @@ class NewTaskController(val deps: NewTaskDeps) {
     /** The visible form, if any. */
     var listener: (() -> Unit)? = null
 
-    /** The orphaned submit being checked against GitHub, if any. The form stays disabled meanwhile. */
-    var checking: SubmitMarker? = null
-        private set
-
+    private val recovery = RecoveryCheck(deps)
     private var restored = false
-    private var unshownRecovery: SubmitRecovery.Result? = null
+
+    /** The orphaned submit being checked against GitHub, if any. The form stays disabled meanwhile. */
+    val checking: SubmitMarker? get() = recovery.checking
 
     private fun journal(context: Context) = SubmitJournal(deps.store(context.applicationContext), deps.clock)
 
     /**
      * Called when a form opens. The first time in this process, takes back the draft a dead process
-     * saved; then checks a submit a dead process left unfinished, if any.
+     * saved (unless this process already has one); then checks a submit that a dead process, or a
+     * timed-out request, left unresolved.
      */
     fun restore(context: Context) {
         val app = context.applicationContext
@@ -52,19 +52,8 @@ class NewTaskController(val deps: NewTaskDeps) {
             restored = true
             if (session.draft == TaskDraft.EMPTY) session.draft = journal.savedDraft()
         }
-        if (checking != null) return
         val marker = journal.orphanedMarker(session.isSubmitting) ?: return
-        checking = marker
-        deps.sendExecutor.execute {
-            val result = try {
-                SubmitRecovery.check(marker, deps.clock.instant()) { since ->
-                    deps.apiProvider(app)?.issuesUpdatedSince(since) ?: Outcome.Failure(BoardError.NoToken)
-                }
-            } catch (e: RuntimeException) {
-                SubmitRecovery.Result.CheckFailed(marker.title, BoardError.Unexpected("internal error: ${e.javaClass.simpleName}"))
-            }
-            deps.mainThread.execute { recovered(app, result) }
-        }
+        recovery.start(app, marker) { result -> recovered(app, result) }
     }
 
     /** Persists what the form shows (on pause). */
@@ -74,11 +63,11 @@ class NewTaskController(val deps: NewTaskDeps) {
     fun discard(context: Context) {
         if (session.isSubmitting) return
         session.discard()
-        journal(context).saveDraft(TaskDraft.EMPTY)
+        journal(context).discarded()
     }
 
     /** The finished recovery check not yet shown, once. */
-    fun takeRecovery(): SubmitRecovery.Result? = unshownRecovery.also { unshownRecovery = null }
+    fun takeRecovery(): SubmitRecovery.Result? = recovery.take()
 
     /** Sends [issue] (from [NewTaskSession.start]). */
     fun send(context: Context, issue: NewIssue) {
@@ -105,13 +94,11 @@ class NewTaskController(val deps: NewTaskDeps) {
     }
 
     private fun recovered(app: Context, result: SubmitRecovery.Result) {
-        checking = null
         journal(app).recovered(result)
         if (result is SubmitRecovery.Result.Created) {
             session.discard()
             NewTaskEffects.refreshWidget(app)
         }
-        unshownRecovery = result
         listener?.invoke()
     }
 }

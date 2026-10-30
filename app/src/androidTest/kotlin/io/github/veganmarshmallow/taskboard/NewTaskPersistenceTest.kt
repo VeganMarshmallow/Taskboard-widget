@@ -27,6 +27,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.net.SocketTimeoutException
 import java.time.Instant
 import java.util.Collections
 import java.util.concurrent.CountDownLatch
@@ -45,10 +46,14 @@ class NewTaskPersistenceTest {
 
     private val requests: MutableList<HttpRequest> = Collections.synchronizedList(mutableListOf())
     @Volatile private var issues: List<Map<String, Any?>> = emptyList()
+    @Volatile private var post: () -> HttpResponse = { HttpResponse(201, body = """{"number":93,"labels":[]}""") }
     private val github = HttpClient { request ->
         requests += request
-        if (request.method == "GET" && "since=" in request.url) HttpResponse(200, body = JsonWriter.write(issues))
-        else HttpResponse(200, body = "[]") // repo suggestions
+        when {
+            request.method == "POST" -> post()
+            "since=" in request.url -> HttpResponse(200, body = JsonWriter.write(issues))
+            else -> HttpResponse(200, body = "[]") // repo suggestions
+        }
     }
 
     @get:Rule val newTask = NewTaskRule { NewTaskDeps.standard { GitHubApi(github, "github_pat_X") } }
@@ -118,6 +123,39 @@ class NewTaskPersistenceTest {
         assertTrue(activity.findViewById<Button>(R.id.task_submit).isEnabled)
         assertNull(prefs.marker)
         assertNotNull(prefs.draft)
+        instrumentation.runOnMainSync { activity.finish() }
+    }
+
+    @Test fun timedOutSubmitIsCheckedWhenTheFormOpensAgain() {
+        post = { throw SocketTimeoutException("read timed out") } // GitHub may have created it anyway
+        val first = launch()
+        instrumentation.runOnMainSync {
+            first.findViewById<EditText>(R.id.task_title).setText(draft.title)
+            first.findViewById<Button>(R.id.task_submit).performClick()
+        }
+        waitUntil("timeout shown") { context.getString(R.string.task_may_exist) in first.text(R.id.task_status) }
+        assertNotNull("the marker stays: the issue may exist", prefs.marker)
+        instrumentation.runOnMainSync { first.finish() }
+        instrumentation.waitForIdleSync()
+
+        issues = listOf(mapOf("number" to 92L, "title" to draft.title, "created_at" to Instant.now().toString()))
+        val again = launch() // same process: no restart
+        waitUntil("recovery shown") { "#92" in again.text(R.id.task_status) }
+        assertEquals("", again.text(R.id.task_title))
+        assertNull(prefs.marker)
+        assertEquals(1, requests.count { it.method == "POST" })
+        instrumentation.runOnMainSync { again.finish() }
+    }
+
+    @Test fun corruptSavedDraftAndMarkerOpenAnEmptyFormWithoutALookup() {
+        prefs.draft = "{not json"
+        prefs.marker = "]["
+        newTask.restart()
+        val activity = launch()
+        assertEquals("", activity.text(R.id.task_title))
+        assertTrue(activity.findViewById<Button>(R.id.task_submit).isEnabled)
+        assertNull(prefs.marker)
+        assertTrue(lookups().isEmpty())
         instrumentation.runOnMainSync { activity.finish() }
     }
 

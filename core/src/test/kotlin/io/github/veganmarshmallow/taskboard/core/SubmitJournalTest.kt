@@ -65,11 +65,65 @@ class SubmitJournalTest {
         assertNull(store.draft)
     }
 
-    @Test fun failureClearsMarkerButKeepsDraft() {
+    @Test fun definiteFailureClearsMarkerButKeepsDraft() {
+        listOf(BoardError.BadToken(401), BoardError.NoAccess, BoardError.NoToken, BoardError.Unexpected("HTTP 422: x")).forEach { error ->
+            journal.sending(draft, issue)
+            journal.completed(Outcome.Failure(error))
+            assertNull("$error", store.marker)
+            assertEquals("$error", draft, journal.savedDraft())
+        }
+    }
+
+    @Test fun failureThatMayHaveCreatedTheIssueKeepsTheMarkerForACheck() {
+        listOf(BoardError.Timeout, BoardError.Network, BoardError.Unreachable, BoardError.Server(502)).forEach { error ->
+            store.marker = null
+            journal.sending(draft, issue)
+            journal.completed(Outcome.Failure(error))
+            assertEquals("$error", SubmitMarker(issue.title, NOW), journal.orphanedMarker(submittingHere = false))
+            assertEquals("$error", draft, journal.savedDraft())
+        }
+    }
+
+    @Test fun discardForgetsDraftAndMarker() {
         journal.sending(draft, issue)
         journal.completed(Outcome.Failure(BoardError.Timeout))
+        journal.discarded()
+        assertNull(store.draft)
         assertNull(store.marker)
+    }
+
+    /** Each write is its own commit; a death between two must never leave a sent draft without a marker. */
+    @Test fun draftIsWrittenBeforeAndClearedBeforeTheMarker() {
+        val writes = mutableListOf<String>()
+        val recording = object : NewTaskStore {
+            override var draft: String? = null
+                set(value) { field = value; writes += if (value == null) "draft-" else "draft+" }
+            override var marker: String? = null
+                set(value) { field = value; writes += if (value == null) "marker-" else "marker+" }
+        }
+        val j = SubmitJournal(recording, FIXED_CLOCK)
+        j.sending(draft, issue)
+        j.completed(Outcome.Success(CreatedIssue(5)))
+        assertEquals(listOf("draft+", "marker+", "draft-", "marker-"), writes)
+        writes.clear()
+        j.sending(draft, issue)
+        j.recovered(Result.Created(issue.title, 5))
+        assertEquals(listOf("draft+", "marker+", "draft-", "marker-"), writes)
+    }
+
+    @Test fun markerWithoutDraftIsStillCheckedAndDraftWithoutMarkerIsJustADraft() {
+        store.marker = SubmitMarkerCodec.encode(SubmitMarker("Lost draft", NOW))
+        assertEquals(SubmitMarker("Lost draft", NOW), journal.orphanedMarker(false))
+        assertEquals(TaskDraft.EMPTY, journal.savedDraft())
+        store.marker = null
+        journal.saveDraft(draft)
+        assertNull(journal.orphanedMarker(false))
         assertEquals(draft, journal.savedDraft())
+    }
+
+    @Test fun unicodeAndQuotesInTheTitleSurviveTheMarker() {
+        val marker = SubmitMarker("תיקון \"באג\" 🐛 \\ ‮", NOW)
+        assertEquals(marker, SubmitMarkerCodec.decode(SubmitMarkerCodec.encode(marker)))
     }
 
     @Test fun recoveryResultsUpdateTheStore() {

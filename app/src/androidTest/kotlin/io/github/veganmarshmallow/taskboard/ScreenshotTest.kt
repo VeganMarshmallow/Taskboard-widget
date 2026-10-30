@@ -88,6 +88,7 @@ class ScreenshotTest {
         instrumentation.runOnMainSync { activity.finish() }
         io.github.veganmarshmallow.taskboard.data.AppGraph.newTask.session.draft =
             io.github.veganmarshmallow.taskboard.core.task.TaskDraft.EMPTY
+        io.github.veganmarshmallow.taskboard.data.NewTaskPrefs(context).draft = null // saved on pause (#20)
     }
 
     @Test fun widgetWithBoard() {
