@@ -172,7 +172,7 @@ jobs:
           gh release upload "$tag" "${pngs[@]}" --clobber
           echo "::notice title=Screenshots uploaded::${#pngs[@]} PNGs to $tag"
 
-  # #40: the tab tests again on a recent Android. From Android 15/16, AppWidgetManager converts a
+  # #40: the tab tests again on a recent Android (API 35; 36 does not boot here). From Android 15/16, AppWidgetManager converts a
   # RemoteViewsService list itself and re-sends the system's last views when the list changes,
   # which API 30 never does. Only the real-host tab tests run here, to keep the job short.
   emulator-recent:
@@ -201,7 +201,7 @@ jobs:
         id: emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 36
+          api-level: 35
           arch: x86_64
           target: google_apis
           profile: pixel_5
