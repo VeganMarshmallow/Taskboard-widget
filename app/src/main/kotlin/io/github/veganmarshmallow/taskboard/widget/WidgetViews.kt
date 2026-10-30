@@ -14,12 +14,13 @@ import io.github.veganmarshmallow.taskboard.data.AppGraph
 /**
  * Builds the widget's outer RemoteViews (header, tabs, error banner, list container) from a [WidgetState].
  * Pure view mapping: no AppWidgetManager, so it can be rendered directly in tests and screenshots.
- * The list rows themselves come from [RowViews] via [BoardListFactory].
+ * The list rows come from [RowViews], put in by [ListBinding] (inside this update on Android 12+).
  */
 class WidgetViews(private val context: Context) {
     private val time = TimeText(context)
     private val messages = AppGraph.messages(context)
     private val tabs = TabViews(context)
+    private val list = ListBinding(context)
 
     /**
      * [selected] is the tab to show; [WidgetRenderer] reads it from TabStore for each widget.
@@ -35,7 +36,7 @@ class WidgetViews(private val context: Context) {
         bindHeader(views, state)
         if (updating) views.setTextViewText(R.id.updated, context.getString(R.string.updating))
         tabs.bind(views, state.board, selected, widgetId)
-        bindList(views, state, widgetId)
+        bindList(views, state, selected, widgetId)
         bindError(views, state)
         return views
     }
@@ -62,8 +63,8 @@ class WidgetViews(private val context: Context) {
         const val ROOT = android.R.id.background
     }
 
-    private fun bindList(views: RemoteViews, state: WidgetState, widgetId: Int) {
-        views.setRemoteAdapter(R.id.board_list, WidgetIntents.listService(context, widgetId))
+    private fun bindList(views: RemoteViews, state: WidgetState, selected: Section, widgetId: Int) {
+        list.bind(views, state.board, selected, widgetId)
         views.setPendingIntentTemplate(R.id.board_list, WidgetIntents.rowTemplate(context))
         val hasBoard = state.board != null
         views.setViewVisibility(R.id.board_list, if (hasBoard) View.VISIBLE else View.GONE)

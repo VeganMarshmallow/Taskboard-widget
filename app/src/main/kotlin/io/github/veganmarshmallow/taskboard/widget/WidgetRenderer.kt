@@ -19,6 +19,11 @@ import io.github.veganmarshmallow.taskboard.data.TabStore
  * launcher gets always shows the latest tap. The list re-reads the tab by itself, so before this a
  * redraw from another thread that read the tab just before a tap, and pushed just after it, left
  * the old tab highlighted above the new tab's list until the next tap.
+ *
+ * On Android 12+ the list's rows are part of each update too ([ListBinding], task #40), so an
+ * update is the whole widget, and `updateAppWidget` stays a plain synchronous call: with a
+ * RemoteViewsService list, Android 15/16 would send it later from a thread of its own, outside
+ * this gate.
  */
 class WidgetRenderer(private val context: Context) {
     private val manager = AppWidgetManager.getInstance(context)
@@ -54,7 +59,11 @@ class WidgetRenderer(private val context: Context) {
     private fun push(ids: IntArray, notifyList: Boolean, updating: Boolean? = null, load: () -> WidgetState) {
         GATE.run({ build(load(), ids, updating ?: AppGraph.refreshTracker(context).isUpdating()) }) { built ->
             built.forEach { (id, remote) -> manager.updateAppWidget(id, remote) }
-            if (notifyList && ids.isNotEmpty()) manager.notifyAppWidgetViewDataChanged(ids, R.id.board_list)
+            // Android 12+: the rows came inside the update. Never notify there: from Android 15/16 a
+            // notify makes AppWidgetManager re-send the system's previous views, old tab and all (#40).
+            if (notifyList && ids.isNotEmpty() && !ListBinding.embedsRows()) {
+                manager.notifyAppWidgetViewDataChanged(ids, R.id.board_list)
+            }
         }
     }
 
