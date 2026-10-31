@@ -1,6 +1,7 @@
 package io.github.veganmarshmallow.taskboard.core
 
 import io.github.veganmarshmallow.taskboard.core.model.Labels
+import io.github.veganmarshmallow.taskboard.core.tags.TagPills
 import io.github.veganmarshmallow.taskboard.core.task.TaskType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -41,5 +42,36 @@ class LabelsTest {
         assertTrue(Labels.isStatus("status:custom"))
         assertFalse(Labels.isStatus("priority: high"))
         assertFalse(Labels.isStatus("my status: x"))
+    }
+
+    /** Reviewer edge cases (#26): blank, prefix-only, unicode, case and spacing, as on main. */
+    @Test fun edgeCases() {
+        assertFalse(Labels.isStatus(""))
+        assertFalse(Labels.isStatus("   "))
+        assertTrue(Labels.isStatus("status:"))
+        assertFalse(Labels.isStatus("status :todo"))
+        // The helpers expect normalized names; callers normalize first, so case is handled there.
+        assertFalse(Labels.isStatus("Status: todo"))
+        assertTrue(Labels.isStatus(Labels.normalize("  STATUS: Todo ")))
+        assertEquals(Labels.TODO, Labels.normalize(" Status: TODO "))
+
+        assertNull(Labels.typeValue(""))
+        assertNull(Labels.typeValue("   "))
+        assertNull(Labels.typeValue("types: bug"))
+        assertNull(Labels.typeValue("Type: bug"))
+        assertEquals("bug", Labels.typeValue(Labels.normalize("Type: BUG")))
+        assertEquals("", Labels.typeValue("type: "))
+        assertEquals("", Labels.typeValue("type:   "))
+        assertEquals("באג 🐛", Labels.typeValue("type: באג 🐛"))
+        assertEquals("type: ", Labels.type(""))
+        assertEquals("type: באג", Labels.type("באג"))
+    }
+
+    @Test fun tagPillsHideBlankPrefixOnlyAndStatusLabels() {
+        val pills = TagPills.of(
+            mapOf("" to null, "   " to null, "status:" to null, " Status:Todo " to null, "type:" to null, "TYPE: Bug" to null),
+            null,
+        )
+        assertEquals(listOf("Bug"), pills.map { it.text })
     }
 }
