@@ -37,15 +37,28 @@ class GitHubRequests(internal val repo: Repo, private val token: String) {
 
     fun repository(): HttpRequest = get("$API/repos/${repo.fullName}")
 
-    fun approve(issueNumber: Int): HttpRequest {
+    fun approve(issueNumber: Int): HttpRequest = addLabels(issueNumber, listOf(Labels.READY_FOR_CLAUDE))
+
+    /** Adds [labels] to an issue, keeping the ones it has (approve, and the reply's unblock of task #44). */
+    fun addLabels(issueNumber: Int, labels: List<String>): HttpRequest {
         require(issueNumber > 0) { "issue number must be positive" }
-        return HttpRequest(
-            method = "POST",
-            url = "$API/repos/${repo.fullName}/issues/$issueNumber/labels",
-            headers = headers() + ("Content-Type" to "application/json; charset=utf-8"),
-            body = JsonWriter.write(mapOf("labels" to listOf(Labels.READY_FOR_CLAUDE))),
-        )
+        return withJson("POST", "${issueUrl(issueNumber)}/labels", mapOf("labels" to labels))
     }
+
+    /** Removes one label from an issue. GitHub answers 404 when the issue does not have it. */
+    fun removeLabel(issueNumber: Int, label: String): HttpRequest {
+        require(issueNumber > 0) { "issue number must be positive" }
+        require(label.isNotBlank()) { "label must not be blank" }
+        return HttpRequest("DELETE", "${issueUrl(issueNumber)}/labels/${encode(label)}", headers())
+    }
+
+    /** Posts a comment on an issue (the preview's reply, task #44). */
+    fun addComment(issueNumber: Int, body: String): HttpRequest {
+        require(issueNumber > 0) { "issue number must be positive" }
+        return withJson("POST", "${issueUrl(issueNumber)}/comments", mapOf("body" to body))
+    }
+
+    private fun issueUrl(issueNumber: Int) = "$API/repos/${repo.fullName}/issues/$issueNumber"
 
     /** Creates an issue (task #9). Labels the token may not apply are dropped by GitHub, not refused. */
     fun createIssue(issue: NewIssue): HttpRequest = HttpRequest(

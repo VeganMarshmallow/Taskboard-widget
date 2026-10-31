@@ -3,13 +3,24 @@ package io.github.veganmarshmallow.taskboard.preview
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.preview.IssueComment
 import io.github.veganmarshmallow.taskboard.core.preview.IssueDetails
 import io.github.veganmarshmallow.taskboard.core.preview.PreviewLoader
+import io.github.veganmarshmallow.taskboard.core.reply.ReplyAction
+import io.github.veganmarshmallow.taskboard.core.reply.ReplyResult
+import io.github.veganmarshmallow.taskboard.core.reply.ReplyService
+import io.github.veganmarshmallow.taskboard.core.reply.ReplyStep
+import io.github.veganmarshmallow.taskboard.core.work.RefreshTrigger
+import io.github.veganmarshmallow.taskboard.core.work.TimeLimit
+import io.github.veganmarshmallow.taskboard.core.work.Timed
+import io.github.veganmarshmallow.taskboard.core.work.crashError
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.widget.BackgroundWork
+import io.github.veganmarshmallow.taskboard.widget.BoardJobs
 import io.github.veganmarshmallow.taskboard.widget.WidgetRefresher
+import java.time.Duration
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -46,6 +57,31 @@ class PreviewWorker(context: Context) {
         }
     }
 
+    /**
+     * Sends a reply (task #44) on the widget's [BackgroundWork] thread like [approve], within
+     * [REPLY_BUDGET], then refreshes the widget the way approve and merge do. The result goes to
+     * [ReplyDrafts], not to this worker's sheet: it must land even when that sheet was closed
+     * meanwhile, and reach the sheet reopened in its place.
+     */
+    fun reply(number: Int, action: ReplyAction) {
+        BackgroundWork.run(null) {
+            val api = AppGraph.apiOrNull(app)
+            val result = if (api == null) {
+                ReplyResult.Failed(stepOf(action), BoardError.NoToken)
+            } else {
+                when (val timed = TimeLimit().run(REPLY_BUDGET) { ReplyService(api).send(number, action) }) {
+                    is Timed.Done -> timed.value
+                    is Timed.Crashed -> ReplyResult.Failed(stepOf(action), crashError(timed.error))
+                    Timed.TimedOut -> ReplyResult.Failed(stepOf(action), BoardError.Timeout)
+                }
+            }
+            if (result.posted) BoardJobs.refresh(app, RefreshTrigger.MANUAL)
+            main.post { ReplyDrafts.finished(number, result) }
+        }
+    }
+
+    private fun stepOf(action: ReplyAction) = if (action is ReplyAction.Unblock) ReplyStep.UNBLOCK else ReplyStep.COMMENT
+
     fun close() {
         closed = true
         executor.shutdownNow()
@@ -53,5 +89,9 @@ class PreviewWorker(context: Context) {
 
     private fun post(block: () -> Unit) {
         main.post { if (!closed) block() }
+    }
+
+    private companion object {
+        val REPLY_BUDGET: Duration = Duration.ofSeconds(30)
     }
 }
