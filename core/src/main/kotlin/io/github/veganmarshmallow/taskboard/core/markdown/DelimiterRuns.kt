@@ -24,8 +24,8 @@ internal object DelimiterRuns {
     const val MARKERS = "*_~"
 
     /**
-     * Unicode punctuation and symbols. Private-use characters count too: [MarkdownInline] stands one in
-     * for each backslash-escaped punctuation mark (`*line*\_here`) and removes any real ones first.
+     * Unicode punctuation and symbols. Private-use characters count too: [MarkdownInline] stands them
+     * in for backslash-escaped punctuation (`*line*\_here`) and for code spans, whose edge is a backtick.
      */
     private val PUNCTUATION_TYPES = setOf(
         Character.CONNECTOR_PUNCTUATION, Character.DASH_PUNCTUATION, Character.START_PUNCTUATION,

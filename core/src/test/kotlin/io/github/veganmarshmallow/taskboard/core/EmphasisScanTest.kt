@@ -36,8 +36,8 @@ class EmphasisScanTest {
         assertEquals("line_here", strip("*line*\\_here"))
     }
 
-    @Test fun emphasisDoesNotCrossCodeSpans() {
-        assertEquals("*a **b c** d*", strip("*a `**b c**` d*"))
+    @Test fun emphasisNeverReachesIntoCodeSpans() {
+        assertEquals("a **b c** d", strip("*a `**b c**` d*"))
         assertEquals("*a b* c", strip("*a `b*` c"))
     }
 
@@ -62,6 +62,59 @@ class EmphasisScanTest {
         assertEquals(MarkdownInline.MAX_VISIBLE, strip("x".repeat(5_000)).length)
     }
 
+    @Test fun emphasisWrapsCodeSpans() {
+        assertEquals("Name: does a thing", strip("**`Name`**: does a thing"))
+        assertEquals("a b c", strip("**a `b` c**"))
+        assertEquals("a", strip("*`a`*"))
+        assertEquals("foo", strip("[`foo`](https://e.x)"))
+        assertEquals("x **y**z", strip("x **`y`**z"))
+        assertEquals("**", strip("`**`"))
+        assertEquals("$1 \\$ x", strip("`$1 \\$` x"))
+    }
+
+    @Test fun escapedBackticksDoNotOpenCodeSpans() {
+        assertEquals("`not code`", strip("\\`not code\\`"))
+        assertEquals("`code", strip("\\``code`"))
+        assertEquals("a\\b`", strip("`a\\`b`"))
+        assertEquals("\\code", strip("\\\\`code`"))
+    }
+
+    @Test fun placeholdersInTheInputCannotBeForged() {
+        assertEquals("a", strip("\uE02A a \uE02A"))
+        assertEquals("x b y", strip("x \uE080\uE081b\uE02A y"))
+        assertEquals("\uFFFD\uFFFD c", strip("&#xE080;&#xE081; ``c``"))
+        assertEquals("a\uFFFD", strip("`a`&#57345;"))
+    }
+
+    @Test fun commonMarkCornerCases() {
+        mapOf(
+            "**a*" to "*a", "*a**" to "a*", "**a\nb**" to "a b", "***a** b*" to "a b", "***a* b**" to "a b",
+            "*foo**bar**baz*" to "foobarbaz", "__init__" to "init", "* item *x*" to "* item x",
+            "😀*a*😀" to "😀a😀", "**😀 bold**" to "😀 bold", "a😀*b*" to "a😀b", "שלום_עולם_טוב" to "שלום_עולם_טוב",
+            "**שלום** עולם" to "שלום עולם", "*\\*" to "**", "_\\_a_" to "_a", "&#42;a&#42;" to "*a*",
+        ).forEach { (input, expected) -> assertEquals(input, expected, strip(input)) }
+        listOf("* item", "a * b * c", "~x~", "a ~ b ~ c", "~~a", "`unmatched", "a ` b").forEach { assertEquals(it, it, strip(it)) }
+    }
+
+    @Test fun emptyAndMarkerOnlyInputs() {
+        listOf("", " ", "\n\n").forEach { assertEquals("", strip(it)) }
+        listOf("*", "**", "***", "_", "__", "~~", "~~~~", "* * *", "_ _", "`", "``").forEach { assertEquals(it, it, strip(it)) }
+        assertEquals("", strip("``  ``"))
+        assertEquals("\\", strip("\\"))
+    }
+
+    @Test fun cutNeverStrandsAMarkerOrHalfASurrogate() {
+        assertEquals("", MarkdownInline.strip("**abc**", 0))
+        assertEquals("", MarkdownInline.strip("**abc**", -5))
+        assertEquals("a", MarkdownInline.strip("**abc**", 1))
+        assertEquals("abc", MarkdownInline.strip("ab**cd**", 3))
+        assertEquals("ab", MarkdownInline.strip("*ab* cd", 2))
+        assertEquals("c", MarkdownInline.strip("`co`de", 1))
+        assertEquals("", MarkdownInline.strip("😀😀", 1))
+        assertEquals("😀", MarkdownInline.strip("**😀**😀", 3))
+        assertEquals("a", MarkdownInline.strip("*a*", 1))
+    }
+
     @Test fun hugeHostileInputsAreLinear() {
         val n = 200_000
         val inputs = mapOf(
@@ -75,6 +128,10 @@ class EmphasisScanTest {
             "one backtick run" to "`".repeat(n),
             "backticks and stars" to "`*_`**x".repeat(n / 7),
             "unpaired backtick runs" to (1..600).joinToString("x") { "`".repeat(it) },
+            "many code spans" to "`a`**".repeat(n / 5),
+            "escaped backticks" to "\\`".repeat(n / 2),
+            "open brackets" to "[a](".repeat(n / 4),
+            "open tags" to "<a ".repeat(n / 3),
         )
         strip("**warm** _up_ `code`".repeat(1_000))
         inputs.forEach { (what, s) ->
