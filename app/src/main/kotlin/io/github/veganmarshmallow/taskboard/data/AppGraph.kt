@@ -3,15 +3,22 @@ package io.github.veganmarshmallow.taskboard.data
 import android.content.Context
 import io.github.veganmarshmallow.taskboard.core.error.ErrorMessages
 import io.github.veganmarshmallow.taskboard.core.github.GitHubApi
-import io.github.veganmarshmallow.taskboard.core.update.UpdateSchedule
 import io.github.veganmarshmallow.taskboard.core.http.HttpClient
+import io.github.veganmarshmallow.taskboard.core.update.UpdateFlow
+import io.github.veganmarshmallow.taskboard.core.update.UpdateSchedule
+import io.github.veganmarshmallow.taskboard.core.update.Updater
 import io.github.veganmarshmallow.taskboard.core.work.RefreshRunner
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTracker
 import io.github.veganmarshmallow.taskboard.core.work.RetryBackoff
 import io.github.veganmarshmallow.taskboard.core.work.RetryPlanner
 import io.github.veganmarshmallow.taskboard.net.UrlConnectionHttpClient
+import io.github.veganmarshmallow.taskboard.net.UrlConnectionStreamingClient
 import io.github.veganmarshmallow.taskboard.newtask.NewTaskController
 import io.github.veganmarshmallow.taskboard.newtask.NewTaskDeps
+import io.github.veganmarshmallow.taskboard.update.InstalledVersion
+import io.github.veganmarshmallow.taskboard.update.UpdateController
+import io.github.veganmarshmallow.taskboard.update.UpdateStore
+import io.github.veganmarshmallow.taskboard.widget.StateRedraw
 import io.github.veganmarshmallow.taskboard.widget.TimeText
 import java.time.Clock
 import java.time.Duration
@@ -19,12 +26,6 @@ import java.time.Duration
 /** Wires core classes to Android implementations. The only place that knows both. */
 object AppGraph {
     val clock: Clock = Clock.systemUTC()
-
-    /** Background update checks (during widget refresh): once a day, or an hour after a failed check. */
-    val updateSchedule = UpdateSchedule(Duration.ofDays(1), Duration.ofHours(1))
-
-    /** The check when the app opens is skipped right after another one (e.g. a screen rotation). */
-    val updateOnOpen = UpdateSchedule(Duration.ofMinutes(1))
 
     private fun httpClient(): HttpClient = TestOverrides.httpClient?.invoke() ?: UrlConnectionHttpClient()
 
@@ -65,4 +66,23 @@ object AppGraph {
     val newTask: NewTaskController get() = TestOverrides.newTask ?: appNewTask
 
     private val appNewTask = NewTaskController(NewTaskDeps.standard(::apiOrNull))
+
+    @Volatile private var updateController: UpdateController? = null
+
+    /** The update check's controller. One per process, so a check outlives the Activity (rotation). */
+    fun updates(context: Context): UpdateController = updateController ?: synchronized(this) {
+        updateController ?: newUpdateController(context.applicationContext).also { updateController = it }
+    }
+
+    private fun newUpdateController(app: Context) = UpdateController(
+        // Opening the app checks unless one ran a minute ago (a rotation); a widget refresh checks
+        // once a day, or an hour after a failed check.
+        flow = UpdateFlow(onOpen = UpdateSchedule(Duration.ofMinutes(1)), background = UpdateSchedule(Duration.ofDays(1), Duration.ofHours(1))),
+        store = UpdateStore(app),
+        clock = clock,
+        hasToken = { TokenStore(app).hasToken() },
+        updater = { TokenStore(app).get()?.let { Updater(UrlConnectionStreamingClient(), it, clock) } },
+        installedVersionCode = { InstalledVersion.of(app).versionCode },
+        redrawBadge = { StateRedraw.redraw(app) },
+    )
 }

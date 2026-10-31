@@ -7,6 +7,7 @@ import io.github.veganmarshmallow.taskboard.core.update.ReleasePage
 import io.github.veganmarshmallow.taskboard.core.update.UpdateError
 import io.github.veganmarshmallow.taskboard.core.update.UpdateMessages
 import io.github.veganmarshmallow.taskboard.core.update.UpdatePresenter
+import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.widget.TimeText
 
 /**
@@ -18,29 +19,27 @@ import io.github.veganmarshmallow.taskboard.widget.TimeText
 class UpdateSection(private val activity: Activity) {
     private val card = UpdateCard(activity.findViewById(R.id.update_section))
     private val presenter = UpdatePresenter(UpdateMessages(TimeText(activity)::format))
+    private val controller = AppGraph.updates(activity)
+    private val onChange: () -> Unit = ::render
 
     fun onOpen() {
-        card.checkButton.setOnClickListener { UpdateController.check(activity) }
+        card.checkButton.setOnClickListener { controller.check() }
         card.updateButton.setOnClickListener { openReleasePage() }
-        UpdateController.listen(::render)
-        when (UpdateController.activity) {
-            UpdatePresenter.Activity.Idle -> UpdateController.checkOnOpen(activity)
-            is UpdatePresenter.Activity.Failed -> { UpdateController.reset(); UpdateController.checkOnOpen(activity) }
-            UpdatePresenter.Activity.Checking -> Unit // keep it (e.g. after a rotation)
-        }
+        controller.addListener(onChange)
+        controller.opened()
         render()
     }
 
     fun onResume() = render()
 
     /** A new token may grant access that the last check lacked. */
-    fun onTokenChanged() = UpdateController.check(activity)
+    fun onTokenChanged() = controller.check()
 
-    fun onDestroy() = UpdateController.listen(null)
+    fun onDestroy() = controller.removeListener(onChange)
 
     private fun render() {
         if (activity.isDestroyed) return
-        card.bind(presenter.present(UpdateStore(activity).load(), InstalledVersion.of(activity), UpdateController.activity))
+        card.bind(presenter.present(UpdateStore(activity).load(), InstalledVersion.of(activity), controller.activity))
     }
 
     private fun openReleasePage() {
@@ -48,7 +47,7 @@ class UpdateSection(private val activity: Activity) {
         try {
             activity.startActivity(ReleasePageIntent.of(url))
         } catch (e: ActivityNotFoundException) {
-            UpdateController.fail(UpdateError.Unexpected("no browser to open the release page"))
+            controller.fail(UpdateError.Unexpected("no browser to open the release page"))
         }
     }
 }
