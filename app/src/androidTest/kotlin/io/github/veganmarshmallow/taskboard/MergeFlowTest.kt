@@ -15,8 +15,8 @@ import io.github.veganmarshmallow.taskboard.core.merge.MergeStep
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTracker
 import io.github.veganmarshmallow.taskboard.data.AppGraph
-import io.github.veganmarshmallow.taskboard.data.TestOverrides
 import io.github.veganmarshmallow.taskboard.data.StateStore
+import io.github.veganmarshmallow.taskboard.data.TestOverrides
 import io.github.veganmarshmallow.taskboard.data.TokenStore
 import io.github.veganmarshmallow.taskboard.merge.MergeFlow
 import io.github.veganmarshmallow.taskboard.preview.TaskPreviewActivity
