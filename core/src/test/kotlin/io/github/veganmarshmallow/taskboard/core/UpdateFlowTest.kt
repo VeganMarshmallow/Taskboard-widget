@@ -87,10 +87,10 @@ class UpdateFlowTest {
     // --- CheckFinished ---
 
     @Test fun successReturnsToIdle() =
-        assertEquals(Step(Activity.Idle), flow.next(Activity.Checking, Input.CheckFinished(null)))
+        assertEquals(Step(Activity.Idle, refresh = true), flow.next(Activity.Checking, Input.CheckFinished(null)))
 
     @Test fun noTokenIsShownAsTheSectionsFailure() =
-        assertEquals(Step(Activity.Failed(UpdateError.NoToken)), flow.next(Activity.Checking, Input.CheckFinished(UpdateError.NoToken)))
+        assertEquals(Step(Activity.Failed(UpdateError.NoToken), refresh = true), flow.next(Activity.Checking, Input.CheckFinished(UpdateError.NoToken)))
 
     @Test fun otherErrorsReturnToIdleBecauseTheCachedStatusShowsThem() {
         val errors = listOf(
@@ -98,7 +98,7 @@ class UpdateFlowTest {
             UpdateError.ReleaseChanged, UpdateError.RateLimited(null), UpdateError.Server(502),
             UpdateError.Malformed("x"), UpdateError.Unexpected("y"),
         )
-        errors.forEach { assertEquals(it.toString(), Step(Activity.Idle), flow.next(Activity.Checking, Input.CheckFinished(it))) }
+        errors.forEach { assertEquals(it.toString(), Step(Activity.Idle, refresh = true), flow.next(Activity.Checking, Input.CheckFinished(it))) }
     }
 
     @Test fun aFinishedCheckNeverStartsAnother() =
@@ -183,5 +183,80 @@ class UpdateFlowTest {
     @Test fun anOlderReleaseThanInstalledIsNoBadge() {
         val r = flow.record(UpdateStatus.NEVER, UpdateResult.Ok(v41), NOW, installedVersionCode = 42)
         assertFalse(r.badgeChanged)
+    }
+
+    // --- Edge cases (review) ---
+
+    @Test fun openingAtTheSameInstantAsTheLastCheckDoesNotCheck() =
+        assertEquals(Step(Activity.Idle), flow.next(Activity.Idle, opened(cached = UpdateStatus(NOW, v41))))
+
+    @Test fun openingOneMillisecondBeforeTheMinuteDoesNotCheck() {
+        val cached = UpdateStatus(NOW.minus(Duration.ofMinutes(1)).plusMillis(1), v41)
+        assertEquals(Step(Activity.Idle), flow.next(Activity.Idle, opened(cached = cached)))
+    }
+
+    @Test fun openingWhileRateLimitedWaitsForTheReset() {
+        val cached = UpdateStatus(NOW.minus(Duration.ofHours(2)), v41, UpdateError.RateLimited(NOW.plusSeconds(60)))
+        assertEquals(Step(Activity.Idle), flow.next(Activity.Idle, opened(cached = cached)))
+    }
+
+    @Test fun openingTwiceStartsOnlyOneCheck() {
+        val first = flow.next(Activity.Idle, opened())
+        assertEquals(Command.RunCheck, first.command)
+        assertEquals(Step(Activity.Checking), flow.next(first.activity, opened()))
+    }
+
+    @Test fun openingWithoutATokenWhileCheckingKeepsTheCheck() =
+        assertEquals(Step(Activity.Checking), flow.next(Activity.Checking, opened(hasToken = false)))
+
+    @Test fun aStaleFinishWhileIdleStaysIdleButRefreshes() =
+        // Two checks in flight (release page failed mid-check, then Check tapped): the second one's
+        // result is cached, so the screen must re-render although the activity stays Idle.
+        assertEquals(Step(Activity.Idle, refresh = true), flow.next(Activity.Idle, Input.CheckFinished(null)))
+
+    @Test fun aFinishReplacesAReleasePageFailureShownMidCheck() {
+        val error = UpdateError.Unexpected("no browser")
+        val failedMidCheck = flow.next(Activity.Checking, Input.ReleasePageFailed(error))
+        assertEquals(Step(Activity.Failed(error)), failedMidCheck)
+        assertEquals(Step(Activity.Idle, refresh = true), flow.next(failedMidCheck.activity, Input.CheckFinished(null)))
+    }
+
+    @Test fun aNoTokenFinishWhileIdleShowsTheFailure() =
+        assertEquals(Activity.Failed(UpdateError.NoToken), flow.next(Activity.Idle, Input.CheckFinished(UpdateError.NoToken)).activity)
+
+    @Test fun onlyAFinishedCheckAsksForARefresh() {
+        assertFalse(flow.next(Activity.Idle, opened()).refresh)
+        assertFalse(flow.next(Activity.Idle, Input.CheckRequested).refresh)
+        assertFalse(flow.next(Activity.Idle, Input.ReleasePageFailed(UpdateError.Network)).refresh)
+    }
+
+    @Test fun backgroundCheckIsDueWhenTheClockWentBack() =
+        assertTrue(flow.backgroundCheckDue(UpdateStatus(NOW.plus(Duration.ofDays(2)), v41), NOW))
+
+    @Test fun backgroundCheckIsNotDueOneMillisecondBeforeTheDay() =
+        assertFalse(flow.backgroundCheckDue(UpdateStatus(NOW.minus(Duration.ofDays(1)).plusMillis(1), v41), NOW))
+
+    @Test fun backgroundCheckWaitsForARateLimitResetBeyondTheHour() {
+        val limited = UpdateError.RateLimited(NOW.plus(Duration.ofMinutes(30)))
+        assertFalse(flow.backgroundCheckDue(UpdateStatus(NOW.minus(Duration.ofHours(3)), v41, limited), NOW))
+    }
+
+    @Test fun backgroundCheckAfterARunningCheckCachedIsNotDue() =
+        // The executor runs the queued background check after the user's check saved its status.
+        assertFalse(flow.backgroundCheckDue(UpdateStatus(NOW, v41), NOW))
+
+    @Test fun noTokenCachesNothingEvenWhenNeverChecked() =
+        assertEquals(UpdateFlow.Recorded(null, false, UpdateError.NoToken), flow.record(UpdateStatus.NEVER, null, NOW, installed))
+
+    @Test fun aFirstCheckFindingANewerReleaseTurnsTheBadgeOn() {
+        val r = flow.record(UpdateStatus.NEVER, UpdateResult.Ok(v42), NOW, installed)
+        assertEquals(UpdateStatus(NOW, v42), r.status)
+        assertTrue(r.badgeChanged)
+        assertNull(r.error)
+    }
+
+    @Test fun recordWithAClockThatWentBackStampsTheCurrentTime() {
+        val before = UpdateStatus(NOW.plus(Duration.ofDays(1)), v41)
+        assertEquals(NOW, flow.record(before, UpdateResult.Ok(v41), NOW, installed).status?.checkedAt)
     }
 }

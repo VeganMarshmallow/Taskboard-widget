@@ -15,8 +15,8 @@ import java.util.concurrent.Executors
 
 /**
  * Runs [UpdateFlow]'s commands: checks on its own thread (never the widget's refresh thread), keeps
- * the current [Activity] across screen rotations, and tells every listening screen about changes on
- * the main thread. One per process, created by `AppGraph`, so a check outlives the activity.
+ * the current [Activity] across screen rotations, and tells every listening screen on the main thread
+ * when the activity changes or a check cached a new status. One per process, created by `AppGraph`, so a check outlives the activity.
  */
 class UpdateController(
     private val flow: UpdateFlow,
@@ -55,7 +55,7 @@ class UpdateController(
 
     private fun dispatch(input: Input) {
         val step = flow.next(activity, input)
-        if (step.activity != activity) {
+        if (step.activity != activity || step.refresh) {
             activity = step.activity
             listeners.forEach { it() }
         }

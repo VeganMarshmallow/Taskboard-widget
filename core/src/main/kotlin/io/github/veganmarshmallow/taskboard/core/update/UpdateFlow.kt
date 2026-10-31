@@ -31,7 +31,11 @@ class UpdateFlow(private val onOpen: UpdateSchedule, private val background: Upd
         data object RunCheck : Command()
     }
 
-    data class Step(val activity: Activity, val command: Command? = null)
+    /**
+     * The next [activity] and the [command] to run. [refresh]: a check just cached a new status, so the
+     * screen must re-render even if [activity] is unchanged (e.g. a second check finishing while Idle).
+     */
+    data class Step(val activity: Activity, val command: Command? = null, val refresh: Boolean = false)
 
     /** What a check leaves behind: [status] to cache (null: nothing), whether the widget's dot changed, and the error. */
     data class Recorded(val status: UpdateStatus?, val badgeChanged: Boolean, val error: UpdateError?)
@@ -40,7 +44,7 @@ class UpdateFlow(private val onOpen: UpdateSchedule, private val background: Upd
         is Input.Opened -> opened(current, input)
         Input.CheckRequested -> check(current)
         // Only a missing token is shown as the section's own failure; other errors are cached and shown from the status.
-        is Input.CheckFinished -> Step(if (input.error == UpdateError.NoToken) Activity.Failed(UpdateError.NoToken) else Activity.Idle)
+        is Input.CheckFinished -> Step(if (input.error == UpdateError.NoToken) Activity.Failed(UpdateError.NoToken) else Activity.Idle, refresh = true)
         is Input.ReleasePageFailed -> Step(Activity.Failed(input.error))
     }
 
