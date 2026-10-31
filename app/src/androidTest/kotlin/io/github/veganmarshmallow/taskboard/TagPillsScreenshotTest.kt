@@ -12,6 +12,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Screenshots of the preview's tag pills (issue #13). Each also checks what the picture claims. */
+@Screenshot
 @RunWith(AndroidJUnit4::class)
 class TagPillsScreenshotTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()

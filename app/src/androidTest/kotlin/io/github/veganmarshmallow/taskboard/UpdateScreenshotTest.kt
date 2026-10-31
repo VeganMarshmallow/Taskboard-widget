@@ -29,6 +29,7 @@ import org.junit.runner.RunWith
  * Screenshots for the update check (issue #14; since #32 Update opens the release page in the
  * browser instead of installing). Each also checks the view shows what the picture claims.
  */
+@Screenshot
 @RunWith(AndroidJUnit4::class)
 class UpdateScreenshotTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()

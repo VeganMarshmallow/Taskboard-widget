@@ -3,7 +3,6 @@ package io.github.veganmarshmallow.taskboard
 import android.view.View
 import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import org.junit.Assert.assertTrue
@@ -11,20 +10,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** #29: "No network" only when the device has none; a network that can't reach GitHub says so. */
+@Screenshot
 @RunWith(AndroidJUnit4::class)
 class NetworkScreenshotTest {
-    private val instrumentation = InstrumentationRegistry.getInstrumentation()
-    private val context = instrumentation.targetContext
-
-    private fun capture(name: String, error: BoardError): View {
-        lateinit var widget: View
-        instrumentation.runOnMainSync {
-            val rendered = WidgetHost(context).render(WidgetState(FakeBoards.realistic(), error, FakeBoards.NOW), 340, 300)
-            widget = rendered.widget
-            Screenshots.save(context, name, WidgetHost.toBitmap(rendered.root))
-        }
-        return widget
-    }
+    private fun capture(name: String, error: BoardError): View =
+        ScreenshotCapture.widget(name, WidgetState(FakeBoards.realistic(), error, FakeBoards.NOW))
 
     private fun View.errorText() = findViewById<TextView>(R.id.error).text.toString()
 

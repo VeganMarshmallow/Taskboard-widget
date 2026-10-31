@@ -34,6 +34,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Screenshots for task #30 (merge from the widget). Each also checks what the picture claims. */
+@Screenshot
 @RunWith(AndroidJUnit4::class)
 class MergeScreenshotTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()

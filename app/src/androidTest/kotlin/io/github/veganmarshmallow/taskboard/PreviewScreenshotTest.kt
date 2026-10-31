@@ -11,6 +11,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Screenshots of the task preview sheet (issue #11). Each also checks what the picture claims. */
+@Screenshot
 @RunWith(AndroidJUnit4::class)
 class PreviewScreenshotTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()

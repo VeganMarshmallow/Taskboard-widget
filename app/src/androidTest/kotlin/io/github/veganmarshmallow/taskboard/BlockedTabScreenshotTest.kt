@@ -22,21 +22,14 @@ import org.junit.runner.RunWith
  * #34 screenshots: every blocked task is in Blocked, even with `needs-owner`; those rows keep the
  * needs-you badge. Each test also checks what its picture claims.
  */
+@Screenshot
 @RunWith(AndroidJUnit4::class)
 class BlockedTabScreenshotTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
     private val state = WidgetState(FakeBoards.realistic(), null, FakeBoards.NOW)
 
-    private fun captureWidget(name: String, state: WidgetState, tab: Section): View {
-        lateinit var widget: View
-        instrumentation.runOnMainSync {
-            val rendered = WidgetHost(context).render(state, widthDp = 340, heightDp = 300, tab = tab)
-            widget = rendered.widget
-            Screenshots.save(context, name, WidgetHost.toBitmap(rendered.root))
-        }
-        return widget
-    }
+    private fun captureWidget(name: String, state: WidgetState, tab: Section): View = ScreenshotCapture.widget(name, state, tab = tab)
 
     /** (badge, title) of each row the list shows; the badge is "" when hidden. */
     private fun View.rows(): List<Pair<String, String>> {

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs inside the Android emulator: all instrumented tests (with reports), then the screenshot
+# Runs inside the Android emulator: all instrumented tests (with reports), then the @Screenshot
 # tests again on an installed build so the PNGs can be pulled before anything is uninstalled
 # (connectedAndroidTest uninstalls the app when it finishes). PNGs land in ./screenshots/.
 set -uo pipefail
@@ -9,9 +9,15 @@ pkg="io.github.veganmarshmallow.taskboard"
 status=${PIPESTATUS[0]}
 
 ./gradlew :app:installDebug :app:installDebugAndroidTest --console=plain 2>&1 | tee -a connected.log
-# Every *ScreenshotTest class, so features can add their own screenshot class without editing a shared one.
-classes="$(find app/src/androidTest -name '*ScreenshotTest.kt' -exec basename {} .kt \; | sort | sed "s/^/$pkg./" | paste -sd, -)"
-adb shell am instrument -w -e class "$classes" "$pkg.test/androidx.test.runner.AndroidJUnitRunner" 2>&1 | tee instrument.log
+# Every class annotated @Screenshot (#22), so a feature adds its own screenshot class without editing a shared one
+# or this script. A class that saves PNGs without the annotation would silently drop them, so that fails the run.
+unmarked="$(grep -rlE 'Screenshots\.save|ScreenshotCapture\.' app/src/androidTest --include='*.kt' |
+  grep -vE '/(Screenshots|ScreenshotCapture)\.kt$' | xargs grep -L '^@Screenshot$' || true)"
+if [ -n "$unmarked" ]; then
+  for f in $unmarked; do echo "::error file=$f,title=Screenshots::saves PNGs but is not annotated @Screenshot"; done
+  status=1
+fi
+adb shell am instrument -w -e annotation "$pkg.Screenshot" "$pkg.test/androidx.test.runner.AndroidJUnitRunner" 2>&1 | tee instrument.log
 
 mkdir -p screenshots
 for name in $(adb shell run-as "$pkg" ls files/screenshots 2>/dev/null | tr -d '\r'); do
