@@ -17,6 +17,8 @@ data class BoardItem(
     val needsYouReason: NeedsYouReason? = null,
     /** In review: the row offers Merge (task #30). */
     val canMerge: Boolean = false,
+    /** With [canMerge]: whether this PR is the one to merge next, or why not (#45). Null until checked. */
+    val mergeLane: MergeLane? = null,
 ) {
     /** What the widget row shows: just the title, without the leading `#n`. */
     val displayText: String get() = title

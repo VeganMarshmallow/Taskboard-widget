@@ -1,0 +1,43 @@
+name: update-prs
+
+# #45: after every merge to main, bring Claude's open PRs up to date and re-run their CI, so the
+# widget can highlight the next one to merge. Logic and its tests: .github/scripts/update-prs*.js.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: update-prs
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Update PRs and re-run their builds
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { updatePrs } = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/update-prs.js`);
+            const results = await updatePrs({
+              github,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              main: context.payload.repository.default_branch || 'main',
+              log: core.info,
+            });
+            await core.summary
+              .addHeading('Claude PRs after this merge', 3)
+              .addTable([['PR', 'Result'], ...results.map((r) => [`#${r.number}`, r.error ? `error: ${r.error}` : r.action])])
+              .write();
+            if (results.some((r) => r.action === 'error')) core.setFailed('Some PRs could not be updated');

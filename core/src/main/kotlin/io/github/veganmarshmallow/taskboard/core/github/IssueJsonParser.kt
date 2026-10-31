@@ -7,6 +7,7 @@ import io.github.veganmarshmallow.taskboard.core.json.long
 import io.github.veganmarshmallow.taskboard.core.json.string
 import io.github.veganmarshmallow.taskboard.core.model.Issue
 import io.github.veganmarshmallow.taskboard.core.model.Labels
+import io.github.veganmarshmallow.taskboard.core.tags.RepoField
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.format.DateTimeParseException
@@ -33,13 +34,15 @@ object IssueJsonParser {
         val number = obj.long("number")?.takeIf { it in 1..Int.MAX_VALUE }?.toInt()
             ?: throw MalformedResponseException("Issue $index has no valid number")
         val state = obj.string("state") ?: throw MalformedResponseException("Issue #$number has no state")
+        val open = state.equals("open", ignoreCase = true)
         return Issue(
             number = number,
             title = obj.string("title") ?: "",
             labels = parseLabels(obj.list("labels")),
-            isOpen = state.equals("open", ignoreCase = true),
+            isOpen = open,
             closedAt = parseInstant(obj.string("closed_at"), number),
             isPullRequest = obj["pull_request"] is Map<*, *>,
+            repo = if (open) RepoField.repo(obj.string("body")) else null,
         )
     }
 

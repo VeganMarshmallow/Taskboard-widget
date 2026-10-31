@@ -10,4 +10,6 @@ data class Issue(
     val isOpen: Boolean,
     val closedAt: Instant? = null,
     val isPullRequest: Boolean = false,
+    /** The task's project repo from its body's Repo field (open issues only; #45 looks up its PR). */
+    val repo: Repo? = null,
 )

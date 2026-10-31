@@ -16,4 +16,9 @@ internal object GitHubNames {
 
     /** A repo name; `.` and `..` match the pattern but would change the URL path. */
     fun isName(s: String) = NAME_ONLY.matches(s) && s != "." && s != ".."
+
+    /** A branch name safe in a URL path (#45 compares against the default branch): no `..`, no leading `/`. */
+    fun isBranch(s: String) = BRANCH.matches(s) && ".." !in s && !s.startsWith("/") && !s.endsWith("/")
+
+    private val BRANCH = Regex("^[A-Za-z0-9._/-]{1,200}$")
 }

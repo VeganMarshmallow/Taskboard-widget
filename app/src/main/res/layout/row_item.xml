@@ -43,6 +43,18 @@
         android:visibility="gone" />
 
     <TextView
+        android:id="@+id/item_merge_note"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="6dp"
+        android:maxWidth="120dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="@color/widget_muted"
+        android:textSize="11sp"
+        android:visibility="gone" />
+
+    <TextView
         android:id="@+id/item_merge"
         android:layout_width="wrap_content"
         android:layout_height="28dp"

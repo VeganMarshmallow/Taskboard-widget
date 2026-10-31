@@ -42,9 +42,23 @@ class PrFinder(private val pulls: PullsApi, private val board: Repo = Repo.BOARD
                 is MergeStep.Stop -> if (step.problem is MergeProblem.NoRepoAccess) access = access ?: step.problem else return step
             }
         }
-        return when (val chosen = PrSelector.select(candidates.values)) {
+        return choose(candidates.values, lists, access)
+    }
+
+    /**
+     * The task's PR among [open], the already listed open PRs of its [repo] (#45 lists each repo
+     * once per refresh). Only the PR bodies are searched, not the task's comments: a PR is only
+     * ever merged when its body says `Closes <board>#<n>` anyway ([PrSelector]).
+     */
+    fun fromOpen(issue: Int, repo: Repo, open: List<PullRequest>): MergeStep<FoundPr> {
+        val candidates = open.map { PrCandidate(it, linked = false, match = ClosesReference.match(it.body, board, issue)) }
+        return choose(candidates, mapOf(repo to open), access = null)
+    }
+
+    /** [PrSelector]'s pick; "not found" becomes [access] when a source could not be read. */
+    private fun choose(candidates: Collection<PrCandidate>, lists: Map<Repo, List<PullRequest>>, access: MergeProblem?): MergeStep<FoundPr> =
+        when (val chosen = PrSelector.select(candidates)) {
             is MergeStep.Ok -> MergeStep.Ok(FoundPr(chosen.value, lists[chosen.value.repo]))
             is MergeStep.Stop -> MergeStep.Stop(if (chosen.problem == MergeProblem.NotFound) access ?: chosen.problem else chosen.problem)
         }
-    }
 }

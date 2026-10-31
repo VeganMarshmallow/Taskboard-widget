@@ -2,6 +2,8 @@ package io.github.veganmarshmallow.taskboard.core.snapshot
 
 import io.github.veganmarshmallow.taskboard.core.board.Board
 import io.github.veganmarshmallow.taskboard.core.board.BoardItem
+import io.github.veganmarshmallow.taskboard.core.board.MergeLane
+import io.github.veganmarshmallow.taskboard.core.board.MergeWait
 import io.github.veganmarshmallow.taskboard.core.board.NeedsYouReason
 import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.core.board.SectionContent
@@ -63,6 +65,7 @@ object WidgetStateCodec {
         "a" to item.canApprove,
         "r" to item.needsYouReason?.name,
         "m" to item.canMerge,
+        "lane" to item.mergeLane?.let { mapOf("next" to it.isNext, "wait" to it.wait?.name, "first" to it.firstTitle) },
     )
 
     private fun boardFromMap(map: Map<*, *>): Board {
@@ -83,7 +86,14 @@ object WidgetStateCodec {
         canApprove = m["a"] as Boolean,
         needsYouReason = m.string("r")?.let(NeedsYouReason::valueOf),
         canMerge = m["m"] == true, // absent in boards saved before #30: no Merge until the next refresh
+        mergeLane = (m["lane"] as? Map<*, *>)?.let(::laneFromMap),
     )
+
+    /** Absent before #45, or a reason this version doesn't know: no lane until the next refresh. */
+    private fun laneFromMap(m: Map<*, *>): MergeLane? {
+        val wait = m.string("wait")?.let { name -> MergeWait.entries.firstOrNull { it.name == name } ?: return null }
+        return MergeLane(isNext = m["next"] == true, wait = wait, firstTitle = m.string("first"))
+    }
 
     private fun errorToMap(error: BoardError): Map<String, Any?> = when (error) {
         BoardError.NoToken -> mapOf("k" to "NoToken")

@@ -32,6 +32,8 @@ data class PullRequest(
     val headRef: String,
     val headSha: String,
     val defaultBranch: String?,
+    /** Label names (#45: `needs-rebase` marks a PR the update workflow could not update). */
+    val labels: Set<String> = emptySet(),
 ) {
     val number: Int get() = ref.number
     val repo: Repo get() = ref.repo

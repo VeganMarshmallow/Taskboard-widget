@@ -18,6 +18,8 @@ data class WorkflowRun(
     val status: String,
     val conclusion: String?,
     val event: String? = null,
+    /** When the run last changed: for a completed run, roughly when it finished (#45 "ready since"). */
+    val updatedAt: Instant? = null,
 )
 
 /** What the workflow runs on a PR's head commit say about merging. */

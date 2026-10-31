@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A Merge button that is not the PR to merge next (#45). The one to merge next keeps merge_background. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/merge_muted_bg" />
+    <corners android:radius="14dp" />
+</shape>

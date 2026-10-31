@@ -3,6 +3,7 @@ package io.github.veganmarshmallow.taskboard.core
 import io.github.veganmarshmallow.taskboard.core.github.GitHubRequests
 import io.github.veganmarshmallow.taskboard.core.json.JsonParser
 import io.github.veganmarshmallow.taskboard.core.merge.PullRef
+import io.github.veganmarshmallow.taskboard.core.merge.compare
 import io.github.veganmarshmallow.taskboard.core.merge.mergePull
 import io.github.veganmarshmallow.taskboard.core.merge.openPulls
 import io.github.veganmarshmallow.taskboard.core.merge.pull
@@ -46,5 +47,14 @@ class MergeRequestsTest {
         assertThrows(IllegalArgumentException::class.java) { requests.workflowRuns(WIDGET, "$SHA_A&actor=x") }
         assertThrows(IllegalArgumentException::class.java) { requests.workflowRuns(Repo("o", "r/../x"), SHA_A) }
         assertThrows(IllegalArgumentException::class.java) { PullRef(WIDGET, 0) }
+    }
+
+    @Test fun compareAgainstTheDefaultBranch() {
+        assertEquals("$base/compare/main...$SHA_A", requests.compare(WIDGET, "main", SHA_A).url)
+        assertEquals("$base/compare/release/v2...$SHA_A", requests.compare(WIDGET, "release/v2", SHA_A).url)
+        listOf("", "../x", "a..b", "/main", "main/", "main?x=1", "main#x", "ma in").forEach { branch ->
+            assertThrows(branch, IllegalArgumentException::class.java) { requests.compare(WIDGET, branch, SHA_A) }
+        }
+        assertThrows(IllegalArgumentException::class.java) { requests.compare(WIDGET, "main", "not-a-sha") }
     }
 }
