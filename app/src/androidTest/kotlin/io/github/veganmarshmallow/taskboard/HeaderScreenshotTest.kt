@@ -32,23 +32,27 @@ class HeaderScreenshotTest {
         UpdateStore(context).save(UpdateStatus.NEVER)
     }
 
-    private val minWidthDp: Int by lazy {
-        val info = AppWidgetManager.getInstance(context).getInstalledProvidersForPackage(context.packageName, null).single()
-        (info.minResizeWidth / context.resources.displayMetrics.density).toInt()
+    private val info by lazy {
+        AppWidgetManager.getInstance(context).getInstalledProvidersForPackage(context.packageName, null).single()
     }
+    private fun dp(px: Int) = (px / context.resources.displayMetrics.density).toInt()
+    private val minWidthDp: Int by lazy { dp(info.minResizeWidth) }
+    private val minHeightDp: Int by lazy { dp(info.minResizeHeight) }
 
-    private fun render(host: Context, state: WidgetState, widthDp: Int): View {
+    private fun render(host: Context, state: WidgetState, widthDp: Int, heightDp: Int = 300): View {
         lateinit var widget: View
-        instrumentation.runOnMainSync { widget = WidgetHost(host).render(state, widthDp, 300).widget }
+        instrumentation.runOnMainSync { widget = WidgetHost(host).render(state, widthDp, heightDp).widget }
         return widget
     }
 
     private fun problemsAtEveryScale(what: String, locale: Locale? = null): List<String> =
         scales.flatMap { scale ->
             val host = configured(context, fontScale = scale, locale = locale)
-            listOf(minWidthDp, 250, 340).flatMap { width ->
+            // Every width at a roomy height, plus the smallest widget (min width x min height).
+            val sizes = listOf(minWidthDp, 250, 340).map { it to 300 } + (minWidthDp to minHeightDp)
+            sizes.flatMap { (width, height) ->
                 listOf("board" to board, "initial" to WidgetState.INITIAL).flatMap { (name, state) ->
-                    headerFitProblems(render(host, state, width), "$what x$scale ${width}dp $name")
+                    headerFitProblems(render(host, state, width, height), "$what x$scale ${width}x${height}dp $name")
                 }
             }
         }
@@ -83,6 +87,8 @@ class HeaderScreenshotTest {
         // The title gives way (ellipsized) instead of the buttons.
         val title = widget.findViewById<TextView>(R.id.title)
         assertTrue("title is ${title.width}px wide", title.width > 0)
+        // Only the drawing is cut: the view keeps the full title, which TalkBack reads.
+        assertEquals(context.getString(R.string.widget_title), title.text.toString())
     }
 
     @Test fun normalSizesLookAsBefore() {
