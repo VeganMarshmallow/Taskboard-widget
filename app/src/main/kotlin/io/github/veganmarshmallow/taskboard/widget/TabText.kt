@@ -31,8 +31,9 @@ object TabText {
     fun label(context: Context, section: Section, count: Int): String =
         context.getString(R.string.tab_label, context.getString(name(section)), countText(context, CountBadge.of(count)))
 
+    /** Both forms use the locale's digits (via `%d`), like [R.string.tab_description] does. */
     fun countText(context: Context, badge: CountBadge): String = when (badge) {
-        is CountBadge.Exact -> badge.count.toString()
+        is CountBadge.Exact -> context.getString(R.string.tab_count, badge.count)
         is CountBadge.Capped -> context.getString(R.string.tab_count_capped, badge.max)
     }
 }
