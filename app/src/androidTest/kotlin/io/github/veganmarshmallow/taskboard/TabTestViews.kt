@@ -11,8 +11,8 @@ import org.junit.Assert.assertTrue
 import java.util.Locale
 
 /**
- * Test helpers for the tab row: find the label a tab shows, check every label fits its tab, measure where a view
- * sits, and contexts with another font scale, theme or locale.
+ * Test helpers for the tab row and header: find the label a tab shows, check every label fits its tab, check the
+ * header buttons fit the widget, measure where a view sits, and contexts with another font scale, theme or locale.
  */
 object TabTestViews {
     /** The label the tab currently shows. Exactly one of its two labels is visible. */
@@ -48,6 +48,39 @@ object TabTestViews {
     fun assertTabsFit(widget: View, what: String) {
         val problems = tabFitProblems(widget, what)
         assertTrue(problems.joinToString("; "), problems.isEmpty())
+    }
+
+    /**
+     * #28: every visible header button ([R.id.refresh], [R.id.new_task], the update dot) keeps its full size and lies
+     * inside the widget's content area (inside its padding), on either side in RTL.
+     */
+    fun headerFitProblems(widget: View, what: String): List<String> {
+        val left = widget.paddingLeft
+        val right = widget.width - widget.paddingRight
+        return listOf("refresh" to R.id.refresh, "new_task" to R.id.new_task, "update_dot" to R.id.update_dot).mapNotNull { (name, id) ->
+            val button = widget.findViewById<View>(id)
+            if (button.visibility != View.VISIBLE) return@mapNotNull null
+            val x = button.leftIn(widget)
+            val wanted = button.layoutParams.width
+            when {
+                button.width != wanted -> "$what $name: ${button.width}px wide, wants ${wanted}px"
+                x < left || x + button.width > right -> "$what $name: spans ${x}..${x + button.width}px, widget content is $left..${right}px"
+                else -> null
+            }
+        }
+    }
+
+    fun assertHeaderFits(widget: View, what: String) {
+        val problems = headerFitProblems(widget, what)
+        assertTrue(problems.joinToString("; "), problems.isEmpty())
+    }
+
+    /** This view's left edge in [root]'s coordinates (sum of the lefts up the parent chain). */
+    fun View.leftIn(root: View): Int {
+        var x = 0
+        var v: View = this
+        while (v !== root) { x += v.left; v = v.parent as View }
+        return x
     }
 
     /** This view's top edge in [root]'s coordinates (sum of the tops up the parent chain). */
