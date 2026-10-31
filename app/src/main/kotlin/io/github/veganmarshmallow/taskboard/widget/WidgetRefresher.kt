@@ -22,7 +22,7 @@ class WidgetRefresher(private val context: Context) {
 
     fun refresh(): RefreshRunner.Result {
         val result = renderAfter(runner.run(onStarted = ::onStarted) { previous ->
-            val next = BoardLoader(AppGraph.clock, mergeLanes = MergeLaneLoader()).refresh(previous, AppGraph.apiOrNull(context))
+            val next = BoardLoader(AppGraph.clock, mergeLanes = MergeLaneLoader.forRefresh(AppGraph.clock)).refresh(previous, AppGraph.apiOrNull(context))
             // "No network" only when the device really has none; otherwise GitHub is unreachable (#29).
             if (next.error == null) next else Reachability.refine(next, Connectivity.isOnline(context))
         })

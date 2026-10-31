@@ -35,6 +35,7 @@ class MergeLanesTest {
         val pulls: List<Map<String, Any?>>,
         val runs: Map<String, String> = emptyMap(),
         val behind: Map<String, Long> = emptyMap(),
+        val runsStatus: Int? = null,
     ) {
         val http = FakeHttp().on({ true }) { route(it.url) }
 
@@ -44,6 +45,7 @@ class MergeLanesTest {
             url.startsWith("$repo/pulls?state=open") -> ok(pullsPage(*pulls.toTypedArray()))
             url.matches(Regex("""$repo/pulls/\d+""")) -> pulls.firstOrNull { it["number"] == url.substringAfterLast('/').toLong() }
                 ?.let { ok(JsonWriter.write(it)) } ?: status(404)
+            url.startsWith("$repo/actions/runs?head_sha=") && runsStatus != null -> status(runsStatus)
             url.startsWith("$repo/actions/runs?head_sha=") -> ok(runs[url.substringAfter("head_sha=").substringBefore('&')] ?: runsJson())
             url.startsWith("$repo/compare/main...") -> behind[url.substringAfter("...")]?.let { ok("""{"behind_by":$it,"ahead_by":2}""") }
                 ?: status(500)
@@ -190,5 +192,71 @@ class MergeLanesTest {
         val item = WidgetStateCodec.decode(text).board!!.section(Section.NEEDS_YOU).items.single()
         assertTrue(item.canMerge)
         assertNull(item.mergeLane)
+    }
+
+    // Reviewer edge cases (#45).
+
+    @Test fun allDraftOrStackedNothingNextAndNoPerPrRequests() {
+        val s = Script(
+            listOf(task(30), task(29)),
+            listOf(pullJson(12, body = closes(30), draft = true), pullJson(13, body = closes(29), base = "claude/12-branch")),
+        )
+        assertEquals(mapOf(30 to MergeLane(false, MergeWait.DRAFT, null), 29 to MergeLane(false, MergeWait.STACKED, null)), s.lanes())
+        assertEquals(0, s.count("/pulls/1") + s.count("/actions/runs") + s.count("/compare/"))
+    }
+
+    @Test fun needsRebaseLabelBeatsOtherwiseReady() {
+        val labelled = pullJson(12, body = closes(30), sha = SHA_A) + ("labels" to listOf(mapOf("name" to "needs-rebase")))
+        val s = Script(
+            listOf(task(30), task(29)),
+            listOf(labelled, pullJson(13, body = closes(29), sha = SHA_B)),
+            mapOf(SHA_A to runsJson(doneRun(SHA_A, "2026-10-30T09:00:00Z")), SHA_B to runsJson(doneRun(SHA_B, "2026-10-30T10:00:00Z"))),
+            mapOf(SHA_A to 0L, SHA_B to 0L),
+        )
+        val lanes = s.lanes()
+        assertEquals(MergeLane.NEXT, lanes[29])
+        assertEquals(MergeLane(false, MergeWait.CONFLICT_CLAUDE_FIXES, "Task 29"), lanes[30])
+    }
+
+    @Test fun runsApiForbiddenIsUnknownNeverNext() {
+        val s = Script(listOf(task(30)), listOf(pullJson(12, body = closes(30))), behind = mapOf(SHA_A to 0L), runsStatus = 403)
+        assertEquals(MergeLane(false, MergeWait.UNKNOWN, null), s.lanes()[30])
+        assertEquals("no compare without passed checks", 0, s.count("/compare/"))
+    }
+
+    @Test fun aRunWithoutAnyTimeIsStillReadyButGoesLast() {
+        val noTime = wfRun(sha = shaC, createdAt = null)
+        val s = Script(
+            listOf(task(30), task(29)),
+            listOf(pullJson(12, body = closes(30), sha = shaC), pullJson(13, body = closes(29), sha = SHA_B)),
+            mapOf(shaC to runsJson(noTime), SHA_B to runsJson(doneRun(SHA_B, "2026-10-30T23:59:00Z"))),
+            mapOf(shaC to 0L, SHA_B to 0L),
+        )
+        val lanes = s.lanes()
+        assertEquals(MergeLane.NEXT, lanes[29])
+        assertEquals(MergeWait.QUEUED, lanes[30]?.wait)
+    }
+
+    @Test fun pastTheRefreshDeadlineEveryRowIsUnknownWithoutRequests() {
+        val s = Script(listOf(task(30)), listOf(pullJson(12, body = closes(30))), mapOf(SHA_A to runsJson(passed())), mapOf(SHA_A to 0L))
+        val late = MergeLaneLoader(clock = FIXED_CLOCK, deadline = FIXED_CLOCK.instant())
+        assertEquals(MergeLane(false, MergeWait.UNKNOWN, null), s.lanes(late)[30])
+        assertEquals(0, s.count("/Taskboard-widget/"))
+    }
+
+    @Test fun forRefreshStillRanksWithinTheRefreshLimit() {
+        val s = Script(listOf(task(30)), listOf(pullJson(12, body = closes(30))), mapOf(SHA_A to runsJson(passed())), mapOf(SHA_A to 0L))
+        val loader = MergeLaneLoader.forRefresh(java.time.Clock.systemUTC())
+        assertEquals(MergeLane.NEXT, s.lanes(loader)[30])
+    }
+
+    @Test fun aBoardSavedBeforeMergeNextDecodesWithoutLanes() {
+        val s = Script(listOf(task(30)), listOf(pullJson(12, body = closes(30))))
+        val withoutLanes = BoardLoader(FIXED_CLOCK).refresh(WidgetState.INITIAL, GitHubApi(s.http, TOKEN, FIXED_CLOCK))
+        val old = WidgetStateCodec.encode(withoutLanes).replace(Regex(",?\\s*\"lane\"\\s*:\\s*null"), "")
+        assertTrue("fixture really is lane-free", "\"lane\"" !in old)
+        val item = WidgetStateCodec.decode(old).board!!.section(Section.NEEDS_YOU).items.single()
+        assertTrue(item.canMerge)
+        assertNull("rendered as the plain Merge of #30", item.mergeLane)
     }
 }

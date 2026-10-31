@@ -9,6 +9,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write # labels and comments on PRs go through the Issues API
   actions: write
 
 concurrency:

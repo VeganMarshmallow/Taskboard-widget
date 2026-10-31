@@ -9,7 +9,7 @@ import io.github.veganmarshmallow.taskboard.core.board.MergeWait
 
 /**
  * A row's Merge button and its reason (#45): the PR to merge next in the strong merge purple, every
- * other one muted with a short reason beside it. A muted tap says which PR to merge first instead
+ * other one muted with a short reason beside it. A row without a lane looks as it did before #45. A muted tap says which PR to merge first instead
  * of merging; with no PR to merge first it runs the usual checks, whose dialog explains the refusal.
  */
 class MergeLaneViews(private val context: Context) {
@@ -20,7 +20,8 @@ class MergeLaneViews(private val context: Context) {
             return
         }
         val lane = item.mergeLane
-        val strong = lane?.isNext == true
+        // No lane (a board saved before #45, or not ranked yet): the plain Merge button of #30, no reason.
+        val strong = lane == null || lane.isNext
         views.setViewVisibility(R.id.item_merge, View.VISIBLE)
         views.setInt(R.id.item_merge, "setBackgroundResource", if (strong) R.drawable.merge_background else R.drawable.merge_background_muted)
         views.setTextColor(R.id.item_merge, context.getColor(if (strong) R.color.status_text else R.color.merge_muted_text))

@@ -121,6 +121,19 @@ class MergeNextTest {
         assertEquals(setOf("updating", "checks failed"), notes)
     }
 
+    @Test fun boardSavedBeforeMergeNextShowsPlainMergeButtons() {
+        val state = FakeMerges.boardState() // no lanes, as decoded from a pre-#45 install
+        lateinit var widget: View
+        instrumentation.runOnMainSync { widget = WidgetHost(context).render(state, 340, 260, Section.NEEDS_YOU).widget }
+        val merges = rows(widget).filter { it.shows(R.id.item_merge) }
+        assertTrue(merges.isNotEmpty())
+        val strong = context.getColor(R.color.status_text)
+        merges.forEach {
+            assertEquals("strong text, as before #45", strong, it.findViewById<TextView>(R.id.item_merge).currentTextColor)
+            assertTrue("no reason", !it.shows(R.id.item_merge_note))
+        }
+    }
+
     @Test fun mutedTapOnlySaysWhichToMergeFirst() {
         assertEquals("Merge $TITLE_45 first", MergeLaneViews.mergeFirst(context, TITLE_45))
         val parsed = RowAction.from(RowAction.Merge(44, TITLE_45).toFillIn())
