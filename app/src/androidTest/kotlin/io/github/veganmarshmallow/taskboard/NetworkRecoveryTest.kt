@@ -12,10 +12,10 @@ import io.github.veganmarshmallow.taskboard.core.work.BoardJob
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTrigger
 import io.github.veganmarshmallow.taskboard.core.work.RetryBackoff
 import io.github.veganmarshmallow.taskboard.core.work.RetryStreak
-import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.DeviceUptime
 import io.github.veganmarshmallow.taskboard.data.RetryStreakPrefs
 import io.github.veganmarshmallow.taskboard.data.StateStore
+import io.github.veganmarshmallow.taskboard.data.TestOverrides
 import io.github.veganmarshmallow.taskboard.widget.BoardJobs
 import io.github.veganmarshmallow.taskboard.widget.Connectivity
 import io.github.veganmarshmallow.taskboard.widget.WidgetActionReceiver
@@ -119,7 +119,7 @@ class NetworkRecoveryTest {
     @Test fun tappingTheErrorBannerRetriesNowAndRestartsTheBackoff() {
         assumeTrue("the emulator has a network", Connectivity.isOnline(context))
         val first = Duration.ofSeconds(20) // long enough to look at the planned retry before it runs
-        AppGraph.retryBackoff = RetryBackoff(listOf(first), Duration.ofMinutes(30))
+        TestOverrides.retryBackoff = RetryBackoff(listOf(first), Duration.ofMinutes(30))
         StateStore(context).save(WidgetState(FakeBoards.realistic(), BoardError.Unreachable, FakeBoards.NOW))
         RetryStreakPrefs(context).save(RetryStreak(6, DeviceUptime(context).now()))
         BoardJobs.schedule(context, BoardJob.Refresh(RefreshTrigger.RETRY, Duration.ofMinutes(30)))

@@ -11,7 +11,6 @@ import io.github.veganmarshmallow.taskboard.core.update.Updater
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.TokenStore
 import io.github.veganmarshmallow.taskboard.net.UrlConnectionStreamingClient
-import io.github.veganmarshmallow.taskboard.widget.BackgroundWork
 import io.github.veganmarshmallow.taskboard.widget.StateRedraw
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -76,7 +75,7 @@ object UpdateController {
         val before = store.load()
         val after = before.withResult(result, AppGraph.clock.instant())
         store.save(after)
-        if (badgeChanged(app, before, after)) BackgroundWork.run(null) { StateRedraw.redraw(app) }
+        if (badgeChanged(app, before, after)) StateRedraw.redraw(app) // local only; already off the main thread
         return (result as? UpdateResult.Err)?.error
     }
 

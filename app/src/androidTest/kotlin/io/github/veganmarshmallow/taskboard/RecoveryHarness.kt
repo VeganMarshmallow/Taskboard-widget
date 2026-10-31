@@ -9,11 +9,11 @@ import io.github.veganmarshmallow.taskboard.core.work.BoardJob
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTracker.Status
 import io.github.veganmarshmallow.taskboard.core.work.RetryBackoff
 import io.github.veganmarshmallow.taskboard.data.AppGraph
+import io.github.veganmarshmallow.taskboard.data.TestOverrides
 import io.github.veganmarshmallow.taskboard.data.RefreshMarkPrefs
 import io.github.veganmarshmallow.taskboard.data.RetryStreakPrefs
 import io.github.veganmarshmallow.taskboard.data.StateStore
 import io.github.veganmarshmallow.taskboard.data.TokenStore
-import io.github.veganmarshmallow.taskboard.net.UrlConnectionHttpClient
 import org.junit.Assert.assertTrue
 import java.time.Duration
 
@@ -33,16 +33,16 @@ class RecoveryHarness {
     /** A clean slate with the fake GitHub (down until told otherwise), [backoff] and a token. */
     fun setUp(backoff: RetryBackoff = RetryBackoff(listOf(QUICK), QUICK)) {
         reset()
-        AppGraph.retryBackoff = backoff
-        AppGraph.httpClient = { github }
+        TestOverrides.retryBackoff = backoff
+        TestOverrides.httpClient = { github }
         TokenStore(context).save("github_pat_TESTONLY")
     }
 
     /** Back to the real HTTP client and default backoff, with no jobs, token, mark, streak or board. */
     fun reset() {
         scheduler.cancelAll()
-        AppGraph.httpClient = { UrlConnectionHttpClient() }
-        AppGraph.retryBackoff = RetryBackoff.DEFAULT
+        TestOverrides.httpClient = null
+        TestOverrides.retryBackoff = null
         TokenStore(context).clear()
         RefreshMarkPrefs(context).save(null)
         RetryStreakPrefs(context).save(null)

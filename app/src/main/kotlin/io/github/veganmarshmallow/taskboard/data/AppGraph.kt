@@ -26,8 +26,7 @@ object AppGraph {
     /** The check when the app opens is skipped right after another one (e.g. a screen rotation). */
     val updateOnOpen = UpdateSchedule(Duration.ofMinutes(1))
 
-    /** Swapped only by instrumented tests (a slow local server). */
-    @Volatile var httpClient: () -> HttpClient = { UrlConnectionHttpClient() }
+    private fun httpClient(): HttpClient = TestOverrides.httpClient?.invoke() ?: UrlConnectionHttpClient()
 
     fun api(token: String): GitHubApi = GitHubApi(httpClient(), token, clock)
 
@@ -40,18 +39,17 @@ object AppGraph {
 
     fun refreshRunner(context: Context): RefreshRunner = RefreshRunner(refreshTracker(context), StateStore(context), clock)
 
-    /** Swapped only by instrumented tests (seconds instead of minutes). Setting it rebuilds the planner. */
-    @Volatile var retryBackoff: RetryBackoff = RetryBackoff.DEFAULT
-        set(value) = synchronized(this) {
-            field = value
-            planner = null
-        }
-
-    @Volatile private var planner: RetryPlanner? = null
+    /** The planner and the backoff it was built with (a test override of the backoff rebuilds it). */
+    @Volatile private var planner: Pair<RetryBackoff, RetryPlanner>? = null
 
     /** One per process, like the tracker, so the failure streak is updated under one lock. */
-    fun retryPlanner(context: Context): RetryPlanner = planner ?: synchronized(this) {
-        planner ?: RetryPlanner(RetryStreakPrefs(context), DeviceUptime(context), retryBackoff).also { planner = it }
+    fun retryPlanner(context: Context): RetryPlanner {
+        val backoff = TestOverrides.retryBackoff ?: RetryBackoff.DEFAULT
+        planner?.let { (built, current) -> if (built === backoff) return current }
+        return synchronized(this) {
+            planner?.takeIf { it.first === backoff }?.second
+                ?: RetryPlanner(RetryStreakPrefs(context), DeviceUptime(context), backoff).also { planner = backoff to it }
+        }
     }
 
     /** User-facing error text, with times in the device's zone and 12/24-hour setting. */
@@ -62,7 +60,9 @@ object AppGraph {
 
     /**
      * The New task form's controller. One per process, so the draft and an in-flight request
-     * outlive the Activity (rotation). Replaced only by instrumented tests (`NewTaskRule`).
+     * outlive the Activity (rotation). Debug builds let instrumented tests override it ([TestOverrides]).
      */
-    @Volatile var newTask: NewTaskController = NewTaskController(NewTaskDeps.standard(::apiOrNull))
+    val newTask: NewTaskController get() = TestOverrides.newTask ?: appNewTask
+
+    private val appNewTask = NewTaskController(NewTaskDeps.standard(::apiOrNull))
 }
