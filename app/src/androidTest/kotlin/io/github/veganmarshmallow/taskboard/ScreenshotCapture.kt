@@ -7,6 +7,7 @@ import android.view.View
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.core.board.TabSelection
+import io.github.veganmarshmallow.taskboard.core.preview.PreviewScreen
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 
 /** Renders what a screenshot test pictures and saves it with [Screenshots]; call from the test thread. */
@@ -30,6 +31,24 @@ object ScreenshotCapture {
             Screenshots.save(context, name, WidgetHost.toBitmap(rendered.root))
         }
         return widget
+    }
+
+    /** Renders the preview sheet for [screen] through [host] ([PreviewHost]), saves it as [name], returns the sheet view. */
+    fun preview(
+        name: String,
+        screen: PreviewScreen,
+        widthDp: Int,
+        heightDp: Int,
+        host: () -> PreviewHost = { PreviewHost(context) },
+        prepare: (View) -> Unit = {},
+    ): View {
+        lateinit var sheet: View
+        instrumentation.runOnMainSync {
+            val rendered = host().render(screen, widthDp = widthDp, heightDp = heightDp, prepare = prepare)
+            sheet = rendered.sheet
+            Screenshots.save(context, name, WidgetHost.toBitmap(rendered.root))
+        }
+        return sheet
     }
 
     /** Saves [activity]'s window as [name]; [check] runs on the main thread against the same view first. */

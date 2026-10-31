@@ -15,8 +15,7 @@ import org.junit.runner.RunWith
 @Screenshot
 @RunWith(AndroidJUnit4::class)
 class TagPillsScreenshotTest {
-    private val instrumentation = InstrumentationRegistry.getInstrumentation()
-    private val context = instrumentation.targetContext
+    private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
     private fun capture(
         name: String,
@@ -24,15 +23,7 @@ class TagPillsScreenshotTest {
         widthDp: Int = 380,
         heightDp: Int = 440,
         host: () -> PreviewHost = { PreviewHost(context) },
-    ): FlowLayout {
-        lateinit var tags: FlowLayout
-        instrumentation.runOnMainSync {
-            val rendered = host().render(screen, widthDp = widthDp, heightDp = heightDp)
-            tags = rendered.sheet.findViewById(R.id.preview_tags)
-            Screenshots.save(context, name, WidgetHost.toBitmap(rendered.root))
-        }
-        return tags
-    }
+    ): FlowLayout = ScreenshotCapture.preview(name, screen, widthDp, heightDp, host).findViewById(R.id.preview_tags)
 
     private fun FlowLayout.texts() = (0 until childCount).map { (getChildAt(it) as TextView).text.toString() }
     private fun FlowLayout.rows() = (0 until childCount).map { getChildAt(it).top }.distinct().size
