@@ -9,7 +9,7 @@ class Updater(
     http: StreamingHttpClient,
     token: String,
     clock: Clock = Clock.systemUTC(),
-    probe: NetworkProbe = NetworkProbe.ASSUME_OFFLINE,
+    probe: NetworkProbe? = null,
 ) {
     private val requests = UpdateRequests(token = token)
     private val fetcher = AssetFetcher(http, clock, probe)

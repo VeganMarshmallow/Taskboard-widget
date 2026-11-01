@@ -31,16 +31,17 @@ object ErrorClassifier {
     /**
      * A request that threw instead of returning a response. Connection-level failures get the
      * honest wording from [Reachability] using [probe], which is asked only here, after a failure.
+     * A null [probe] (core tests only; the app always passes one) keeps the raw mapping.
      * Anything else (e.g. a SecurityException or a platform bug inside the HTTP stack) is
      * [BoardError.Unexpected], naming only the exception type so no token can leak.
      */
-    fun classifyFailure(e: Exception, probe: NetworkProbe): BoardError {
+    fun classifyFailure(e: Exception, probe: NetworkProbe?): BoardError {
         val error = when (e) {
             is SocketTimeoutException -> BoardError.Timeout // connected, or tried to, but GitHub never answered in time
             is IOException -> BoardError.Network
             else -> return BoardError.Unexpected("request failed: ${e.javaClass.simpleName}")
         }
-        return Reachability.refine(error, probe.deviceOnline())
+        return if (probe == null) error else Reachability.refine(error, probe.deviceOnline())
     }
 
     /**

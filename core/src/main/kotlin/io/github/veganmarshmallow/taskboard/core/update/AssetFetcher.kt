@@ -20,7 +20,7 @@ import java.time.Clock
 class AssetFetcher(
     private val http: StreamingHttpClient,
     private val clock: Clock,
-    private val probe: NetworkProbe = NetworkProbe.ASSUME_OFFLINE,
+    private val probe: NetworkProbe? = null, // null only in core tests: no probe, the raw wording
 ) {
 
     fun fetch(first: HttpRequest, firstStep: Step): UpdateResult<StreamingResponse> {
@@ -51,7 +51,8 @@ class AssetFetcher(
 
     /** A request or a body read that failed mid-way: "No network" only when the device has none. */
     fun connectionError(e: IOException): UpdateError =
-        if (ErrorClassifier.classifyFailure(e, probe) == BoardError.Network) UpdateError.Network else UpdateError.Unreachable
+        if (probe == null || ErrorClassifier.classifyFailure(e, probe) == BoardError.Network) UpdateError.Network
+        else UpdateError.Unreachable
 
     private fun finish(response: StreamingResponse, step: Step): UpdateResult<StreamingResponse> {
         if (response.isSuccessful) return UpdateResult.Ok(response)

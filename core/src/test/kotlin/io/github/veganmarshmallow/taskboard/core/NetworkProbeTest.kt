@@ -89,7 +89,9 @@ class NetworkProbeTest {
         assertEquals(0, answering.asked)
     }
 
-    @Test fun withoutAProbeTheOldNoNetworkWordingIsKept() {
+    @Test fun withoutAProbeTheOldWordingIsKept() {
+        assertEquals(BoardError.Network, ErrorClassifier.classifyFailure(UnknownHostException("x"), null))
+        assertEquals(BoardError.Timeout, ErrorClassifier.classifyFailure(SocketTimeoutException(), null))
         val api = GitHubApi(FakeHttp().on({ true }) { throw UnknownHostException("x") }, TOKEN, FIXED_CLOCK)
         assertEquals(BoardError.Network, api.fetchIssues().error())
     }
@@ -135,6 +137,7 @@ class NetworkProbeTest {
         assertEquals(UpdateError.Unreachable, updateError(online, timedOut))
         assertEquals(UpdateError.Network, updateError(offline, timedOut))
         assertEquals(UpdateError.Network, (Updater(FakeStreamingHttp(), TOKEN, FIXED_CLOCK).check() as UpdateResult.Err).error)
+        assertEquals(UpdateError.Network, (Updater(timedOut, TOKEN, FIXED_CLOCK).check() as UpdateResult.Err).error)
         val text = UpdateMessages { "14:05" }.message(UpdateError.Unreachable)
         assertEquals("Can't reach GitHub (VPN or DNS problem?)", text)
     }

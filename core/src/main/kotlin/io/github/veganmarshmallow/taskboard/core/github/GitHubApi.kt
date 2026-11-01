@@ -31,7 +31,7 @@ class GitHubApi(
     internal val clock: Clock = Clock.systemUTC(),
     repo: Repo = Repo.BOARD,
     private val maxPages: Int = PagedFetcher.DEFAULT_MAX_PAGES,
-    private val probe: NetworkProbe = NetworkProbe.ASSUME_OFFLINE,
+    private val probe: NetworkProbe? = null, // null only in core tests: no probe, the raw wording
 ) {
     internal val requests = GitHubRequests(repo, token)
 
