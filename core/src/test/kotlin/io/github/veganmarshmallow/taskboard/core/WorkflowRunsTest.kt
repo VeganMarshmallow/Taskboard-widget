@@ -22,7 +22,16 @@ class WorkflowRunsTest {
         sha: String? = SHA_A,
         id: Long? = ids++,
         event: String? = "push",
-    ) = WorkflowRun(id, workflow, name, sha, number, attempt, created?.let(Instant::parse), status, conclusion, event)
+        title: String? = null,
+    ) = WorkflowRun(id, workflow, name, sha, number, attempt, created?.let(Instant::parse), status, conclusion, event, displayTitle = title)
+
+    private fun partial(conclusion: String? = "success", status: String = "completed", event: String = "push", number: Long = 1) =
+        run("build", conclusion, status, workflow = 1, number = number, event = event, title = "build: claude/52-x [partial]")
+
+    private fun full(conclusion: String? = "success", status: String = "completed", event: String = "pull_request", number: Long = 2) =
+        run("build", conclusion, status, workflow = 1, number = number, event = event, title = "build: claude/52-x")
+
+    private val waitingForFull = ChecksVerdict.Running(listOf("build (full run)"))
 
     private fun verdict(vararg runs: WorkflowRun) = WorkflowRuns.verdict(runs.toList(), SHA_A)
 
@@ -144,6 +153,59 @@ class WorkflowRunsTest {
         )
         assertEquals(ChecksVerdict.Passed, verdict(*runs))
         assertEquals("a missing event is its own group", ChecksVerdict.Failed(listOf("CI")), verdict(run("CI", workflow = 1, number = 9), run("CI", "failure", workflow = 1, number = 2, event = null)))
+    }
+
+    // --- partial runs (#52: plain pushes run only `build`; emulator tests run on the PR's pull_request run) ---
+
+    @Test fun aGreenPartialPushRunAloneIsNotAPass() {
+        // A ready PR right after a push: the push run finished, the pull_request run isn't registered yet.
+        assertEquals(waitingForFull, verdict(partial()))
+    }
+
+    @Test fun aGreenFullPullRequestRunNextToThePartialPushRunPasses() {
+        assertEquals(ChecksVerdict.Passed, verdict(partial(), full()))
+        assertEquals(ChecksVerdict.Passed, verdict(full(), partial()))
+    }
+
+    @Test fun aFullRunFromWorkflowDispatchAlsoCounts() {
+        // update-prs.js re-runs CI after updating a branch with GITHUB_TOKEN, which starts no push or pull_request run.
+        assertEquals(ChecksVerdict.Passed, verdict(full(event = "workflow_dispatch")))
+        assertEquals(ChecksVerdict.Passed, verdict(partial(), full(event = "workflow_dispatch")))
+    }
+
+    @Test fun theFullRunStillRunningOrFailingBlocks() {
+        assertEquals(ChecksVerdict.Running(listOf("build")), verdict(partial(), full(null, "in_progress")))
+        assertEquals(ChecksVerdict.Failed(listOf("build")), verdict(partial(), full("failure")))
+        assertEquals(ChecksVerdict.Failed(listOf("build")), verdict(partial(), full("cancelled")))
+    }
+
+    @Test fun aFailedOrRunningPartialRunStillBlocks() {
+        assertEquals(ChecksVerdict.Failed(listOf("build")), verdict(partial("failure"), full()))
+        assertEquals(ChecksVerdict.Failed(listOf("build")), verdict(partial("failure")))
+        assertEquals(ChecksVerdict.Running(listOf("build")), verdict(partial(null, "queued")))
+    }
+
+    @Test fun onlyPartialRunsFromSeveralEventsStillWait() {
+        // A draft PR: partial push run plus a pull_request run with no jobs (also marked partial), or a dispatch with full=false.
+        assertEquals(waitingForFull, verdict(partial(), partial("skipped", event = "pull_request", number = 2)))
+        assertEquals(waitingForFull, verdict(partial(), partial(event = "workflow_dispatch", number = 3)))
+    }
+
+    @Test fun aNewerPartialRerunOfTheSameEventReplacesTheOlderFullOne() {
+        // Newest per workflow and event wins, so a newer partial dispatch hides an older full dispatch.
+        assertEquals(waitingForFull, verdict(full(event = "workflow_dispatch", number = 2), partial(event = "workflow_dispatch", number = 3)))
+    }
+
+    @Test fun anotherWorkflowsFullRunDoesNotCoverAPartialOne() {
+        val other = run("Docs", workflow = 2, event = "pull_request")
+        assertEquals(waitingForFull, verdict(partial(), other))
+    }
+
+    @Test fun theMarkerIsCaseInsensitiveAndOnlyInTheTitle() {
+        assertEquals(waitingForFull, verdict(run("build", workflow = 1, title = "build: x [PARTIAL]")))
+        assertEquals("the workflow name doesn't count", ChecksVerdict.Passed, verdict(run("build [partial]", workflow = 1)))
+        assertEquals("no title is a full run", ChecksVerdict.Passed, verdict(run("build", workflow = 1, title = null)))
+        assertEquals(ChecksVerdict.Passed, verdict(run("build", workflow = 1, title = "build: partial-fix")))
     }
 
     @Test fun hebrewAndHugeNamesAreKept() {

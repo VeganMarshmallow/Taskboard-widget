@@ -55,8 +55,10 @@ fun wfRun(
     sha: String? = SHA_A,
     id: Long? = nextRunId++,
     event: String? = "push",
+    title: String? = null,
 ): Map<String, Any?> = mapOf(
     "event" to event,
+    "display_title" to title,
     "id" to id, "name" to name, "workflow_id" to workflow, "head_sha" to sha, "run_number" to number,
     "run_attempt" to attempt, "created_at" to createdAt, "status" to status, "conclusion" to conclusion,
     "html_url" to "https://evil.example/run",

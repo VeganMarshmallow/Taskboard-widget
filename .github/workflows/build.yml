@@ -1,25 +1,73 @@
 name: build
 
+# #52: what runs when (GitHub Free has ~2,000 Actions minutes a month; the emulator jobs are most of it).
+# - Every push to a branch: only `build` (core unit tests, release APK, lint; ~4 min). No release.
+# - The full run (`build` + `emulator` + `emulator-recent`, ~20 min) only where it matters:
+#   - pushes to main (publishes the `latest` release),
+#   - pull_request opened / ready_for_review / synchronize on a PR that is not a draft
+#     (a draft PR's pull_request run has no jobs; its push run already ran `build`),
+#   - workflow_dispatch with full=true (the default; update-prs.js passes false for draft PRs).
+#   Full runs off main publish the PR's preview release (APK + screenshots); quick runs publish nothing.
+# - A quick run is named "… [partial]" (run-name below). The widget's Merge button reads that marker
+#   (core/merge/WorkflowRuns.kt): a workflow with only partial runs on the PR head isn't a pass, so it
+#   waits for the full pull_request run instead of being satisfied by the push run's `build`.
+#   Keep the run-name condition in sync with FULL_CI below.
+run-name: >-
+  ${{ format('build: {0}{1}', github.head_ref || github.ref_name,
+  (!((github.event_name == 'push' && github.ref == 'refs/heads/main')
+  || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
+  || (github.event_name == 'workflow_dispatch' && inputs.full))) && ' [partial]' || '') }}
+
 on:
   push:
     branches: ["**"]
+  pull_request:
+    types: [opened, ready_for_review, synchronize]
   workflow_dispatch:
+    inputs:
+      full:
+        description: Also run the emulator tests and publish the release / preview release
+        type: boolean
+        default: true
 
 permissions:
   contents: write
 
+env:
+  # Same condition as run-name above.
+  FULL_CI: >-
+    ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
+    || (github.event_name == 'workflow_dispatch' && inputs.full) }}
+  # The branch and commit being built. A pull_request run checks out the PR head (not GitHub's merge
+  # commit), so it tests the same code as the push run and its preview release can point at that commit.
+  BRANCH: ${{ github.head_ref || github.ref_name }}
+  HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+# A new push cancels the older run of the same branch (or PR) and event. Push and pull_request runs
+# of one commit are in different groups, so neither cancels the other. Runs on main are never
+# cancelled (a group per run); the publish step skips a run that main has already moved past.
 concurrency:
-  group: build-${{ github.ref }}
+  group: >-
+    ${{ github.ref == 'refs/heads/main' && format('build-main-{0}', github.run_id)
+    || format('build-{0}-{1}', github.event_name, github.event.pull_request.number || github.ref) }}
   cancel-in-progress: true
 
 jobs:
   build:
+    # A draft PR's pull_request run does nothing: the push run of the same commit already builds it.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      full: ${{ env.FULL_CI }}
+      published: ${{ steps.publish.outputs.published }}
     env:
       GRADLE_OPTS: -Dorg.gradle.daemon=false
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.HEAD_SHA }}
 
       - uses: actions/setup-java@v5
         with:
@@ -86,19 +134,24 @@ jobs:
           if-no-files-found: ignore
 
       - name: Publish APK to release
+        id: publish
+        if: env.FULL_CI == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          BRANCH: ${{ github.ref_name }}
         run: |
           set -euo pipefail
+          tag="$(.github/scripts/release-tag.sh "$BRANCH")"
+          if [ "$tag" = "latest" ] && [ "$(git ls-remote origin refs/heads/main | cut -f1)" != "$HEAD_SHA" ]; then
+            echo "::notice title=Release skipped::main has moved past ${HEAD_SHA::7}; its newer run publishes latest"
+            exit 0
+          fi
           apk="app/build/outputs/apk/release/app-release.apk"
           cp "$apk" taskboard-widget.apk
           # Read by the app's in-app updater (core/update/VersionJsonParser.kt). versionName matches app/build.gradle.kts.
           printf '{"versionCode":%s,"versionName":"0.1.%s","sha":"%s","apkSha256":"%s","apkSize":%s}\n' \
-            "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_NUMBER" "$GITHUB_SHA" \
+            "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_NUMBER" "$HEAD_SHA" \
             "$(sha256sum taskboard-widget.apk | cut -d' ' -f1)" "$(stat -c %s taskboard-widget.apk)" > version.json
-          notes="Built from ${GITHUB_SHA::7} on ${BRANCH} (build ${GITHUB_RUN_NUMBER}, versionCode ${GITHUB_RUN_NUMBER})."
-          tag="$(.github/scripts/release-tag.sh "$BRANCH")"
+          notes="Built from ${HEAD_SHA::7} on ${BRANCH} (build ${GITHUB_RUN_NUMBER}, versionCode ${GITHUB_RUN_NUMBER})."
           if [ "$tag" = "latest" ]; then
             title="Taskboard widget (latest)"; pre=""
           else
@@ -107,20 +160,28 @@ jobs:
           # Recreate so the release always points at this commit and holds only the newest APK.
           gh release delete "$tag" --cleanup-tag --yes 2>/dev/null || true
           git push origin ":refs/tags/$tag" 2>/dev/null || true
-          gh release create "$tag" taskboard-widget.apk version.json --target "$GITHUB_SHA" --title "$title" --notes "$notes" $pre
+          gh release create "$tag" taskboard-widget.apk version.json --target "$HEAD_SHA" --title "$title" --notes "$notes" $pre
           url="$(gh release view "$tag" --json url --jq .url)"
           echo "::notice title=Release published::$url"
           echo "### 📦 APK published: [$tag]($url)" >> "$GITHUB_STEP_SUMMARY"
+          echo "published=true" >> "$GITHUB_OUTPUT"
 
   # Instrumented tests on an emulator, plus the PR screenshots (uploaded next to the APK).
+  # Full runs only (see the top of this file).
+  # The AVD (with a booted snapshot) is cached per API level. Only main saves it: a cache saved on a
+  # branch is visible to that branch alone, and these are GBs of the repo's 10 GB cache quota.
   emulator:
     needs: build
+    if: needs.build.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       GRADLE_OPTS: -Dorg.gradle.daemon=false
+      AVD_KEY: avd-30-google_apis-x86_64-pixel_5-v1
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.HEAD_SHA }}
 
       - uses: actions/setup-java@v5
         with:
@@ -136,6 +197,38 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: Restore AVD snapshot
+        id: avd
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: ${{ env.AVD_KEY }}
+
+      # From the android-emulator-runner README: boot once, save the snapshot, cache it.
+      - name: Create AVD snapshot (main only, on a cache miss)
+        if: steps.avd.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: google_apis
+          profile: pixel_5
+          force-avd-creation: false
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: echo "AVD snapshot created"
+
+      - name: Save AVD snapshot
+        if: steps.avd.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: ${{ env.AVD_KEY }}
+
       - name: Instrumented tests and screenshots
         id: emulator
         uses: reactivecircus/android-emulator-runner@v2
@@ -144,8 +237,9 @@ jobs:
           arch: x86_64
           target: google_apis
           profile: pixel_5
+          force-avd-creation: false
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: .github/scripts/emulator-tests.sh
 
       - name: Annotate instrumented test failure
@@ -159,10 +253,9 @@ jobs:
         run: .github/scripts/test-summary.sh app/build/outputs/androidTest-results/connected/debug "Instrumented tests"
 
       - name: Upload screenshots to release
-        if: always() && steps.emulator.outcome != 'skipped'
+        if: always() && steps.emulator.outcome != 'skipped' && needs.build.outputs.published == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          BRANCH: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -177,15 +270,19 @@ jobs:
   # (API 36 never finished booting on these runners.) Only the tab tests run, to keep it short.
   # It costs ~10 emulator minutes, so the "scope" step skips it (the job still passes) unless the
   # push is to main or the branch changes the widget code, these tests, their host or this file.
+  # Like `emulator`, full runs only, with the AVD snapshot cached from main.
   emulator-recent:
     needs: build
+    if: needs.build.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       GRADLE_OPTS: -Dorg.gradle.daemon=false
+      AVD_KEY: avd-35-google_apis-x86_64-pixel_5-4096M-v1
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: ${{ env.HEAD_SHA }}
           fetch-depth: 0
 
       - name: Scope (skip unless the widget list code changed)
@@ -216,6 +313,40 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: Restore AVD snapshot
+        id: avd
+        if: steps.scope.outputs.run == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: ${{ env.AVD_KEY }}
+
+      - name: Create AVD snapshot (main only, on a cache miss)
+        if: steps.scope.outputs.run == 'true' && steps.avd.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_5
+          force-avd-creation: false
+          disable-animations: false
+          emulator-boot-timeout: 1200
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: echo "AVD snapshot created"
+
+      - name: Save AVD snapshot
+        if: steps.scope.outputs.run == 'true' && steps.avd.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: ${{ env.AVD_KEY }}
+
       - name: Tab tests on a recent Android
         id: emulator
         if: steps.scope.outputs.run == 'true'
@@ -225,10 +356,11 @@ jobs:
           arch: x86_64
           target: google_apis
           profile: pixel_5
+          force-avd-creation: false
           disable-animations: true
           emulator-boot-timeout: 1200
           ram-size: 4096M
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: ./gradlew :app:connectedDebugAndroidTest --console=plain -Pandroid.testInstrumentationRunnerArguments.class=io.github.veganmarshmallow.taskboard.TabFlashRealHostTest,io.github.veganmarshmallow.taskboard.TabTapRealHostTest,io.github.veganmarshmallow.taskboard.InlineListTest > connected.log 2>&1; s=$?; cat connected.log; exit $s
 
       - name: Annotate instrumented test failure
