@@ -11,6 +11,9 @@
 //    An up-to-date PR loses a stale needs-rebase label (Claude rebased it).
 // 3. Then dispatch the build workflow on its branch: pushes made with GITHUB_TOKEN start no
 //    workflows, so without this the new head would have no CI run and never become mergeable.
+//    A ready PR gets the full run (emulator tests, preview release); a draft only the quick
+//    `build` job (input full=false, #52): drafts can't be merged, and its ready_for_review event
+//    starts the full run later.
 // Nothing here pushes to the default branch, so this workflow can't trigger itself.
 'use strict';
 
@@ -24,6 +27,11 @@ function messageOf(error) {
 /** update-branch's 422 for a merge conflict (other 422s, e.g. a moved head, are plain errors). */
 function isConflict(error) {
   return Boolean(error) && error.status === 422 && /conflict/i.test(messageOf(error));
+}
+
+/** A dispatch refused because the branch's build.yml predates the `full` input (#52). */
+function isUnknownInput(error) {
+  return Boolean(error) && error.status === 422 && /unexpected inputs/i.test(messageOf(error));
 }
 
 /** GitHub refusing a GITHUB_TOKEN push that would change workflow files (needs the `workflows` scope). */
@@ -77,6 +85,18 @@ async function updatePrs({
     }
   }
 
+  // A branch whose head hasn't moved yet may still carry a build.yml without the `full` input:
+  // GitHub refuses unknown inputs, so dispatch it plainly (that file runs everything anyway).
+  async function dispatch(ref, full) {
+    const args = { owner, repo, workflow_id: workflow, ref };
+    try {
+      await github.rest.actions.createWorkflowDispatch({ ...args, inputs: { full: String(full) } });
+    } catch (error) {
+      if (!isUnknownInput(error)) throw error;
+      await github.rest.actions.createWorkflowDispatch(args);
+    }
+  }
+
   async function updateOne(pr) {
     const n = pr.number;
     const labels = (pr.labels || []).map((l) => l.name);
@@ -103,8 +123,9 @@ async function updatePrs({
     }
     const head = await waitForNewHead(n, pr.head.sha);
     await clearLabel(n, labels);
-    await github.rest.actions.createWorkflowDispatch({ owner, repo, workflow_id: workflow, ref: pr.head.ref });
-    log(`#${n}: updated with ${main}${head ? ` (now ${head.slice(0, 7)})` : ' (head not moved yet)'}; ${workflow} dispatched`);
+    const full = !pr.draft;
+    await dispatch(pr.head.ref, full);
+    log(`#${n}: updated with ${main}${head ? ` (now ${head.slice(0, 7)})` : ' (head not moved yet)'}; ${workflow} dispatched (${full ? 'full' : 'build only, draft'})`);
     return { number: n, action: head ? 'updated' : 'update-pending' };
   }
 
@@ -122,4 +143,4 @@ async function updatePrs({
   return results;
 }
 
-module.exports = { updatePrs, isConflict, isWorkflowRefusal, LABEL };
+module.exports = { updatePrs, isConflict, isWorkflowRefusal, isUnknownInput, LABEL };

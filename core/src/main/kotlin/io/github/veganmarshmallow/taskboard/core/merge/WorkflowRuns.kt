@@ -20,7 +20,16 @@ data class WorkflowRun(
     val event: String? = null,
     /** When the run last changed: for a completed run, roughly when it finished (#45 "ready since"). */
     val updatedAt: Instant? = null,
-)
+    /** The run's `display_title` (the workflow's `run-name`); carries [WorkflowRuns.PARTIAL_MARK]. */
+    val displayTitle: String? = null,
+) {
+    /**
+     * A quick run that skipped part of its workflow's jobs on purpose (#52): not enough to merge on.
+     * Only a title that *ends* with the marker counts: a workflow without `run-name` is titled with
+     * its commit message, and "Fix [partial] sync" there must not hold the merge forever.
+     */
+    val partial: Boolean get() = displayTitle?.trimEnd()?.endsWith(WorkflowRuns.PARTIAL_MARK, ignoreCase = true) == true
+}
 
 /** What the workflow runs on a PR's head commit say about merging. */
 sealed class ChecksVerdict {
@@ -58,8 +67,16 @@ sealed class ChecksVerdict {
  *   the more useful thing to say.
  * - No runs at all refuses: right after a push CI may not have registered yet, and merging
  *   unchecked code is what this guards against.
+ * - Partial runs (#52): a run whose title ends with [PARTIAL_MARK] ran only part of its workflow (the
+ *   repo's CI runs only `build` on a plain push; emulator tests run on the PR's `pull_request` run).
+ *   It still fails or blocks as usual, but a workflow with nothing but partial runs on the commit
+ *   isn't a pass: it counts as still running ("<name> (full run)") until a full run of that workflow,
+ *   from any event, shows up. Workflows that never use the marker are unaffected.
  */
 object WorkflowRuns {
+    /** Marks a partial run's title; see `run-name` in .github/workflows/build.yml. */
+    const val PARTIAL_MARK = "[partial]"
+
     private val NOT_BLOCKING = setOf("neutral", "skipped")
 
     private val NEWEST_FIRST = compareByDescending<WorkflowRun> { it.runNumber }
@@ -70,7 +87,7 @@ object WorkflowRuns {
     /** The newest run of each workflow and event on [sha], in the order they first appear. */
     fun latest(runs: List<WorkflowRun>, sha: String): List<WorkflowRun> = runs
         .filter { it.headSha != null && it.headSha.equals(sha, ignoreCase = true) }
-        .groupBy { (it.workflowId?.let { id -> "id:$id" } ?: "name:${it.name}") to it.event?.lowercase() }
+        .groupBy { workflowKey(it) to it.event?.lowercase() }
         .values
         .map { group -> group.sortedWith(NEWEST_FIRST).first() }
 
@@ -79,11 +96,15 @@ object WorkflowRuns {
         if (kept.isEmpty()) return ChecksVerdict.None
         val (completed, running) = kept.partition { it.status.equals("completed", ignoreCase = true) }
         val failed = completed.filter { run -> run.conclusion?.lowercase().let { it != "success" && it !in NOT_BLOCKING } }
+        val partialOnly = kept.groupBy(::workflowKey).values.filter { group -> group.all { it.partial } }
         return when {
             failed.isNotEmpty() -> ChecksVerdict.Failed(failed.map { it.name }.distinct())
             running.isNotEmpty() -> ChecksVerdict.Running(running.map { it.name }.distinct())
+            partialOnly.isNotEmpty() -> ChecksVerdict.Running(partialOnly.map { "${it.first().name} (full run)" }.distinct())
             completed.none { it.conclusion.equals("success", ignoreCase = true) } -> ChecksVerdict.NothingPassed
             else -> ChecksVerdict.Passed
         }
     }
+
+    private fun workflowKey(run: WorkflowRun): String = run.workflowId?.let { "id:$it" } ?: "name:${run.name}"
 }
