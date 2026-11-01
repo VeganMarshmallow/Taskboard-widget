@@ -21,8 +21,12 @@ data class WorkflowRun(
     /** The run's `display_title` (the workflow's `run-name`); carries [WorkflowRuns.PARTIAL_MARK]. */
     val displayTitle: String? = null,
 ) {
-    /** A quick run that skipped part of its workflow's jobs on purpose (#52): not enough to merge on. */
-    val partial: Boolean get() = displayTitle?.contains(WorkflowRuns.PARTIAL_MARK, ignoreCase = true) == true
+    /**
+     * A quick run that skipped part of its workflow's jobs on purpose (#52): not enough to merge on.
+     * Only a title that *ends* with the marker counts: a workflow without `run-name` is titled with
+     * its commit message, and "Fix [partial] sync" there must not hold the merge forever.
+     */
+    val partial: Boolean get() = displayTitle?.trimEnd()?.endsWith(WorkflowRuns.PARTIAL_MARK, ignoreCase = true) == true
 }
 
 /** What the workflow runs on a PR's head commit say about merging. */
@@ -61,7 +65,7 @@ sealed class ChecksVerdict {
  *   the more useful thing to say.
  * - No runs at all refuses: right after a push CI may not have registered yet, and merging
  *   unchecked code is what this guards against.
- * - Partial runs (#52): a run whose title holds [PARTIAL_MARK] ran only part of its workflow (the
+ * - Partial runs (#52): a run whose title ends with [PARTIAL_MARK] ran only part of its workflow (the
  *   repo's CI runs only `build` on a plain push; emulator tests run on the PR's `pull_request` run).
  *   It still fails or blocks as usual, but a workflow with nothing but partial runs on the commit
  *   isn't a pass: it counts as still running ("<name> (full run)") until a full run of that workflow,

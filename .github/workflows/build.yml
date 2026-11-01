@@ -4,9 +4,9 @@ name: build
 # - Every push to a branch: only `build` (core unit tests, release APK, lint; ~4 min). No release.
 # - The full run (`build` + `emulator` + `emulator-recent`, ~20 min) only where it matters:
 #   - pushes to main (publishes the `latest` release),
-#   - pull_request opened / ready_for_review / synchronize on a PR that is not a draft
+#   - pull_request opened / reopened / ready_for_review / synchronize on a PR that is not a draft
 #     (a draft PR's pull_request run has no jobs; its push run already ran `build`),
-#   - workflow_dispatch with full=true (the default; update-prs.js passes false for draft PRs).
+#   - workflow_dispatch with full=true (the default).
 #   Full runs off main publish the PR's preview release (APK + screenshots); quick runs publish nothing.
 # - A quick run is named "… [partial]" (run-name below). The widget's Merge button reads that marker
 #   (core/merge/WorkflowRuns.kt): a workflow with only partial runs on the PR head isn't a pass, so it
@@ -22,7 +22,7 @@ on:
   push:
     branches: ["**"]
   pull_request:
-    types: [opened, ready_for_review, synchronize]
+    types: [opened, reopened, ready_for_review, synchronize]
   workflow_dispatch:
     inputs:
       full:
@@ -135,7 +135,10 @@ jobs:
 
       - name: Publish APK to release
         id: publish
-        if: env.FULL_CI == 'true'
+        # A forked PR's token can't write releases (and its branch name could collide with ours).
+        if: >-
+          env.FULL_CI == 'true' && (github.event_name != 'pull_request'
+          || github.event.pull_request.head.repo.full_name == github.repository)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
