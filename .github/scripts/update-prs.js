@@ -11,6 +11,9 @@
 //    An up-to-date PR loses a stale needs-rebase label (Claude rebased it).
 // 3. Then dispatch the build workflow on its branch: pushes made with GITHUB_TOKEN start no
 //    workflows, so without this the new head would have no CI run and never become mergeable.
+//    A ready PR gets the full run (emulator tests, preview release); a draft only the quick
+//    `build` job (input full=false, #52): drafts can't be merged, and its ready_for_review event
+//    starts the full run later.
 // Nothing here pushes to the default branch, so this workflow can't trigger itself.
 'use strict';
 
@@ -103,8 +106,9 @@ async function updatePrs({
     }
     const head = await waitForNewHead(n, pr.head.sha);
     await clearLabel(n, labels);
-    await github.rest.actions.createWorkflowDispatch({ owner, repo, workflow_id: workflow, ref: pr.head.ref });
-    log(`#${n}: updated with ${main}${head ? ` (now ${head.slice(0, 7)})` : ' (head not moved yet)'}; ${workflow} dispatched`);
+    const full = !pr.draft;
+    await github.rest.actions.createWorkflowDispatch({ owner, repo, workflow_id: workflow, ref: pr.head.ref, inputs: { full: String(full) } });
+    log(`#${n}: updated with ${main}${head ? ` (now ${head.slice(0, 7)})` : ' (head not moved yet)'}; ${workflow} dispatched (${full ? 'full' : 'build only, draft'})`);
     return { number: n, action: head ? 'updated' : 'update-pending' };
   }
 

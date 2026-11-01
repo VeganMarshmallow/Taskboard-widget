@@ -8,8 +8,8 @@ const OWNER = 'VeganMarshmallow';
 const REPO = 'Taskboard-widget';
 const FULL = `${OWNER}/${REPO}`;
 
-function pr(number, { head = `claude/${number}-x`, base = 'main', sha = `sha${number}`, labels = [], fork = false } = {}) {
-  return { number, head: { ref: head, sha, repo: { full_name: fork ? 'someone/fork' : FULL } }, base: { ref: base }, labels: labels.map((name) => ({ name })) };
+function pr(number, { head = `claude/${number}-x`, base = 'main', sha = `sha${number}`, labels = [], fork = false, draft = false } = {}) {
+  return { number, draft, head: { ref: head, sha, repo: { full_name: fork ? 'someone/fork' : FULL } }, base: { ref: base }, labels: labels.map((name) => ({ name })) };
 }
 
 function http(status, message) {
@@ -19,6 +19,7 @@ function http(status, message) {
 /** A fake Octokit recording every write. [behind]: behind_by per head SHA; [conflicts]: PRs whose update fails. */
 function fake({ open, closed = [], behind = {}, conflicts = [], updateError = {}, headMoves = true, retargetError = null, dispatchError = null }) {
   const calls = [];
+  const inputs = {}; // dispatch inputs per branch
   const counts = { paginated: 0 };
   const heads = {};
   const rest = {
@@ -46,7 +47,7 @@ function fake({ open, closed = [], behind = {}, conflicts = [], updateError = {}
       removeLabel: async (args) => { calls.push(['unlabel', args.issue_number, args.name]); },
     },
     actions: {
-      createWorkflowDispatch: async (args) => { calls.push(['dispatch', args.workflow_id, args.ref]); if (dispatchError) throw dispatchError; },
+      createWorkflowDispatch: async (args) => { calls.push(['dispatch', args.workflow_id, args.ref]); inputs[args.ref] = args.inputs; if (dispatchError) throw dispatchError; },
     },
   };
   // Every PR that pulls.get reports keeps the old SHA until updated.
@@ -63,7 +64,7 @@ function fake({ open, closed = [], behind = {}, conflicts = [], updateError = {}
     },
   };
   const run = () => updatePrs({ github, owner: OWNER, repo: REPO, main: 'main', log: () => {}, wait: async () => {}, headPolls: 3, pollMs: 0 });
-  return { calls, counts, run };
+  return { calls, counts, run, inputs };
 }
 
 test('a PR behind main is updated, then its build is dispatched on its branch', async () => {
@@ -71,6 +72,21 @@ test('a PR behind main is updated, then its build is dispatched on its branch', 
   const results = await f.run();
   assert.deepStrictEqual(results, [{ number: 22, action: 'updated' }]);
   assert.deepStrictEqual(f.calls, [['update', 22, 'sha22'], ['dispatch', 'build.yml', 'claude/22-x']]);
+  assert.deepStrictEqual(f.inputs['claude/22-x'], { full: 'true' }, 'a ready PR gets the full run (emulator tests)');
+});
+
+test('a draft PR behind main is updated and gets only the quick build (#52)', async () => {
+  const f = fake({ open: [pr(22, { draft: true }), pr(23)], behind: { sha22: 1, sha23: 1 } });
+  await f.run();
+  assert.deepStrictEqual(f.inputs, { 'claude/22-x': { full: 'false' }, 'claude/23-x': { full: 'true' } });
+});
+
+test('a PR without a draft field (older API shape) counts as ready and gets the full run', async () => {
+  const p = pr(22);
+  delete p.draft;
+  const f = fake({ open: [p], behind: { sha22: 1 } });
+  await f.run();
+  assert.deepStrictEqual(f.inputs['claude/22-x'], { full: 'true' });
 });
 
 test('an up-to-date PR costs no update and no CI run', async () => {
