@@ -80,7 +80,7 @@ class SetupActivity : Activity() {
         val token = validatedToken() ?: return
         setBusy(true)
         showStatus(getString(R.string.testing), isError = false)
-        tester.test(token) { result ->
+        tester.test(this, token) { result ->
             if (isDestroyed) return@test
             setBusy(false)
             when (result) {

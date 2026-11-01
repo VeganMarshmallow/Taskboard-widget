@@ -1,5 +1,8 @@
 package io.github.veganmarshmallow.taskboard.core.update
 
+import io.github.veganmarshmallow.taskboard.core.error.BoardError
+import io.github.veganmarshmallow.taskboard.core.error.ErrorClassifier
+import io.github.veganmarshmallow.taskboard.core.error.NetworkProbe
 import io.github.veganmarshmallow.taskboard.core.http.HttpRequest
 import io.github.veganmarshmallow.taskboard.core.http.Redirects
 import io.github.veganmarshmallow.taskboard.core.http.StreamingHttpClient
@@ -11,9 +14,14 @@ import java.time.Clock
 /**
  * Sends updater requests, following an asset's redirect to the storage host via [Redirects]
  * (which strips the token for any host but api.github.com). Returns an open 2xx response that the
- * caller must close, or the mapped error. Never throws.
+ * caller must close, or the mapped error. Never throws. Connection failures are worded by the
+ * board's [ErrorClassifier.classifyFailure] with [probe], so the update check says the same as the board.
  */
-class AssetFetcher(private val http: StreamingHttpClient, private val clock: Clock) {
+class AssetFetcher(
+    private val http: StreamingHttpClient,
+    private val clock: Clock,
+    private val probe: NetworkProbe = NetworkProbe.ASSUME_OFFLINE,
+) {
 
     fun fetch(first: HttpRequest, firstStep: Step): UpdateResult<StreamingResponse> {
         var request = first
@@ -36,10 +44,14 @@ class AssetFetcher(private val http: StreamingHttpClient, private val clock: Clo
     private fun open(request: HttpRequest): UpdateResult<StreamingResponse> = try {
         UpdateResult.Ok(http.open(request))
     } catch (e: IOException) {
-        UpdateResult.Err(UpdateError.Network)
+        UpdateResult.Err(connectionError(e))
     } catch (e: RuntimeException) {
         UpdateResult.Err(UpdateError.Unexpected("request failed: ${e.javaClass.simpleName}"))
     }
+
+    /** A request or a body read that failed mid-way: "No network" only when the device has none. */
+    fun connectionError(e: IOException): UpdateError =
+        if (ErrorClassifier.classifyFailure(e, probe) == BoardError.Network) UpdateError.Network else UpdateError.Unreachable
 
     private fun finish(response: StreamingResponse, step: Step): UpdateResult<StreamingResponse> {
         if (response.isSuccessful) return UpdateResult.Ok(response)

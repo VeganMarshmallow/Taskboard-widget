@@ -37,7 +37,7 @@ class UpdateChecker(private val fetcher: AssetFetcher, private val requests: Upd
             val text = response.readText(limit + 1)
             if (text.length > limit) UpdateResult.Err(UpdateError.Malformed("response too large")) else UpdateResult.Ok(text)
         } catch (e: IOException) {
-            UpdateResult.Err(UpdateError.Network)
+            UpdateResult.Err(fetcher.connectionError(e))
         } finally {
             response.close()
         }

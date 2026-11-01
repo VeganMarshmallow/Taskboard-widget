@@ -20,8 +20,9 @@ sealed class BoardError {
     data class IssueGone(val number: Int) : BoardError()
 
     /**
-     * The request never got a response. After [Reachability.refine] (the widget's refreshes) it
-     * means the device had no network at all; elsewhere it covers every connection failure.
+     * The request never got a response and the device had no network at all
+     * ([ErrorClassifier.classifyFailure] asks a [NetworkProbe]), or the app knew it was offline
+     * before sending anything.
      */
     data object Network : BoardError()
 

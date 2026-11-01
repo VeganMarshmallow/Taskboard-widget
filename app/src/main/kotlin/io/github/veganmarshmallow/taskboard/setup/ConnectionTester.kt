@@ -1,5 +1,6 @@
 package io.github.veganmarshmallow.taskboard.setup
 
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
@@ -11,9 +12,10 @@ class ConnectionTester {
     private val executor = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
 
-    fun test(token: String, onResult: (Outcome<Unit>) -> Unit) {
+    fun test(context: Context, token: String, onResult: (Outcome<Unit>) -> Unit) {
+        val app = context.applicationContext
         executor.execute {
-            val result = AppGraph.api(token).testConnection()
+            val result = AppGraph.api(app, token).testConnection()
             main.post { onResult(result) }
         }
     }

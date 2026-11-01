@@ -1,9 +1,15 @@
 package io.github.veganmarshmallow.taskboard.core.error
 
 import io.github.veganmarshmallow.taskboard.core.http.HttpResponse
+import java.io.IOException
+import java.net.SocketTimeoutException
 import java.time.Instant
 
-/** Maps a non-2xx GitHub response to a [BoardError] using its status code and rate-limit headers. */
+/**
+ * Maps a failed GitHub request to a [BoardError]: a non-2xx response by its status code and
+ * rate-limit headers ([classify]), and a request that got no response by its exception and what
+ * the device says about its network ([classifyFailure]).
+ */
 object ErrorClassifier {
     private val ISSUE_GONE_STATUSES = setOf(301, 404, 410)
     private val RATE_LIMIT_MESSAGE = Regex("rate limit", RegexOption.IGNORE_CASE)
@@ -20,6 +26,21 @@ object ErrorClassifier {
             status in 500..599 -> BoardError.Server(status)
             else -> BoardError.Unexpected("HTTP $status")
         }
+    }
+
+    /**
+     * A request that threw instead of returning a response. Connection-level failures get the
+     * honest wording from [Reachability] using [probe], which is asked only here, after a failure.
+     * Anything else (e.g. a SecurityException or a platform bug inside the HTTP stack) is
+     * [BoardError.Unexpected], naming only the exception type so no token can leak.
+     */
+    fun classifyFailure(e: Exception, probe: NetworkProbe): BoardError {
+        val error = when (e) {
+            is SocketTimeoutException -> BoardError.Timeout // connected, or tried to, but GitHub never answered in time
+            is IOException -> BoardError.Network
+            else -> return BoardError.Unexpected("request failed: ${e.javaClass.simpleName}")
+        }
+        return Reachability.refine(error, probe.deviceOnline())
     }
 
     /**

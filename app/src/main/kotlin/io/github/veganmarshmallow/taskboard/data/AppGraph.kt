@@ -18,6 +18,7 @@ import io.github.veganmarshmallow.taskboard.newtask.NewTaskDeps
 import io.github.veganmarshmallow.taskboard.update.InstalledVersion
 import io.github.veganmarshmallow.taskboard.update.UpdateController
 import io.github.veganmarshmallow.taskboard.update.UpdateStore
+import io.github.veganmarshmallow.taskboard.widget.ConnectivityProbe
 import io.github.veganmarshmallow.taskboard.widget.StateRedraw
 import io.github.veganmarshmallow.taskboard.widget.TimeText
 import java.time.Clock
@@ -29,7 +30,9 @@ object AppGraph {
 
     private fun httpClient(): HttpClient = TestOverrides.httpClient?.invoke() ?: UrlConnectionHttpClient()
 
-    fun api(token: String): GitHubApi = GitHubApi(httpClient(), token, clock)
+    /** Every request's connection failure is worded from the device's network state (#35). */
+    fun api(context: Context, token: String): GitHubApi =
+        GitHubApi(httpClient(), token, clock, probe = ConnectivityProbe(context))
 
     @Volatile private var tracker: RefreshTracker? = null
 
@@ -57,7 +60,7 @@ object AppGraph {
     fun messages(context: Context): ErrorMessages = ErrorMessages(TimeText(context)::format)
 
     /** Null when no token is saved. */
-    fun apiOrNull(context: Context): GitHubApi? = TokenStore(context).get()?.let(::api)
+    fun apiOrNull(context: Context): GitHubApi? = TokenStore(context).get()?.let { api(context, it) }
 
     /**
      * The New task form's controller. One per process, so the draft and an in-flight request
@@ -81,7 +84,7 @@ object AppGraph {
         store = UpdateStore(app),
         clock = clock,
         hasToken = { TokenStore(app).hasToken() },
-        updater = { TokenStore(app).get()?.let { Updater(UrlConnectionStreamingClient(), it, clock) } },
+        updater = { TokenStore(app).get()?.let { Updater(UrlConnectionStreamingClient(), it, clock, ConnectivityProbe(app)) } },
         installedVersionCode = { InstalledVersion.of(app).versionCode },
         redrawBadge = { StateRedraw.redraw(app) },
     )

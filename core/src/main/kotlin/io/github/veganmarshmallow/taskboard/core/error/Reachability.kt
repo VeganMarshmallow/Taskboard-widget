@@ -1,7 +1,5 @@
 package io.github.veganmarshmallow.taskboard.core.error
 
-import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
-
 /**
  * Picks the honest wording for a failed request using what the device says about its network.
  *
@@ -21,12 +19,5 @@ object Reachability {
         // The connection dropped mid-request because the network went away.
         error == BoardError.Timeout && !deviceOnline -> BoardError.Network
         else -> error
-    }
-
-    /** [refine] applied to a state's error. A state without an error is returned unchanged. */
-    fun refine(state: WidgetState, deviceOnline: Boolean): WidgetState {
-        val error = state.error ?: return state
-        val refined = refine(error, deviceOnline)
-        return if (refined == error) state else state.copy(error = refined)
     }
 }

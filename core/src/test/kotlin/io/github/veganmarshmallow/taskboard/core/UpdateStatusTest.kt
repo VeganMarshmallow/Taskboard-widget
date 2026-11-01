@@ -42,7 +42,7 @@ class UpdateStatusTest {
 
     @Test fun codecRoundTripsEveryError() {
         val errors = listOf(
-            UpdateError.NoToken, UpdateError.Network, UpdateError.NoRepoAccess, UpdateError.BadToken,
+            UpdateError.NoToken, UpdateError.Network, UpdateError.Unreachable, UpdateError.NoRepoAccess, UpdateError.BadToken,
             UpdateError.NoRelease, UpdateError.ReleaseChanged,
             UpdateError.RateLimited(null), UpdateError.RateLimited(NOW), UpdateError.Server(503),
             UpdateError.Malformed("x \"y\" ✓"), UpdateError.Unexpected("עברית"), null,
@@ -128,7 +128,7 @@ class UpdateStatusTest {
 
     @Test fun everyErrorHasAMessage() {
         listOf(
-            UpdateError.NoToken, UpdateError.Network, UpdateError.NoRepoAccess, UpdateError.BadToken, UpdateError.NoRelease,
+            UpdateError.NoToken, UpdateError.Network, UpdateError.Unreachable, UpdateError.NoRepoAccess, UpdateError.BadToken, UpdateError.NoRelease,
             UpdateError.ReleaseChanged, UpdateError.RateLimited(null), UpdateError.RateLimited(NOW),
             UpdateError.Server(500), UpdateError.Malformed("m"), UpdateError.Unexpected("u"),
         ).forEach { assertTrue(it.toString(), messages.message(it).isNotBlank()) }

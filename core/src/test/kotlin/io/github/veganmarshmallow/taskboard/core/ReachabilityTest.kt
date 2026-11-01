@@ -1,6 +1,5 @@
 package io.github.veganmarshmallow.taskboard.core
 
-import io.github.veganmarshmallow.taskboard.core.board.BoardBuilder
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.error.ErrorMessages
 import io.github.veganmarshmallow.taskboard.core.error.Reachability
@@ -9,7 +8,6 @@ import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetStateCodec
 import io.github.veganmarshmallow.taskboard.core.task.CreateErrors
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -35,17 +33,6 @@ class ReachabilityTest {
         ).forEach { e ->
             listOf(true, false).forEach { online -> assertEquals("$e/$online", e, Reachability.refine(e, online)) }
         }
-    }
-
-    @Test fun refiningAStateKeepsTheLastGoodBoardAndTime() {
-        val board = BoardBuilder().build(listOf(issue(2, "Task", "status: todo")), NOW)
-        val state = WidgetState(board, BoardError.Network, NOW)
-        val refined = Reachability.refine(state, deviceOnline = true)
-        assertEquals(WidgetState(board, BoardError.Unreachable, NOW), refined)
-        assertSame("unchanged states are returned as is", state, Reachability.refine(state, deviceOnline = false))
-        val good = WidgetState(board, null, NOW)
-        listOf(true, false).forEach { assertSame(good, Reachability.refine(good, it)) }
-        assertSame(WidgetState.INITIAL, Reachability.refine(WidgetState.INITIAL, false))
     }
 
     @Test fun unreachableHasItsOwnHonestRetryMessage() {

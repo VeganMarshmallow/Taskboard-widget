@@ -9,6 +9,7 @@ class UpdateMessages(private val formatTime: (Instant) -> String) {
     fun message(error: UpdateError): String = when (error) {
         UpdateError.NoToken -> "Save a GitHub token first"
         UpdateError.Network -> "No network: can't reach GitHub"
+        UpdateError.Unreachable -> "Can't reach GitHub (VPN or DNS problem?)"
         UpdateError.NoRepoAccess -> TOKEN_ACCESS_HELP
         UpdateError.BadToken -> "Token rejected (401): wrong or expired"
         UpdateError.NoRelease -> "No published build yet (no \"latest\" release with an APK)"
