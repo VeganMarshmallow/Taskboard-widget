@@ -96,6 +96,31 @@ class NetworkProbeTest {
         assertEquals(BoardError.Network, api.fetchIssues().error())
     }
 
+    @Test fun aProbeThatThrowsKeepsTheRawWordingAndNeverCrashesTheCaller() {
+        val broken = NetworkProbe { throw SecurityException("no ACCESS_NETWORK_STATE") }
+        assertEquals(BoardError.Network, ErrorClassifier.classifyFailure(UnknownHostException("x"), broken))
+        assertEquals(BoardError.Timeout, ErrorClassifier.classifyFailure(SocketTimeoutException(), broken))
+        assertEquals(BoardError.Network, downApi(broken).approve(4).error())
+        assertEquals(UpdateError.Network, updateError(broken))
+    }
+
+    @Test fun anHttpErrorOrAGarbledResponseNeverAsksTheProbe() {
+        listOf(401, 403, 404, 422, 502).forEach { code ->
+            val probe = CountingProbe(false)
+            val api = GitHubApi(FakeHttp().on({ true }) { status(code) }, TOKEN, FIXED_CLOCK, probe = probe)
+            assertFalse("$code is not a network error", api.fetchIssues().error() == BoardError.Network)
+            assertEquals(0, probe.asked)
+        }
+    }
+
+    @Test fun aRuntimeFailureInTheUpdateCheckIsUnexpectedAndNeverAsksTheProbe() {
+        val probe = CountingProbe(true)
+        val http = FakeStreamingHttp().on(LATEST_URL) { throw IllegalStateException("Bearer $TOKEN") }
+        val error = updateError(probe, http) as UpdateError.Unexpected
+        assertFalse(error.detail.contains(TOKEN))
+        assertEquals(0, probe.asked)
+    }
+
     // --- every caller of GitHubApi gets it ---
 
     @Test fun boardLoadAndApproveAndTestConnection() {

@@ -70,6 +70,12 @@ class UpdateStatusTest {
         }
     }
 
+    @Test fun aNetworkErrorSavedBeforeUnreachableExistedStillReadsAsNoNetwork() {
+        // #35: "Network" keeps its stored name, so a status saved by an older build decodes unchanged.
+        assertEquals(UpdateError.Network, UpdateStatusCodec.decode("""{"v":1,"checkedAt":1,"error":{"k":"Network"}}""").error)
+        assertEquals(UpdateError.Unreachable, UpdateStatusCodec.decode("""{"v":1,"checkedAt":1,"error":{"k":"Unreachable"}}""").error)
+    }
+
     @Test fun codecNeverThrowsOnGarbage() {
         listOf(null, "", " ", "{", "[]", "42", """{"v":2}""", """{"v":1,"available":{"code":"x"}}""",
             """{"v":1,"checkedAt":"yesterday"}""", "\u0000￿").forEach {

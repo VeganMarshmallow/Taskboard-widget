@@ -31,7 +31,8 @@ object ErrorClassifier {
     /**
      * A request that threw instead of returning a response. Connection-level failures get the
      * honest wording from [Reachability] using [probe], which is asked only here, after a failure.
-     * A null [probe] (core tests only; the app always passes one) keeps the raw mapping.
+     * A null [probe] (core tests only; the app always passes one), or one that throws, keeps the
+     * raw mapping.
      * Anything else (e.g. a SecurityException or a platform bug inside the HTTP stack) is
      * [BoardError.Unexpected], naming only the exception type so no token can leak.
      */
@@ -41,7 +42,10 @@ object ErrorClassifier {
             is IOException -> BoardError.Network
             else -> return BoardError.Unexpected("request failed: ${e.javaClass.simpleName}")
         }
-        return if (probe == null) error else Reachability.refine(error, probe.deviceOnline())
+        if (probe == null) return error
+        // A probe that breaks its no-throw contract must not turn a network error into a crash.
+        val online = try { probe.deviceOnline() } catch (e: RuntimeException) { return error }
+        return Reachability.refine(error, online)
     }
 
     /**
