@@ -29,6 +29,11 @@ function isConflict(error) {
   return Boolean(error) && error.status === 422 && /conflict/i.test(messageOf(error));
 }
 
+/** A dispatch refused because the branch's build.yml predates the `full` input (#52). */
+function isUnknownInput(error) {
+  return Boolean(error) && error.status === 422 && /unexpected inputs/i.test(messageOf(error));
+}
+
 /** GitHub refusing a GITHUB_TOKEN push that would change workflow files (needs the `workflows` scope). */
 function isWorkflowRefusal(error) {
   return Boolean(error) && (error.status === 403 || error.status === 422) && /workflow/i.test(messageOf(error));
@@ -80,6 +85,18 @@ async function updatePrs({
     }
   }
 
+  // A branch whose head hasn't moved yet may still carry a build.yml without the `full` input:
+  // GitHub refuses unknown inputs, so dispatch it plainly (that file runs everything anyway).
+  async function dispatch(ref, full) {
+    const args = { owner, repo, workflow_id: workflow, ref };
+    try {
+      await github.rest.actions.createWorkflowDispatch({ ...args, inputs: { full: String(full) } });
+    } catch (error) {
+      if (!isUnknownInput(error)) throw error;
+      await github.rest.actions.createWorkflowDispatch(args);
+    }
+  }
+
   async function updateOne(pr) {
     const n = pr.number;
     const labels = (pr.labels || []).map((l) => l.name);
@@ -107,7 +124,7 @@ async function updatePrs({
     const head = await waitForNewHead(n, pr.head.sha);
     await clearLabel(n, labels);
     const full = !pr.draft;
-    await github.rest.actions.createWorkflowDispatch({ owner, repo, workflow_id: workflow, ref: pr.head.ref, inputs: { full: String(full) } });
+    await dispatch(pr.head.ref, full);
     log(`#${n}: updated with ${main}${head ? ` (now ${head.slice(0, 7)})` : ' (head not moved yet)'}; ${workflow} dispatched (${full ? 'full' : 'build only, draft'})`);
     return { number: n, action: head ? 'updated' : 'update-pending' };
   }
@@ -126,4 +143,4 @@ async function updatePrs({
   return results;
 }
 
-module.exports = { updatePrs, isConflict, isWorkflowRefusal, LABEL };
+module.exports = { updatePrs, isConflict, isWorkflowRefusal, isUnknownInput, LABEL };

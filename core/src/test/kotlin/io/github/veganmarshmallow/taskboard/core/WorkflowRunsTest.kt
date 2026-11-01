@@ -208,6 +208,29 @@ class WorkflowRunsTest {
         assertEquals(ChecksVerdict.Passed, verdict(run("build", workflow = 1, title = "build: partial-fix")))
     }
 
+    @Test fun aCommitMessageMentioningTheMarkerIsNotPartial() {
+        // Workflows without run-name are titled with the commit message: only a trailing marker counts.
+        assertEquals(ChecksVerdict.Passed, verdict(run("CI", workflow = 1, title = "Fix [partial] sync of lists")))
+        assertEquals(waitingForFull, verdict(run("build", workflow = 1, title = "build: claude/52-x [partial]  ")))
+        assertEquals(ChecksVerdict.Passed, verdict(run("build", workflow = 1, title = "")))
+    }
+
+    @Test fun reRunAttemptsOfTheFullRunAreJudgedByTheNewestAttempt() {
+        // Flaky emulator job: attempt 1 failed, rerun-failed-jobs gave attempt 2 (same run number).
+        val attempt1 = run("build", "failure", workflow = 1, number = 2, attempt = 1, event = "pull_request", title = "build: claude/52-x")
+        val attempt2 = run("build", "success", workflow = 1, number = 2, attempt = 2, event = "pull_request", title = "build: claude/52-x")
+        assertEquals(ChecksVerdict.Passed, verdict(partial(), attempt1, attempt2))
+        val rerunning = run("build", null, "in_progress", workflow = 1, number = 2, attempt = 2, event = "pull_request", title = "build: claude/52-x")
+        assertEquals(ChecksVerdict.Running(listOf("build")), verdict(partial(), attempt1, rerunning))
+    }
+
+    @Test fun aDraftTurnedReadyOnTheSameCommitPassesOnceItsFullRunIsGreen() {
+        // opened as draft (empty pull_request run, partial), then ready_for_review (full) on the same head.
+        val draftRun = partial("skipped", event = "pull_request", number = 2)
+        assertEquals(waitingForFull, verdict(partial(), draftRun))
+        assertEquals(ChecksVerdict.Passed, verdict(partial(), draftRun, full(number = 3)))
+    }
+
     @Test fun hebrewAndHugeNamesAreKept() {
         val long = "ב".repeat(5_000)
         assertEquals(ChecksVerdict.Failed(listOf("בדיקות ✅", long)), verdict(run("בדיקות ✅", "failure"), run(long, "cancelled")))
