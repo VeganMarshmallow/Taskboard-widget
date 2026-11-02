@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- One-line task row. Narrow widths and big fonts use row_item_narrow (#49, RowFit). Buttons wrap their text: no fixed heights. -->
+<!-- One-line task row. A row whose button would squeeze its title away uses row_item_narrow (#49, RowFit). Buttons wrap their text: no fixed heights. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/item_root"
     android:layout_width="match_parent"

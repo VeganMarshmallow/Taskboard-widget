@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    #49: the task row for narrow widths and big fonts (RowFit). The title keeps the whole first line (two lines at
+    #49: the task row for a row whose button would squeeze its title away (narrow widths, big fonts; RowFit). Only
+    rows with Approve or Merge use it, so the button line always has something to show. The title keeps the whole first line (two lines at
     most), and Approve or Merge with its reason move to a line of their own, so a button never squeezes the title
     away. Same view ids as row_item, so RowViews and MergeLaneViews bind both the same way.
 -->
@@ -47,8 +48,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
         android:gravity="end|center_vertical"
-        android:orientation="horizontal"
-        android:visibility="gone">
+        android:orientation="horizontal">
 
         <TextView
             android:id="@+id/item_approve"

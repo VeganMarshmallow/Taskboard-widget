@@ -12,6 +12,7 @@ import io.github.veganmarshmallow.taskboard.TabTestViews.rowFitProblems
 import io.github.veganmarshmallow.taskboard.core.board.MergeLane
 import io.github.veganmarshmallow.taskboard.core.board.MergeWait
 import io.github.veganmarshmallow.taskboard.core.board.Section
+import io.github.veganmarshmallow.taskboard.core.board.withMergeLanes
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -23,7 +24,8 @@ import java.util.Locale
 
 /**
  * #49: at the narrowest widget (180dp) and font scale 2.0 a row with a PR showed only "PR …", and Merge was cut at
- * the bottom. Narrow widths and big fonts now get the two-line row: the title keeps the first line, the button its own.
+ * the bottom. A row whose button would squeeze its title away now gets the two-line row: the title keeps the first
+ * line, the button its own. Rows without a button, and roomy rows, keep the one-line row.
  */
 @Screenshot
 @RunWith(AndroidJUnit4::class)
@@ -82,16 +84,29 @@ class RowFitScreenshotTest {
             assertTrue("the button has a line of its own", row.shows(R.id.item_actions))
             assertTrue("the title gets the row's first line", row.findViewById<TextView>(R.id.item_text).width > row.width / 2)
         }
-        // The question has no button, so its row takes no button line.
+        // The question has no button, so its row keeps the one-line layout.
         rows(widget).filter { !it.shows(R.id.item_merge) && !it.shows(R.id.item_approve) }.forEach {
-            assertTrue(!it.shows(R.id.item_actions))
+            assertNull("no button, one line", it.findViewById<View>(R.id.item_actions))
         }
     }
 
     @Test fun minWidthNormalFont() {
         val widget = ScreenshotCapture.widget("49-2-rows-180dp-font-1.0", board, widthDp = 180, heightDp = 420, tab = Section.NEEDS_YOU)
         assertRowsFit(widget, "shot 180 1.0")
-        assertNotNull("180dp gets the two-line row", rows(widget).first().findViewById<View>(R.id.item_actions))
+        val merges = rows(widget).filter { it.shows(R.id.item_merge) }
+        assertEquals("both PRs offer Merge", 2, merges.size)
+        merges.forEach { assertNotNull("180dp gives Merge a line of its own", it.findViewById<View>(R.id.item_actions)) }
+    }
+
+    @Test fun defaultWidthNarrowsOnlyTheRowWithAReason() {
+        val widget = ScreenshotCapture.widget("49-4-rows-250dp-font-1.0", board, widthDp = 250, heightDp = 420, tab = Section.NEEDS_YOU)
+        assertRowsFit(widget, "shot 250 1.0")
+        val (withReason, plain) = rows(widget).filter { it.shows(R.id.item_merge) }.partition { it.shows(R.id.item_merge_note) }
+        assertEquals("one muted PR with a reason", 1, withReason.size)
+        assertEquals("one PR to merge next", 1, plain.size)
+        assertNotNull("the reason row puts its button on a line of its own", withReason.single().findViewById<View>(R.id.item_actions))
+        assertNull("the next PR keeps one line at the default width", plain.single().findViewById<View>(R.id.item_actions))
+        rows(widget).filter { !it.shows(R.id.item_merge) }.forEach { assertNull("no button, one line", it.findViewById<View>(R.id.item_actions)) }
     }
 
     @Test fun defaultSizeKeepsTheOneLineRow() {
