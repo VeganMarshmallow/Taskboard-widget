@@ -188,6 +188,22 @@ class RefreshRunnerTest {
         }
         val r = RefreshRunner(RefreshTracker(flaky, time.uptime), states, clock).run { it.withBoard(board) }
         assertTrue(r is Result.Committed)
+        assertEquals("the save worked, so the board is shown, not an error", board, r.state().board)
+        assertNull(r.state().error)
+        assertEquals("what the run returns is what every render reads", r.state(), states.load())
+    }
+
+    @Test fun aSuccessfulRecoveryClearsAnEarlierSaveFailure() {
+        disk.state = WidgetState(board, null, NOW)
+        disk.failSaves = true
+        runner().run { it.withBoard(newer) } // shown, never saved
+        disk.failSaves = false
+        tracker.begin()
+        time.advance(Duration.ofMinutes(2))
+        val recovered = runner().recoverIfStale()!!
+        assertEquals(BoardError.Timeout, states.load().error)
+        assertEquals("the recovery is saved, so a new process sees it too", recovered, ShownStateStore(disk).load())
+        assertEquals(recovered, states.load())
     }
 
     @Test fun wallClockJumpsDuringALiveRunChangeNothing() {
