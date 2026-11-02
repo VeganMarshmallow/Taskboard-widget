@@ -17,19 +17,18 @@ import io.github.veganmarshmallow.taskboard.core.work.TimeLimit
 import io.github.veganmarshmallow.taskboard.core.work.Timed
 import io.github.veganmarshmallow.taskboard.core.work.crashError
 import io.github.veganmarshmallow.taskboard.data.AppGraph
-import io.github.veganmarshmallow.taskboard.widget.BackgroundWork
 import io.github.veganmarshmallow.taskboard.widget.BoardJobs
-import io.github.veganmarshmallow.taskboard.widget.WidgetRefresher
+import io.github.veganmarshmallow.taskboard.widget.WidgetApprover
 import java.time.Duration
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
  * Runs the preview's network work off the main thread and posts results back to it. Loads use the
- * preview's own thread, so opening a preview never waits behind a widget refresh. Approvals go through
- * the widget's [BackgroundWork] thread and [WidgetRefresher.approve], exactly like the row's Approve
- * button, so they can't race a refresh on the stored board and the widget refreshes afterwards.
- * Results that arrive after [close] are dropped.
+ * preview's own thread, so opening a preview never waits behind a widget refresh. Approvals use
+ * [WidgetApprover.approve], like the row's Approve button, so the widget refreshes afterwards. They run
+ * on one process-wide thread that [close] does not stop, so an approval finishes even if the preview
+ * closes. Results that arrive after [close] are dropped.
  */
 class PreviewWorker(context: Context) {
     private val app = context.applicationContext
@@ -51,20 +50,20 @@ class PreviewWorker(context: Context) {
     }
 
     fun approve(number: Int, onResult: (Outcome<Unit>) -> Unit) {
-        BackgroundWork.run(null) {
-            val result = WidgetRefresher(app).approve(number)
+        approvals.execute {
+            val result = WidgetApprover(app).approve(number)
             post { onResult(result) }
         }
     }
 
     /**
-     * Sends a reply (task #44) on the widget's [BackgroundWork] thread like [approve], within
+     * Sends a reply (task #44) on the same single `approvals` thread as [approve], within
      * [REPLY_BUDGET], then refreshes the widget the way approve and merge do. The result goes to
      * [ReplyDrafts], not to this worker's sheet: it must land even when that sheet was closed
      * meanwhile, and reach the sheet reopened in its place.
      */
     fun reply(number: Int, action: ReplyAction) {
-        BackgroundWork.run(null) {
+        approvals.execute {
             val api = AppGraph.apiOrNull(app)
             val result = if (api == null) {
                 ReplyResult.Failed(stepOf(action), BoardError.NoToken)
@@ -92,6 +91,9 @@ class PreviewWorker(context: Context) {
     }
 
     private companion object {
+        val approvals: ExecutorService = Executors.newSingleThreadExecutor { r ->
+            Thread(r, "taskboard-approve").apply { isDaemon = true }
+        }
         val REPLY_BUDGET: Duration = Duration.ofSeconds(30)
     }
 }

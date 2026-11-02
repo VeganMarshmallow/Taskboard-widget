@@ -2,6 +2,7 @@ package io.github.veganmarshmallow.taskboard.widget
 
 import android.app.job.JobParameters
 import android.app.job.JobService
+import android.content.Context
 import android.util.Log
 import io.github.veganmarshmallow.taskboard.core.work.BoardJob
 import io.github.veganmarshmallow.taskboard.core.work.RefreshRunner
@@ -18,7 +19,7 @@ class BoardJobService : JobService() {
         val app = applicationContext
         executor.execute {
             val retry = try {
-                perform(job, WidgetRefresher(app))
+                perform(job, app)
             } catch (t: Throwable) {
                 Log.w(TAG, "$job failed: ${t.javaClass.simpleName}")
                 if (job is BoardJob.Refresh) RetryScheduler.afterCrash(app, job) // keep the retry chain alive (#29)
@@ -41,14 +42,14 @@ class BoardJobService : JobService() {
      * Returns whether JobScheduler should retry the job. Always false: failed refreshes schedule
      * their own retry with the app's backoff ([RetryScheduler]), not the scheduler's.
      */
-    private fun perform(job: BoardJob, refresher: WidgetRefresher): Boolean {
+    private fun perform(job: BoardJob, app: Context): Boolean {
         when (job) {
-            is BoardJob.Refresh -> when (val result = refresher.refresh()) {
-                is RefreshRunner.Result.Committed -> RetryScheduler.afterRefresh(applicationContext, result.state.error, job)
+            is BoardJob.Refresh -> when (val result = WidgetRefresher(app).refresh()) {
+                is RefreshRunner.Result.Committed -> RetryScheduler.afterRefresh(app, result.state.error, job)
                 RefreshRunner.Result.Superseded -> Unit // the newer run plans its own retry
             }
-            is BoardJob.Approve -> ApproveToast.show(applicationContext, job.issue, refresher.approve(job.issue))
-            BoardJob.Sweep -> refresher.sweep()?.let { RetryScheduler.afterRefresh(applicationContext, it.error, finished = null) }
+            is BoardJob.Approve -> WidgetApprover(app).approveAndToast(job.issue)
+            BoardJob.Sweep -> WidgetRefresher(app).sweep()?.let { RetryScheduler.afterRefresh(app, it.error, finished = null) }
         }
         return false
     }

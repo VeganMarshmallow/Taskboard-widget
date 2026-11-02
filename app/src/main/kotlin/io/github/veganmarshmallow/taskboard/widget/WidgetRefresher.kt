@@ -5,21 +5,16 @@ import android.util.Log
 import io.github.veganmarshmallow.taskboard.core.board.BoardLoader
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.error.Reachability
-import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.core.work.RefreshRunner
-import io.github.veganmarshmallow.taskboard.core.work.RefreshTrigger
-import io.github.veganmarshmallow.taskboard.core.work.TimeLimit
-import io.github.veganmarshmallow.taskboard.core.work.toOutcome
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.StateStore
 import io.github.veganmarshmallow.taskboard.update.UpdateController
-import java.time.Duration
 
 /**
- * Blocking refresh/approve steps, run by [BoardJobService] on a background thread. Every refresh
- * goes through [RefreshRunner], so it always ends in the new board or an error, and the widget
- * is re-rendered from that result.
+ * Blocking refresh, record-offline and sweep steps, run by [BoardJobService] on a background thread
+ * (approving is [WidgetApprover]). Every refresh goes through [RefreshRunner], so it always ends in
+ * the new board or an error, and the widget is re-rendered from that result.
  */
 class WidgetRefresher(private val context: Context) {
     private val runner = AppGraph.refreshRunner(context)
@@ -83,14 +78,6 @@ class WidgetRefresher(private val context: Context) {
         }
     }
 
-    /** Adds `ready-for-claude`, then asks for a refresh. Returns the failure, if any, for the caller to report. */
-    fun approve(issue: Int): Outcome<Unit> {
-        val api = AppGraph.apiOrNull(context) ?: return Outcome.Failure(BoardError.NoToken)
-        val result = TimeLimit().run(APPROVE_BUDGET) { api.approve(issue) }.toOutcome()
-        BoardJobs.refresh(context, RefreshTrigger.MANUAL)
-        return result
-    }
-
     private fun onStarted() {
         BoardJobs.scheduleSweep(context)
         renderer.showUpdating()
@@ -98,6 +85,5 @@ class WidgetRefresher(private val context: Context) {
 
     private companion object {
         const val TAG = "WidgetRefresher"
-        val APPROVE_BUDGET: Duration = Duration.ofSeconds(30)
     }
 }

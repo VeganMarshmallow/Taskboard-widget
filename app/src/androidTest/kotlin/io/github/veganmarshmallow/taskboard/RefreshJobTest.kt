@@ -17,8 +17,8 @@ import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.DeviceUptime
 import io.github.veganmarshmallow.taskboard.data.RefreshMarkPrefs
 import io.github.veganmarshmallow.taskboard.data.StateStore
+import io.github.veganmarshmallow.taskboard.data.TestOverrides
 import io.github.veganmarshmallow.taskboard.data.TokenStore
-import io.github.veganmarshmallow.taskboard.net.UrlConnectionHttpClient
 import io.github.veganmarshmallow.taskboard.widget.BoardJobs
 import io.github.veganmarshmallow.taskboard.widget.WidgetRefresher
 import io.github.veganmarshmallow.taskboard.widget.WidgetViews
@@ -43,7 +43,7 @@ class RefreshJobTest {
 
     @Before @After fun reset() {
         context.getSystemService(JobScheduler::class.java).cancelAll()
-        AppGraph.httpClient = { UrlConnectionHttpClient() }
+        TestOverrides.httpClient = null
         TokenStore(context).clear()
         RefreshMarkPrefs(context).save(null)
         StateStore(context).save(WidgetState.INITIAL)
@@ -114,7 +114,7 @@ class RefreshJobTest {
      */
     @Test fun aSlowServerEndsInATimeoutInsteadOfHangingForever() {
         TrickleServer().use { server ->
-            AppGraph.httpClient = server::client
+            TestOverrides.httpClient = server::client
             TokenStore(context).save("github_pat_TESTONLY")
             BoardJobs.refresh(context, RefreshTrigger.MANUAL)
             waitFor(60_000, "the refresh to start") { tracker.status() == Status.RUNNING }

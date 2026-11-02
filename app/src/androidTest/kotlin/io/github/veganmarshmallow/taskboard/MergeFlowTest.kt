@@ -16,9 +16,9 @@ import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTracker
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.StateStore
+import io.github.veganmarshmallow.taskboard.data.TestOverrides
 import io.github.veganmarshmallow.taskboard.data.TokenStore
 import io.github.veganmarshmallow.taskboard.merge.MergeFlow
-import io.github.veganmarshmallow.taskboard.net.UrlConnectionHttpClient
 import io.github.veganmarshmallow.taskboard.preview.TaskPreviewActivity
 import io.github.veganmarshmallow.taskboard.widget.RowAction
 import io.github.veganmarshmallow.taskboard.widget.RowActionActivity
@@ -41,7 +41,7 @@ class MergeFlowTest {
         server?.close()
         server = null
         context.getSystemService(JobScheduler::class.java).cancelAll()
-        AppGraph.httpClient = { UrlConnectionHttpClient() }
+        TestOverrides.httpClient = null
         TokenStore(context).clear()
         StateStore(context).save(WidgetState.INITIAL)
     }
@@ -49,7 +49,7 @@ class MergeFlowTest {
     private fun serve(script: (String, String) -> FakeGitHubServer.Answer?): FakeGitHubServer {
         val s = FakeGitHubServer(script)
         server = s
-        AppGraph.httpClient = s::client
+        TestOverrides.httpClient = s::client
         TokenStore(context).save("github_pat_TESTONLY")
         StateStore(context).save(FakeMerges.boardState())
         return s
