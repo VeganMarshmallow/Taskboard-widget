@@ -44,7 +44,7 @@ class BoardBuilderTest {
 
     @Test fun sectionsAlwaysPresentInDisplayOrder() {
         assertEquals(Section.entries.toList(), build().sections.map { it.section })
-        assertEquals(listOf("Needs you", "Todo", "In progress", "Blocked", "Done"), Section.entries.map { it.title })
+        assertEquals(listOf("NEEDS_YOU", "TODO", "IN_PROGRESS", "BLOCKED", "DONE"), Section.entries.map { it.name })
     }
 
     @Test fun needsOwnerIsAQuestionWhateverItsStatusAndLeavesItsStatusTabUnlessBlocked() {
