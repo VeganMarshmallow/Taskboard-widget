@@ -1,0 +1,184 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Direction C widget</title><style>
+:root{--font:'DejaVu Sans',sans-serif;--numFont:'DejaVu Sans Mono',monospace;
+      --h1:700 20px/1.3 var(--font);--h1ls:-.01em;--h2:700 17px/1.3 var(--font);--h3:700 13px/1.3 var(--font);--h3ls:0;
+      --body:400 14px/1.5 var(--font);--wTitle:700 14px var(--font);--rowTitle:500 13px/1.3 var(--font);--tabNum:700 13px var(--numFont);
+      --rSheet:16px;--rDialog:12px;--rBox:8px;--rChip:6px;--rBtn:8px;--rField:8px;--rSeg:8px;--rTab:8px;--rWidget:18px;
+      --btnH:38px;--btnLs:0;--labelLs:0;--labelTt:none;--stPad:2px 7px;--stLs:0;--fieldGap:14px;
+      --fieldBorder:1px solid var(--outline);--fieldBottom:1px solid var(--outline);--fieldPad:9px 11px;--needBorder:1px solid var(--needLine);--linkDeco:none;--canvas:#E3E6EB;--canvasText:#2A3140;--frame:#CBD1DA;--bg:#F3F5F8;--surface:#FFFFFF;--wbg:#F7F8FA;--text:#141A24;--muted:#5A6476;--outline:#D5DAE2;--hair:#E5E9EF;--tabTrack:#E7EAF0;
+      --accent:#2C59CF;--onAccent:#FFFFFF;--accentC:#DFE7FB;--onAccentC:#1B3C8F;--merge:#1F7A44;--onMerge:#FFFFFF;--link:#2C59CF;
+      --chipBg:#EEF1F5;--chipText:#3C4556;--chipBorder:transparent;--ghostBg:#FFFFFF;--ghostText:#141A24;--ghostBorder:#D5DAE2;
+      --needBg:#FFF6E6;--needLine:#F0D39A;--needLabel:#8A5300;--codeBg:rgba(20,26,36,.07);--fieldBg:#FFFFFF;--okBg:#DDF1E4;--ok:#1F7A44;--warn:#A85F00;
+      --needsBg:#FFEFD2;--needsFg:#8A5300;--todoBg:#EEF1F5;--todoFg:#465063;--progressBg:#DFE7FB;--progressFg:#1B3C8F;--blockedBg:#FBE1E0;--blockedFg:#9B1C1C;--reviewBg:#ECE4FB;--reviewFg:#5328A6;--doneBg:#DDF1E4;--doneFg:#1A6A3B;}
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--canvas);font-family:var(--font);color:var(--text);padding:28px;-webkit-font-smoothing:antialiased;width:max-content}
+.cap{font:600 13px/1.2 var(--font);color:var(--canvasText);margin:0 0 10px 2px;letter-spacing:.02em}
+.board{display:flex;gap:28px;align-items:flex-start}
+.title-strip{font:600 16px var(--font);color:var(--canvasText);margin-bottom:18px}
+.phone{width:412px;height:915px;border-radius:28px;overflow:hidden;position:relative;background:var(--bg);display:flex;flex-direction:column;box-shadow:0 0 0 1px var(--frame)}
+.sb{height:32px;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font:500 13px var(--font);color:var(--text);position:relative;z-index:3}
+.over-home .sb{color:#fff}
+.screen{flex:1;position:relative;display:flex;flex-direction:column;overflow:hidden}
+.over-home{background:linear-gradient(160deg,#5b6b7c,#3b4654)}
+.home{position:absolute;inset:0;padding:40px 28px;color:#fff}
+.home-clock{font:300 64px var(--font)}.home-date{font:400 15px var(--font);opacity:.85}
+.scrim{position:absolute;inset:-32px 0 0 0;background:rgba(10,10,12,.45);z-index:1}
+.sheet,.dialog{z-index:2}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--surface);padding:12px 24px 24px;border-radius:var(--rSheet) var(--rSheet) 0 0}
+.handle{width:36px;height:4px;border-radius:2px;background:var(--outline);margin:0 auto 18px}
+.p-meta{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.p-num{font-size:14px;color:var(--muted)}
+.num{font-family:var(--numFont)}
+.p-title{font:var(--h1);color:var(--text);margin-bottom:12px;letter-spacing:var(--h1ls)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.chip{display:inline-flex;align-items:center;gap:6px;font:500 13px var(--font);padding:6px 12px;border-radius:var(--rChip);background:var(--chipBg);color:var(--chipText);border:1px solid var(--chipBorder)}
+.chip svg{width:14px;height:14px}
+.chip-on{background:var(--accentC);color:var(--onAccentC);border-color:transparent}
+.p-desc{font:var(--body);color:var(--text);margin-bottom:16px}
+.need{background:var(--needBg);border-radius:var(--rBox);padding:14px 16px;margin-bottom:16px;border:var(--needBorder)}
+.need-l{font:600 13px var(--font);color:var(--needLabel);margin-bottom:4px;letter-spacing:var(--labelLs);text-transform:var(--labelTt)}
+.need-t{font:var(--body);color:var(--text)}
+.code{font-family:var(--numFont);font-size:.9em;background:var(--codeBg);padding:1px 4px;border-radius:4px}
+.cmt{margin-bottom:20px}
+.cmt-l{font:600 12px var(--font);color:var(--muted);margin-bottom:4px;letter-spacing:var(--labelLs);text-transform:var(--labelTt)}
+.cmt-t{font:400 15px/1.45 var(--font);color:var(--muted);margin-bottom:6px}
+.link{font:600 14px var(--font);color:var(--link);text-decoration:var(--linkDeco);display:inline-block}
+.actions{display:flex;justify-content:flex-end;gap:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:var(--btnH);padding:0 20px;border-radius:var(--rBtn);font:600 15px var(--font);white-space:nowrap;letter-spacing:var(--btnLs)}
+.btn-primary{background:var(--accent);color:var(--onAccent)}
+.btn-merge{background:var(--merge);color:var(--onMerge)}
+.btn-ghost{background:var(--ghostBg);color:var(--ghostText);border:1px solid var(--ghostBorder)}
+.btn-tonal{background:var(--accentC);color:var(--onAccentC)}
+.btn-text{color:var(--muted);padding:0 12px}
+.btn-wide{width:100%}
+.btn-sm{height:36px;padding:0 14px;font-size:14px}
+.appbar{height:60px;display:flex;align-items:center;gap:14px;padding:0 16px;color:var(--text)}
+.ab-t{font:var(--h2)}.ab-big{font:var(--h1);padding-left:8px;letter-spacing:var(--h1ls)}
+.ab-ic{display:flex;padding:6px}
+.form{padding:8px 24px;flex:1;overflow:hidden}
+.field{margin-bottom:var(--fieldGap)}
+.field label{display:block;font:600 13px var(--font);color:var(--muted);margin-bottom:6px;letter-spacing:var(--labelLs);text-transform:var(--labelTt)}
+.in{font:400 16px/1.4 var(--font);color:var(--text);background:var(--fieldBg);border:var(--fieldBorder);border-bottom:var(--fieldBottom);border-radius:var(--rField);padding:var(--fieldPad)}
+.in-multi{line-height:1.45}
+.help{font-size:13px;color:var(--muted);margin-top:6px}
+.seg-chips{display:flex;gap:8px;flex-wrap:wrap}
+.seg{display:flex;border:1px solid var(--outline);border-radius:var(--rSeg);overflow:hidden}
+.seg span{flex:1;text-align:center;padding:10px 0;font:500 14px var(--font);color:var(--text);border-left:1px solid var(--outline)}
+.seg span:first-child{border-left:0}
+.seg .on{background:var(--accentC);color:var(--onAccentC);font-weight:600}
+.sw-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0}
+.sw-t{font:500 16px var(--font);color:var(--text)}.sw-s{font:400 13px var(--font);color:var(--muted);margin-top:2px}
+.switch{width:52px;height:32px;border-radius:16px;background:var(--outline);position:relative;flex:none}
+.switch.on{background:var(--accent)}.switch i{position:absolute;width:24px;height:24px;border-radius:50%;background:var(--onAccent);top:4px;right:4px}
+.bottom{padding:16px 24px 28px}
+.sec-h{font:var(--h3);color:var(--text);margin:8px 0 12px;letter-spacing:var(--h3ls)}
+.opt{font:500 12px var(--font);color:var(--muted);margin-left:6px;letter-spacing:0;text-transform:none}
+.ok-row{display:flex;gap:12px;align-items:center;margin-bottom:16px}
+.ok-dot{width:32px;height:32px;border-radius:50%;background:var(--okBg);color:var(--ok);display:flex;align-items:center;justify-content:center;flex:none}
+.btn-row{display:flex;gap:10px;justify-content:flex-end;margin-bottom:6px}
+.divider{height:1px;background:var(--outline);margin:18px 0}
+.body{font:400 15px/1.5 var(--font);color:var(--muted);margin-bottom:10px}
+.perm{display:flex;justify-content:space-between;align-items:center;font:400 15px var(--font);color:var(--text);padding:9px 0;border-bottom:1px solid var(--hair)}
+.pk{color:var(--ok);display:inline-flex}.pk.miss{color:var(--warn);font:600 13px var(--font)}
+.perm + .link{margin-top:12px}
+.upd{display:flex;justify-content:space-between;align-items:center}
+.dialog{position:absolute;left:24px;right:24px;top:300px;background:var(--surface);border-radius:var(--rDialog);padding:24px}
+.d-h{font:var(--h2);color:var(--text);margin-bottom:12px}
+.d-t{font:500 16px/1.4 var(--font);color:var(--text);margin-bottom:4px}
+.d-m{font:400 14px var(--font);color:var(--muted);margin-bottom:14px}
+.d-checks{display:flex;gap:8px;align-items:center;font:400 14px var(--font);color:var(--text);margin-bottom:22px}
+/* status */
+.st{display:inline-flex;align-items:center;gap:6px;font:600 12px var(--font);white-space:nowrap;border-radius:var(--rChip);padding:var(--stPad);letter-spacing:var(--stLs)}
+.st-lg{font-size:13px}
+.st-needs{background:var(--needsBg);color:var(--needsFg)}
+.st-todo{background:var(--todoBg);color:var(--todoFg)}
+.st-progress{background:var(--progressBg);color:var(--progressFg)}
+.st-blocked{background:var(--blockedBg);color:var(--blockedFg)}
+.st-review{background:var(--reviewBg);color:var(--reviewFg)}
+.st-done{background:var(--doneBg);color:var(--doneFg)}
+/* widget */
+.wboard{display:flex;gap:28px;padding:26px;background:linear-gradient(160deg,#6b7f93,#3d4a59);border-radius:20px}
+.wcol .cap{color:#fff}
+.widget{width:360px;background:var(--wbg);border-radius:var(--rWidget);padding:16px 16px 10px;color:var(--text)}
+.w-head{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.w-title{font:var(--wTitle);color:var(--text)}
+.w-age{font:400 12px var(--font);color:var(--muted);flex:1}
+.w-ic{width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:var(--muted);border-radius:18px}
+.w-tabs{display:flex;gap:4px;margin-bottom:6px}
+.t{flex:1;display:flex;flex-direction:column;align-items:center;padding:6px 0 7px;border-radius:var(--rTab);color:var(--muted)}
+.t .n{font:var(--tabNum);color:var(--text)}.t .l{font:500 11px var(--font);margin-top:1px}
+.t.on{background:var(--accentC)}.t.on .n,.t.on .l{color:var(--onAccentC)}
+.w-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--hair)}
+.w-row:first-child{border-top:0}.w-row.extra{display:none}
+.w-main{flex:1;min-width:0}
+.w-t{font:var(--rowTitle);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+[dir=rtl] .w-t{text-align:right}
+.w-meta{display:flex;align-items:center;gap:8px;margin-top:4px;min-width:0}
+.w-sub{font:400 12px var(--font);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.w-btn{height:34px;padding:0 14px;font-size:14px;flex:none}
+
+body{font-stretch:semi-condensed}
+      .btn{font-size:14px}.chip{font-size:12px;padding:4px 9px}
+      .w-tabs{background:var(--tabTrack);border-radius:10px;padding:3px;gap:2px}
+      .t{flex-direction:row;justify-content:center;gap:5px;padding:6px 0}.t .l{font-size:11px;margin:0;order:1}.t .n{order:2;color:var(--muted)}
+      .t.on{background:var(--surface);box-shadow:0 0 0 1px var(--outline)}.t.on .l,.t.on .n{color:var(--text)}
+      .t-needs .n{color:var(--needsFg)!important}
+      .t .l{white-space:nowrap}
+      .w-row{padding:8px 0}.w-main{display:flex;align-items:center;gap:8px}.w-meta{margin:0;flex:none}.w-sub{display:none}.w-t{flex:1}
+      .w-row.extra{display:flex}.w-btn{height:28px;padding:0 10px;font-size:12px;border-radius:6px}
+      .st{font-size:11px}
+      .p-desc,.need-t{font-size:14px}.cmt-t{font-size:13px}
+      .widget{padding:12px 12px 6px;border:1px solid var(--outline)}
+      .w-ic{width:30px;height:30px}
+</style></head><body><div class="title-strip">C · Dense dev tool — widget, light and dark</div><div class="wboard">
+  <div class="wcol"><div class="cap">Light</div><div class="widget">
+  <div class="w-head"><span class="w-title">Claude board</span><span class="w-age">2 min ago</span><span class="w-ic"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></span><span class="w-ic"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span></div>
+  <div class="w-tabs"><div class="t t-needs on"><span class="n">3</span><span class="l">Needs you</span></div><div class="t t-todo"><span class="n">4</span><span class="l">To do</span></div><div class="t t-progress"><span class="n">2</span><span class="l">Doing</span></div><div class="t t-blocked"><span class="n">1</span><span class="l">Blocked</span></div><div class="t t-done"><span class="n">6</span><span class="l">Done</span></div></div>
+  <div class="w-rows"><div class="w-row">
+    <div class="w-main" dir="ltr"><div class="w-t">Widget: merge Claude's PRs from the widget</div>
+    <div class="w-meta"><span class="st st-review">In review</span><span class="w-sub" dir="ltr">Taskboard-widget <span class="num">#30</span> · checks passed</span></div></div>
+    <span class="btn btn-merge w-btn">Merge</span></div><div class="w-row">
+    <div class="w-main" dir="ltr"><div class="w-t">Deploy the portfolio site on merge</div>
+    <div class="w-meta"><span class="st st-blocked">Blocked</span><span class="w-sub" dir="ltr">portfolio-site <span class="num">#43</span> · waiting on you</span></div></div>
+    </div><div class="w-row">
+    <div class="w-main" dir="ltr"><div class="w-t">Weekly digest email of finished tasks</div>
+    <div class="w-meta"><span class="st st-todo">To do</span><span class="w-sub" dir="ltr">digest <span class="num">#52</span> · not approved</span></div></div>
+    <span class="btn btn-tonal w-btn">Approve</span></div><div class="w-row">
+    <div class="w-main" dir="rtl"><div class="w-t">תיקון באג בכפתור השמירה</div>
+    <div class="w-meta"><span class="st st-todo">To do</span><span class="w-sub" dir="ltr">recipes-app <span class="num">#48</span> · not approved</span></div></div>
+    <span class="btn btn-tonal w-btn">Approve</span></div><div class="w-row extra">
+    <div class="w-main" dir="ltr"><div class="w-t">Retry GitHub calls on timeout</div>
+    <div class="w-meta"><span class="st st-review">In review</span><span class="w-sub" dir="ltr">Taskboard-widget <span class="num">#17</span> · checks running</span></div></div>
+    </div><div class="w-row extra">
+    <div class="w-main" dir="ltr"><div class="w-t">Recipe import from URL</div>
+    <div class="w-meta"><span class="st st-blocked">Blocked</span><span class="w-sub" dir="ltr">recipes-app <span class="num">#51</span> · needs API key</span></div></div>
+    </div></div>
+</div></div>
+  <div class="wcol dark"><div class="cap">Dark</div><div class="widget">
+  <div class="w-head"><span class="w-title">Claude board</span><span class="w-age">2 min ago</span><span class="w-ic"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></span><span class="w-ic"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span></div>
+  <div class="w-tabs"><div class="t t-needs on"><span class="n">3</span><span class="l">Needs you</span></div><div class="t t-todo"><span class="n">4</span><span class="l">To do</span></div><div class="t t-progress"><span class="n">2</span><span class="l">Doing</span></div><div class="t t-blocked"><span class="n">1</span><span class="l">Blocked</span></div><div class="t t-done"><span class="n">6</span><span class="l">Done</span></div></div>
+  <div class="w-rows"><div class="w-row">
+    <div class="w-main" dir="ltr"><div class="w-t">Widget: merge Claude's PRs from the widget</div>
+    <div class="w-meta"><span class="st st-review">In review</span><span class="w-sub" dir="ltr">Taskboard-widget <span class="num">#30</span> · checks passed</span></div></div>
+    <span class="btn btn-merge w-btn">Merge</span></div><div class="w-row">
+    <div class="w-main" dir="ltr"><div class="w-t">Deploy the portfolio site on merge</div>
+    <div class="w-meta"><span class="st st-blocked">Blocked</span><span class="w-sub" dir="ltr">portfolio-site <span class="num">#43</span> · waiting on you</span></div></div>
+    </div><div class="w-row">
+    <div class="w-main" dir="ltr"><div class="w-t">Weekly digest email of finished tasks</div>
+    <div class="w-meta"><span class="st st-todo">To do</span><span class="w-sub" dir="ltr">digest <span class="num">#52</span> · not approved</span></div></div>
+    <span class="btn btn-tonal w-btn">Approve</span></div><div class="w-row">
+    <div class="w-main" dir="rtl"><div class="w-t">תיקון באג בכפתור השמירה</div>
+    <div class="w-meta"><span class="st st-todo">To do</span><span class="w-sub" dir="ltr">recipes-app <span class="num">#48</span> · not approved</span></div></div>
+    <span class="btn btn-tonal w-btn">Approve</span></div><div class="w-row extra">
+    <div class="w-main" dir="ltr"><div class="w-t">Retry GitHub calls on timeout</div>
+    <div class="w-meta"><span class="st st-review">In review</span><span class="w-sub" dir="ltr">Taskboard-widget <span class="num">#17</span> · checks running</span></div></div>
+    </div><div class="w-row extra">
+    <div class="w-main" dir="ltr"><div class="w-t">Recipe import from URL</div>
+    <div class="w-meta"><span class="st st-blocked">Blocked</span><span class="w-sub" dir="ltr">recipes-app <span class="num">#51</span> · needs API key</span></div></div>
+    </div></div>
+</div></div></div>
+  <style>.dark{--canvas:#07090C;--canvasText:#B9C2CF;--frame:#202833;--bg:#0E1116;--surface:#161B22;--wbg:#12161C;--text:#E3E8EF;--muted:#8B95A5;--outline:#2A323D;--hair:#1F262F;--tabTrack:#0B0E12;
+      --accent:#7FA4FF;--onAccent:#0B1530;--accentC:#1C2A4A;--onAccentC:#C4D4FF;--merge:#56C27F;--onMerge:#06210F;--link:#8FB0FF;
+      --chipBg:#1D232C;--chipText:#B9C2CF;--chipBorder:transparent;--ghostBg:#161B22;--ghostText:#E3E8EF;--ghostBorder:#2A323D;
+      --needBg:#241C0E;--needLine:#5A4314;--needLabel:#F2B655;--codeBg:rgba(227,232,239,.08);--fieldBg:#0E1116;--okBg:#12301F;--ok:#6FD39A;--warn:#F2B655;
+      --needsBg:#3A2A0C;--needsFg:#F5BC5C;--todoBg:#1D232C;--todoFg:#AEB7C4;--progressBg:#1A2747;--progressFg:#A9C1FF;--blockedBg:#3B1618;--blockedFg:#FF9A97;--reviewBg:#2A1F45;--reviewFg:#C9B3FF;--doneBg:#11301E;--doneFg:#7DDCA4;}.dark .widget{color:var(--text)}</style></body></html>

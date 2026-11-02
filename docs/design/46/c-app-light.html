@@ -1,0 +1,174 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Direction C app light</title><style>
+:root{--font:'DejaVu Sans',sans-serif;--numFont:'DejaVu Sans Mono',monospace;
+      --h1:700 20px/1.3 var(--font);--h1ls:-.01em;--h2:700 17px/1.3 var(--font);--h3:700 13px/1.3 var(--font);--h3ls:0;
+      --body:400 14px/1.5 var(--font);--wTitle:700 14px var(--font);--rowTitle:500 13px/1.3 var(--font);--tabNum:700 13px var(--numFont);
+      --rSheet:16px;--rDialog:12px;--rBox:8px;--rChip:6px;--rBtn:8px;--rField:8px;--rSeg:8px;--rTab:8px;--rWidget:18px;
+      --btnH:38px;--btnLs:0;--labelLs:0;--labelTt:none;--stPad:2px 7px;--stLs:0;--fieldGap:14px;
+      --fieldBorder:1px solid var(--outline);--fieldBottom:1px solid var(--outline);--fieldPad:9px 11px;--needBorder:1px solid var(--needLine);--linkDeco:none;--canvas:#E3E6EB;--canvasText:#2A3140;--frame:#CBD1DA;--bg:#F3F5F8;--surface:#FFFFFF;--wbg:#F7F8FA;--text:#141A24;--muted:#5A6476;--outline:#D5DAE2;--hair:#E5E9EF;--tabTrack:#E7EAF0;
+      --accent:#2C59CF;--onAccent:#FFFFFF;--accentC:#DFE7FB;--onAccentC:#1B3C8F;--merge:#1F7A44;--onMerge:#FFFFFF;--link:#2C59CF;
+      --chipBg:#EEF1F5;--chipText:#3C4556;--chipBorder:transparent;--ghostBg:#FFFFFF;--ghostText:#141A24;--ghostBorder:#D5DAE2;
+      --needBg:#FFF6E6;--needLine:#F0D39A;--needLabel:#8A5300;--codeBg:rgba(20,26,36,.07);--fieldBg:#FFFFFF;--okBg:#DDF1E4;--ok:#1F7A44;--warn:#A85F00;
+      --needsBg:#FFEFD2;--needsFg:#8A5300;--todoBg:#EEF1F5;--todoFg:#465063;--progressBg:#DFE7FB;--progressFg:#1B3C8F;--blockedBg:#FBE1E0;--blockedFg:#9B1C1C;--reviewBg:#ECE4FB;--reviewFg:#5328A6;--doneBg:#DDF1E4;--doneFg:#1A6A3B;}
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--canvas);font-family:var(--font);color:var(--text);padding:28px;-webkit-font-smoothing:antialiased;width:max-content}
+.cap{font:600 13px/1.2 var(--font);color:var(--canvasText);margin:0 0 10px 2px;letter-spacing:.02em}
+.board{display:flex;gap:28px;align-items:flex-start}
+.title-strip{font:600 16px var(--font);color:var(--canvasText);margin-bottom:18px}
+.phone{width:412px;height:915px;border-radius:28px;overflow:hidden;position:relative;background:var(--bg);display:flex;flex-direction:column;box-shadow:0 0 0 1px var(--frame)}
+.sb{height:32px;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font:500 13px var(--font);color:var(--text);position:relative;z-index:3}
+.over-home .sb{color:#fff}
+.screen{flex:1;position:relative;display:flex;flex-direction:column;overflow:hidden}
+.over-home{background:linear-gradient(160deg,#5b6b7c,#3b4654)}
+.home{position:absolute;inset:0;padding:40px 28px;color:#fff}
+.home-clock{font:300 64px var(--font)}.home-date{font:400 15px var(--font);opacity:.85}
+.scrim{position:absolute;inset:-32px 0 0 0;background:rgba(10,10,12,.45);z-index:1}
+.sheet,.dialog{z-index:2}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--surface);padding:12px 24px 24px;border-radius:var(--rSheet) var(--rSheet) 0 0}
+.handle{width:36px;height:4px;border-radius:2px;background:var(--outline);margin:0 auto 18px}
+.p-meta{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.p-num{font-size:14px;color:var(--muted)}
+.num{font-family:var(--numFont)}
+.p-title{font:var(--h1);color:var(--text);margin-bottom:12px;letter-spacing:var(--h1ls)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.chip{display:inline-flex;align-items:center;gap:6px;font:500 13px var(--font);padding:6px 12px;border-radius:var(--rChip);background:var(--chipBg);color:var(--chipText);border:1px solid var(--chipBorder)}
+.chip svg{width:14px;height:14px}
+.chip-on{background:var(--accentC);color:var(--onAccentC);border-color:transparent}
+.p-desc{font:var(--body);color:var(--text);margin-bottom:16px}
+.need{background:var(--needBg);border-radius:var(--rBox);padding:14px 16px;margin-bottom:16px;border:var(--needBorder)}
+.need-l{font:600 13px var(--font);color:var(--needLabel);margin-bottom:4px;letter-spacing:var(--labelLs);text-transform:var(--labelTt)}
+.need-t{font:var(--body);color:var(--text)}
+.code{font-family:var(--numFont);font-size:.9em;background:var(--codeBg);padding:1px 4px;border-radius:4px}
+.cmt{margin-bottom:20px}
+.cmt-l{font:600 12px var(--font);color:var(--muted);margin-bottom:4px;letter-spacing:var(--labelLs);text-transform:var(--labelTt)}
+.cmt-t{font:400 15px/1.45 var(--font);color:var(--muted);margin-bottom:6px}
+.link{font:600 14px var(--font);color:var(--link);text-decoration:var(--linkDeco);display:inline-block}
+.actions{display:flex;justify-content:flex-end;gap:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:var(--btnH);padding:0 20px;border-radius:var(--rBtn);font:600 15px var(--font);white-space:nowrap;letter-spacing:var(--btnLs)}
+.btn-primary{background:var(--accent);color:var(--onAccent)}
+.btn-merge{background:var(--merge);color:var(--onMerge)}
+.btn-ghost{background:var(--ghostBg);color:var(--ghostText);border:1px solid var(--ghostBorder)}
+.btn-tonal{background:var(--accentC);color:var(--onAccentC)}
+.btn-text{color:var(--muted);padding:0 12px}
+.btn-wide{width:100%}
+.btn-sm{height:36px;padding:0 14px;font-size:14px}
+.appbar{height:60px;display:flex;align-items:center;gap:14px;padding:0 16px;color:var(--text)}
+.ab-t{font:var(--h2)}.ab-big{font:var(--h1);padding-left:8px;letter-spacing:var(--h1ls)}
+.ab-ic{display:flex;padding:6px}
+.form{padding:8px 24px;flex:1;overflow:hidden}
+.field{margin-bottom:var(--fieldGap)}
+.field label{display:block;font:600 13px var(--font);color:var(--muted);margin-bottom:6px;letter-spacing:var(--labelLs);text-transform:var(--labelTt)}
+.in{font:400 16px/1.4 var(--font);color:var(--text);background:var(--fieldBg);border:var(--fieldBorder);border-bottom:var(--fieldBottom);border-radius:var(--rField);padding:var(--fieldPad)}
+.in-multi{line-height:1.45}
+.help{font-size:13px;color:var(--muted);margin-top:6px}
+.seg-chips{display:flex;gap:8px;flex-wrap:wrap}
+.seg{display:flex;border:1px solid var(--outline);border-radius:var(--rSeg);overflow:hidden}
+.seg span{flex:1;text-align:center;padding:10px 0;font:500 14px var(--font);color:var(--text);border-left:1px solid var(--outline)}
+.seg span:first-child{border-left:0}
+.seg .on{background:var(--accentC);color:var(--onAccentC);font-weight:600}
+.sw-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0}
+.sw-t{font:500 16px var(--font);color:var(--text)}.sw-s{font:400 13px var(--font);color:var(--muted);margin-top:2px}
+.switch{width:52px;height:32px;border-radius:16px;background:var(--outline);position:relative;flex:none}
+.switch.on{background:var(--accent)}.switch i{position:absolute;width:24px;height:24px;border-radius:50%;background:var(--onAccent);top:4px;right:4px}
+.bottom{padding:16px 24px 28px}
+.sec-h{font:var(--h3);color:var(--text);margin:8px 0 12px;letter-spacing:var(--h3ls)}
+.opt{font:500 12px var(--font);color:var(--muted);margin-left:6px;letter-spacing:0;text-transform:none}
+.ok-row{display:flex;gap:12px;align-items:center;margin-bottom:16px}
+.ok-dot{width:32px;height:32px;border-radius:50%;background:var(--okBg);color:var(--ok);display:flex;align-items:center;justify-content:center;flex:none}
+.btn-row{display:flex;gap:10px;justify-content:flex-end;margin-bottom:6px}
+.divider{height:1px;background:var(--outline);margin:18px 0}
+.body{font:400 15px/1.5 var(--font);color:var(--muted);margin-bottom:10px}
+.perm{display:flex;justify-content:space-between;align-items:center;font:400 15px var(--font);color:var(--text);padding:9px 0;border-bottom:1px solid var(--hair)}
+.pk{color:var(--ok);display:inline-flex}.pk.miss{color:var(--warn);font:600 13px var(--font)}
+.perm + .link{margin-top:12px}
+.upd{display:flex;justify-content:space-between;align-items:center}
+.dialog{position:absolute;left:24px;right:24px;top:300px;background:var(--surface);border-radius:var(--rDialog);padding:24px}
+.d-h{font:var(--h2);color:var(--text);margin-bottom:12px}
+.d-t{font:500 16px/1.4 var(--font);color:var(--text);margin-bottom:4px}
+.d-m{font:400 14px var(--font);color:var(--muted);margin-bottom:14px}
+.d-checks{display:flex;gap:8px;align-items:center;font:400 14px var(--font);color:var(--text);margin-bottom:22px}
+/* status */
+.st{display:inline-flex;align-items:center;gap:6px;font:600 12px var(--font);white-space:nowrap;border-radius:var(--rChip);padding:var(--stPad);letter-spacing:var(--stLs)}
+.st-lg{font-size:13px}
+.st-needs{background:var(--needsBg);color:var(--needsFg)}
+.st-todo{background:var(--todoBg);color:var(--todoFg)}
+.st-progress{background:var(--progressBg);color:var(--progressFg)}
+.st-blocked{background:var(--blockedBg);color:var(--blockedFg)}
+.st-review{background:var(--reviewBg);color:var(--reviewFg)}
+.st-done{background:var(--doneBg);color:var(--doneFg)}
+/* widget */
+.wboard{display:flex;gap:28px;padding:26px;background:linear-gradient(160deg,#6b7f93,#3d4a59);border-radius:20px}
+.wcol .cap{color:#fff}
+.widget{width:360px;background:var(--wbg);border-radius:var(--rWidget);padding:16px 16px 10px;color:var(--text)}
+.w-head{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.w-title{font:var(--wTitle);color:var(--text)}
+.w-age{font:400 12px var(--font);color:var(--muted);flex:1}
+.w-ic{width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:var(--muted);border-radius:18px}
+.w-tabs{display:flex;gap:4px;margin-bottom:6px}
+.t{flex:1;display:flex;flex-direction:column;align-items:center;padding:6px 0 7px;border-radius:var(--rTab);color:var(--muted)}
+.t .n{font:var(--tabNum);color:var(--text)}.t .l{font:500 11px var(--font);margin-top:1px}
+.t.on{background:var(--accentC)}.t.on .n,.t.on .l{color:var(--onAccentC)}
+.w-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--hair)}
+.w-row:first-child{border-top:0}.w-row.extra{display:none}
+.w-main{flex:1;min-width:0}
+.w-t{font:var(--rowTitle);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+[dir=rtl] .w-t{text-align:right}
+.w-meta{display:flex;align-items:center;gap:8px;margin-top:4px;min-width:0}
+.w-sub{font:400 12px var(--font);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.w-btn{height:34px;padding:0 14px;font-size:14px;flex:none}
+
+body{font-stretch:semi-condensed}
+      .btn{font-size:14px}.chip{font-size:12px;padding:4px 9px}
+      .w-tabs{background:var(--tabTrack);border-radius:10px;padding:3px;gap:2px}
+      .t{flex-direction:row;justify-content:center;gap:5px;padding:6px 0}.t .l{font-size:11px;margin:0;order:1}.t .n{order:2;color:var(--muted)}
+      .t.on{background:var(--surface);box-shadow:0 0 0 1px var(--outline)}.t.on .l,.t.on .n{color:var(--text)}
+      .t-needs .n{color:var(--needsFg)!important}
+      .t .l{white-space:nowrap}
+      .w-row{padding:8px 0}.w-main{display:flex;align-items:center;gap:8px}.w-meta{margin:0;flex:none}.w-sub{display:none}.w-t{flex:1}
+      .w-row.extra{display:flex}.w-btn{height:28px;padding:0 10px;font-size:12px;border-radius:6px}
+      .st{font-size:11px}
+      .p-desc,.need-t{font-size:14px}.cmt-t{font-size:13px}
+      .widget{padding:12px 12px 6px;border:1px solid var(--outline)}
+      .w-ic{width:30px;height:30px}
+</style></head><body><div class="title-strip">C · Dense dev tool — app, light</div><div class="board"><div><div class="cap">Task preview</div><div class="phone over-home"><div class="sb"><span>14:05</span><span class="sb-r">▾ ▴ 87%</span></div><div class="screen"><div class="home"><div class="home-clock">14:05</div><div class="home-date">Monday, 2 November</div></div><div class="scrim"></div><div class="sheet">
+  <div class="handle"></div>
+  <div class="p-meta"><span class="st st-blocked st-lg">Blocked · waiting on you</span><span class="p-num">portfolio-site <span class="num">#43</span></span></div>
+  <h1 class="p-title">Deploy the portfolio site on merge</h1>
+  <div class="chips"><span class="chip">Feature</span><span class="chip">High priority</span><span class="chip">Approved</span></div>
+  <p class="p-desc">Deploy the site to GitHub Pages on every merge to main.</p>
+  <div class="need"><div class="need-l">What I need from you</div><div class="need-t">Add a <span class="code">DEPLOY_KEY</span> secret (a deploy key with write access) to the repo, then remove <span class="code">needs-owner</span> and I'll continue.</div></div>
+  <div class="cmt"><div class="cmt-l">Claude · run 30 Oct, 14:00</div><div class="cmt-t">The deploy step can't continue: the workflow pushes to gh-pages, but the repo has no deploy key…</div><span class="link">Show full comment</span></div>
+  <div class="actions"><span class="btn btn-ghost">Copy link</span><span class="btn btn-primary">Answer on GitHub</span></div>
+</div></div></div></div><div><div class="cap">New task</div><div class="phone "><div class="sb"><span>14:05</span><span class="sb-r">▾ ▴ 87%</span></div><div class="screen"><div class="appbar"><span class="ab-ic"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></span><span class="ab-t">New task</span></div>
+<div class="form">
+  <div class="field"><label>Title</label><div class="in">Weekly digest email of finished tasks</div></div>
+  <div class="field"><label>What should be done</label><div class="in in-multi">Every Sunday, email a summary of tasks done that week.<br>– Group by repo<br>– Link each PR</div></div>
+  <div class="field"><label>Done when</label><div class="in">A test email arrives with last week's tasks</div></div>
+  <div class="field"><label>Project repo</label><div class="in">VeganMarshmallow/digest</div></div>
+  <div class="field"><label>Type</label><div class="seg-chips"><span class="chip chip-on"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>Feature</span><span class="chip">Bug</span><span class="chip">Refactor</span><span class="chip">Research</span></div></div>
+  <div class="field"><label>Priority</label><div class="seg"><span>Low</span><span class="on">Normal</span><span>High</span></div></div>
+  <div class="sw-row"><div><div class="sw-t">Approve now</div><div class="sw-s">Claude starts it in the next run</div></div><span class="switch on"><i></i></span></div>
+</div>
+<div class="bottom"><span class="btn btn-primary btn-wide">Create task</span></div></div></div></div><div><div class="cap">Setup</div><div class="phone "><div class="sb"><span>14:05</span><span class="sb-r">▾ ▴ 87%</span></div><div class="screen"><div class="appbar"><span class="ab-t ab-big">Claude board</span></div>
+<div class="form">
+  <div class="sec-h">GitHub connection</div>
+  <div class="ok-row"><span class="ok-dot"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><div><div class="sw-t">Connected as VeganMarshmallow</div><div class="sw-s">Fine-grained token · checked 2 min ago</div></div></div>
+  <div class="field"><label>Token</label><div class="in">github_pat_11A••••••••••••3fQ</div><div class="help">Stays on this phone, never backed up.</div></div>
+  <div class="btn-row"><span class="btn btn-ghost">Test connection</span><span class="btn btn-primary">Save</span></div>
+  <div class="divider"></div>
+  <div class="sec-h">Merge from the widget <span class="opt">optional</span></div>
+  <p class="body">Lets the Merge button merge Claude's PRs from this phone. The token then needs, for each project repo:</p>
+  <div class="perm"><span>Contents · read and write</span><span class="pk"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span></div>
+  <div class="perm"><span>Pull requests · read and write</span><span class="pk"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span></div>
+  <div class="perm"><span>Actions · read</span><span class="pk miss">missing</span></div>
+  <span class="link">Edit token permissions on GitHub</span>
+  <div class="divider"></div>
+  <div class="sec-h">App updates</div>
+  <div class="upd"><div><div class="sw-t">Version 0.1.1</div><div class="sw-s">Up to date · checked today</div></div><span class="btn btn-ghost btn-sm">Check now</span></div>
+</div></div></div></div><div><div class="cap">Merge confirmation</div><div class="phone over-home"><div class="sb"><span>14:05</span><span class="sb-r">▾ ▴ 87%</span></div><div class="screen"><div class="home"><div class="home-clock">14:05</div><div class="home-date">Monday, 2 November</div></div><div class="scrim"></div><div class="dialog">
+  <div class="d-h">Merge PR #30?</div>
+  <div class="d-t">Widget: merge Claude's PRs from the widget</div>
+  <div class="d-m">Taskboard-widget → main · merge commit</div>
+  <div class="d-checks"><span class="pk"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span> Checks passed · no conflicts · not a draft</div>
+  <div class="actions"><span class="btn btn-text">Cancel</span><span class="btn btn-merge">Merge</span></div>
+</div></div></div></div></div></body></html>
