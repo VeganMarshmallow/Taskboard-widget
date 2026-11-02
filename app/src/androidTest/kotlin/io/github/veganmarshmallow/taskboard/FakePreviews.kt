@@ -7,6 +7,9 @@ import io.github.veganmarshmallow.taskboard.core.preview.IssueComment
 import io.github.veganmarshmallow.taskboard.core.preview.IssueDetails
 import io.github.veganmarshmallow.taskboard.core.preview.PreviewScreen
 import io.github.veganmarshmallow.taskboard.core.preview.TaskPreview
+import io.github.veganmarshmallow.taskboard.core.reply.ReplyForm
+import io.github.veganmarshmallow.taskboard.core.reply.ReplyResult
+import io.github.veganmarshmallow.taskboard.core.reply.ReplyStep
 
 /** Realistic preview states for instrumented tests and screenshots. */
 object FakePreviews {
@@ -33,6 +36,17 @@ object FakePreviews {
         ### Repo
         VeganMarshmallow/Taskboard-widget
     """.trimIndent()
+
+    /** #12 waiting on the owner, with a reply typed (task #44). */
+    fun blockedWithReply(): PreviewScreen = blockedWithClaudeLine()
+        .withReply(ReplyForm(draft = "ECharts. The heatmap matters more than the bundle size."))
+
+    /** The reply failed with no network; the text stays for another try (task #44). */
+    fun replyFailedOffline(): PreviewScreen = blockedWithClaudeLine()
+        .withReply(
+            ReplyForm(draft = "כן, ECharts. ה־heatmap חשוב יותר.")
+                .finished(ReplyResult.Failed(ReplyStep.COMMENT, BoardError.Network)),
+        )
 
     fun todoLoaded(): PreviewScreen = PreviewScreen.initial(11, null)
         .issueLoaded(details(11, "Widget: task preview with summary and approve", TODO_BODY, Labels.TODO, "type: feature"))

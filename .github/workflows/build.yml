@@ -6,7 +6,7 @@ name: build
 #   - pushes to main (publishes the `latest` release),
 #   - pull_request opened / reopened / ready_for_review / synchronize on a PR that is not a draft
 #     (a draft PR's pull_request run has no jobs; its push run already ran `build`),
-#   - workflow_dispatch with full=true (the default; update-prs.js passes false for draft PRs).
+#   - workflow_dispatch with full=true (the default).
 #   Full runs off main publish the PR's preview release (APK + screenshots); quick runs publish nothing.
 # - A quick run is named "… [partial]" (run-name below). The widget's Merge button reads that marker
 #   (core/merge/WorkflowRuns.kt): a workflow with only partial runs on the PR head isn't a pass, so it
@@ -203,6 +203,14 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # The restored AVD cache (GBs) plus the system image sdkmanager installs overflow the runner's
+      # disk ("No space left on device"). Drop preinstalled toolchains this repo never uses.
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
+
       - name: Restore AVD snapshot
         id: avd
         uses: actions/cache/restore@v4
@@ -318,6 +326,15 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+
+      # The restored AVD cache (GBs) plus the system image sdkmanager installs overflow the runner's
+      # disk ("No space left on device"). Drop preinstalled toolchains this repo never uses.
+      - name: Free disk space
+        if: steps.scope.outputs.run == 'true'
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
 
       - name: Restore AVD snapshot
         id: avd
