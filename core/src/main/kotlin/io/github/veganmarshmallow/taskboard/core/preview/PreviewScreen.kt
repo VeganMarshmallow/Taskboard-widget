@@ -1,6 +1,7 @@
 package io.github.veganmarshmallow.taskboard.core.preview
 
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
+import io.github.veganmarshmallow.taskboard.core.reply.ReplyForm
 
 /**
  * Everything the preview activity renders, as an immutable value with pure transitions. The
@@ -12,6 +13,7 @@ import io.github.veganmarshmallow.taskboard.core.error.BoardError
  * - [claudeComment] is the latest Claude comment in full (task #43); comment failures just leave it null.
  * - [approving] hides the Approve button while an approval runs; [justApproved] shows a confirmation.
  * - [justMerged] shows that the owner merged the task's PR from here (task #30) and hides Merge.
+ * - [reply] is the reply box (task #44); it survives reloads untouched.
  */
 data class PreviewScreen(
     val number: Int,
@@ -22,7 +24,17 @@ data class PreviewScreen(
     val approving: Boolean = false,
     val justApproved: Boolean = false,
     val justMerged: Boolean = false,
+    val reply: ReplyForm = ReplyForm(),
 ) {
+    /** The reply box is offered on any known task that is still open. */
+    val showReply: Boolean
+        get() = task != null && task.status != PreviewStatus.DONE && task.status != PreviewStatus.CLOSED
+
+    /** The "unblock the task" checkbox: the task waits on the owner, or an earlier unblock still has to be retried. */
+    val offerUnblock: Boolean get() = task?.needsOwner == true || reply.pendingUnblock
+
+    fun withReply(form: ReplyForm) = copy(reply = form)
+
     val showApprove: Boolean get() = task?.canApprove == true && !approving && !loading
 
     /** Merge is offered on a loaded or cached in-review task; the checks run when it is tapped. */
