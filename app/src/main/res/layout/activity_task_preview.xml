@@ -162,6 +162,75 @@
             </io.github.veganmarshmallow.taskboard.preview.CollapsibleText>
         </LinearLayout>
 
+        <!-- Reply to Claude, and optionally unblock the task (task #44). Bound by ReplyViews. -->
+        <LinearLayout
+            android:id="@+id/preview_reply"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <EditText
+                android:id="@+id/preview_reply_input"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/reply_input_background"
+                android:gravity="top|start"
+                android:hint="@string/reply_hint"
+                android:importantForAutofill="no"
+                android:inputType="textMultiLine|textCapSentences"
+                android:maxLines="6"
+                android:minLines="2"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="8dp"
+                android:scrollbars="vertical"
+                android:textAlignment="textStart"
+                android:textColor="@color/widget_text"
+                android:textColorHint="@color/widget_muted"
+                android:textDirection="firstStrong"
+                android:textSize="14sp" />
+
+            <CheckBox
+                android:id="@+id/preview_reply_unblock"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:buttonTint="@color/widget_accent"
+                android:checked="true"
+                android:text="@string/reply_unblock"
+                android:textColor="@color/widget_text"
+                android:textDirection="locale"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/preview_reply_message"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="8dp"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/preview_reply_send"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_gravity="end"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/preview_button_background"
+                android:minWidth="96dp"
+                android:paddingHorizontal="20dp"
+                android:stateListAnimator="@null"
+                android:text="@string/reply_send"
+                android:textAllCaps="false"
+                android:textColor="@color/widget_accent_text"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
         <TextView
             android:id="@+id/preview_error"
             android:layout_width="match_parent"

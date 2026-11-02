@@ -140,6 +140,42 @@ class PreviewScreenshotTest {
         assertTrue(contrast(need.currentTextColor, context.createConfigurationContext(nightConfig()).getColor(R.color.claude_need_bg)) >= 4.5)
     }
 
+    @Test fun replyWithUnblockForNeedsOwnerTask() {
+        val v = capture("44-1-preview-reply-unblock", FakePreviews.blockedWithReply(), heightDp = 640)
+        assertTrue(v.visible(R.id.preview_reply))
+        assertTrue(v.visible(R.id.preview_reply_unblock))
+        assertTrue(v.findViewById<android.widget.CheckBox>(R.id.preview_reply_unblock).isChecked)
+        assertTrue(v.findViewById<android.widget.Button>(R.id.preview_reply_send).isEnabled)
+        assertEquals("ECharts. The heatmap matters more than the bundle size.", v.text(R.id.preview_reply_input))
+    }
+
+    @Test fun replyFailedKeepsTextAndSaysWhy() {
+        val v = capture("44-2-preview-reply-error", FakePreviews.replyFailedOffline(), heightDp = 700)
+        assertTrue(v.text(R.id.preview_reply_message).startsWith("Reply not sent: No network"))
+        assertEquals("כן, ECharts. ה־heatmap חשוב יותר.", v.text(R.id.preview_reply_input))
+        val input = v.findViewById<TextView>(R.id.preview_reply_input)
+        assertTrue("Hebrew reply lays out right to left", input.layout.getParagraphDirection(0) == android.text.Layout.DIR_RIGHT_TO_LEFT)
+        assertTrue("Hebrew reply starts at the right edge", input.layout.getLineLeft(0) > 0f)
+        assertTrue("the reason ends its sentence", v.text(R.id.preview_reply_message).contains("can't reach GitHub. It may have reached GitHub"))
+    }
+
+    @Test fun replyDark() {
+        val v = capture(
+            "44-3-preview-reply-dark", FakePreviews.blockedWithReply(), heightDp = 640,
+            host = { PreviewHost(context, night = true) },
+        )
+        val input = v.findViewById<TextView>(R.id.preview_reply_input)
+        val sheetBg = context.createConfigurationContext(nightConfig()).getColor(R.color.widget_bg)
+        assertTrue(contrast(input.currentTextColor, sheetBg) >= 4.5)
+    }
+
+    @Test fun noReplyBoxWithoutUnblockOnOtherTasks() {
+        val v = capture("44-4-preview-reply-todo", FakePreviews.todoLoaded(), heightDp = 560)
+        assertTrue(v.visible(R.id.preview_reply))
+        assertTrue(!v.visible(R.id.preview_reply_unblock))
+        assertTrue("empty reply can't be sent", !v.findViewById<android.widget.Button>(R.id.preview_reply_send).isEnabled)
+    }
+
     private fun nightConfig() = android.content.res.Configuration(context.resources.configuration).apply {
         uiMode = (uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK.inv()) or android.content.res.Configuration.UI_MODE_NIGHT_YES
     }

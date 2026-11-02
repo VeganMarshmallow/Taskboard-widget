@@ -1,6 +1,7 @@
 package io.github.veganmarshmallow.taskboard.core.preview
 
 import io.github.veganmarshmallow.taskboard.core.board.Board
+import io.github.veganmarshmallow.taskboard.core.board.NeedsYouReason
 import io.github.veganmarshmallow.taskboard.core.board.Placement
 import io.github.veganmarshmallow.taskboard.core.board.TitleCleaner
 import io.github.veganmarshmallow.taskboard.core.tags.TagPill
@@ -20,6 +21,8 @@ data class TaskPreview(
     val tags: List<TagPill> = emptyList(),
     /** In review: the preview offers Merge (task #30). */
     val canMerge: Boolean = false,
+    /** `needs-owner`: Claude asked a question, so the reply box offers to unblock the task (#44). */
+    val needsOwner: Boolean = false,
 ) {
     val hasDescription: Boolean get() = summary != null
 
@@ -31,6 +34,7 @@ data class TaskPreview(
             return TaskPreview(
                 number, item.title, PreviewStatus.of(content.section, item.needsYouReason), item.canApprove,
                 canMerge = item.canMerge,
+                needsOwner = item.needsYouReason == NeedsYouReason.QUESTION,
             )
         }
 
@@ -47,6 +51,7 @@ data class TaskPreview(
                 isFromIssue = true,
                 tags = TagPills.of(issue.labels.associateWith { details.labelColors[it] }, details.body),
                 canMerge = Placement.canMerge(issue),
+                needsOwner = Placement.needsYouReason(issue) == NeedsYouReason.QUESTION,
             )
         }
 
