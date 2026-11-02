@@ -5,7 +5,7 @@ import java.time.Instant
 
 /**
  * The update check's rules, with no threads or Android: what the update section is doing
- * ([Activity]), when a check starts, and what a finished check caches. The app's `UpdateController`
+ * ([Activity]), when a check starts, and what a finished check caches. [UpdateController]
  * feeds it [Input]s, keeps the returned [Step.activity] and runs [Step.command].
  *
  * [onOpen] decides whether opening the app checks (skipped right after another check, e.g. a

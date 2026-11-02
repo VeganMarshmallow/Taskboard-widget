@@ -1,10 +1,13 @@
 package io.github.veganmarshmallow.taskboard.data
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import io.github.veganmarshmallow.taskboard.core.error.ErrorMessages
 import io.github.veganmarshmallow.taskboard.core.github.GitHubApi
 import io.github.veganmarshmallow.taskboard.core.http.HttpClient
 import io.github.veganmarshmallow.taskboard.core.snapshot.ShownStateStore
+import io.github.veganmarshmallow.taskboard.core.update.UpdateController
 import io.github.veganmarshmallow.taskboard.core.update.UpdateFlow
 import io.github.veganmarshmallow.taskboard.core.update.UpdateSchedule
 import io.github.veganmarshmallow.taskboard.core.update.Updater
@@ -17,13 +20,13 @@ import io.github.veganmarshmallow.taskboard.net.UrlConnectionStreamingClient
 import io.github.veganmarshmallow.taskboard.newtask.NewTaskController
 import io.github.veganmarshmallow.taskboard.newtask.NewTaskDeps
 import io.github.veganmarshmallow.taskboard.update.InstalledVersion
-import io.github.veganmarshmallow.taskboard.update.UpdateController
 import io.github.veganmarshmallow.taskboard.update.UpdateStore
 import io.github.veganmarshmallow.taskboard.widget.ConnectivityProbe
 import io.github.veganmarshmallow.taskboard.widget.StateRedraw
 import io.github.veganmarshmallow.taskboard.widget.TimeText
 import java.time.Clock
 import java.time.Duration
+import java.util.concurrent.Executors
 
 /** Wires core classes to Android implementations. The only place that knows both. */
 object AppGraph {
@@ -92,8 +95,10 @@ object AppGraph {
         store = UpdateStore(app),
         clock = clock,
         hasToken = { TokenStore(app).hasToken() },
-        updater = { TokenStore(app).get()?.let { Updater(UrlConnectionStreamingClient(), it, clock, ConnectivityProbe(app)) } },
+        fetchLatest = { TokenStore(app).get()?.let { Updater(UrlConnectionStreamingClient(), it, clock, ConnectivityProbe(app)).check() } },
         installedVersionCode = { InstalledVersion.of(app).versionCode },
         redrawBadge = { StateRedraw.redraw(app) },
+        background = Executors.newSingleThreadExecutor { r -> Thread(r, "taskboard-update").apply { isDaemon = true } },
+        mainThread = Handler(Looper.getMainLooper()).let { main -> { main.post(it) } },
     )
 }
