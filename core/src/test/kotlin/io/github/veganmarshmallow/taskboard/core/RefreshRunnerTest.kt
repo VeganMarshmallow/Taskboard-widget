@@ -6,6 +6,7 @@ import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.github.GitHubApi
 import io.github.veganmarshmallow.taskboard.core.http.HttpClient
 import io.github.veganmarshmallow.taskboard.core.model.Labels
+import io.github.veganmarshmallow.taskboard.core.snapshot.ShownStateStore
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.core.work.RefreshRunner
 import io.github.veganmarshmallow.taskboard.core.work.RefreshRunner.Result
@@ -26,8 +27,10 @@ class RefreshRunnerTest {
     private val time = FakeTime()
     private val clock = time.clock
     private val marks = TextMarkStore()
-    private val states = MemoryStateStore()
+    private val disk = MemoryStateStore()
+    private val states = ShownStateStore(disk)
     private val board = BoardBuilder().build(listOf(issue(2, Labels.TODO)), NOW)
+    private val newer = BoardBuilder().build(listOf(issue(2, Labels.TODO), issue(3, Labels.TODO)), NOW)
     private val tracker = RefreshTracker(marks, time.uptime)
     private fun runner(budget: Duration = Duration.ofSeconds(5)) = RefreshRunner(tracker, states, clock, budget = budget)
     private fun Result.state() = (this as Result.Committed).state
@@ -37,12 +40,12 @@ class RefreshRunnerTest {
         val r = runner().run(onStarted = { startedWhileRunning = tracker.isUpdating() }) { it.withBoard(board) }
         assertTrue(startedWhileRunning)
         assertEquals(board, r.state().board)
-        assertEquals(r.state(), states.state)
+        assertEquals(r.state(), disk.state)
         assertEquals(Status.IDLE, tracker.status())
     }
 
     @Test fun aHangingLoadEndsInATimeoutWithinTheBudget() {
-        states.state = WidgetState(board, null, NOW)
+        disk.state = WidgetState(board, null, NOW)
         val started = System.nanoTime()
         val r = runner(Duration.ofMillis(300)).run { Thread.sleep(60_000); error("unreachable") }
         val tookMs = (System.nanoTime() - started) / 1_000_000
@@ -81,16 +84,92 @@ class RefreshRunnerTest {
     }
 
     @Test fun aSaveFailureStillEndsTheRunWithAnErrorToShow() {
-        states.state = WidgetState(board, null, NOW)
-        states.failSaves = true
+        disk.state = WidgetState(board, null, NOW)
+        disk.failSaves = true
         val r = runner().run { it.withBoard(board) } // never throws: the widget must get something to render
         assertEquals(BoardError.Unexpected("internal error: IllegalStateException"), r.state().error)
         assertEquals("the board on disk is what the list shows", board, r.state().board)
         assertEquals(Status.IDLE, tracker.status())
     }
 
+    @Test fun aSaveFailureIsWhatTheStoreShowsWithoutTouchingTheDisk() {
+        val saved = WidgetState(board, null, NOW)
+        disk.state = saved
+        disk.failSaves = true
+        val r = runner().run { it.withBoard(newer) }
+        assertEquals("every render reads the store, so it must show the failure", r.state(), states.load())
+        assertEquals(BoardError.Unexpected("internal error: IllegalStateException"), states.load().error)
+        assertEquals("nothing unsaved reaches the disk", saved, disk.state)
+    }
+
+    @Test fun theNextSuccessfulSaveClearsTheSaveFailure() {
+        disk.failSaves = true
+        runner().run { it.withBoard(board) }
+        disk.failSaves = false
+        val r = runner().run { it.withBoard(newer) }
+        assertNull(states.load().error)
+        assertEquals(newer, states.load().board)
+        assertEquals(r.state(), states.load())
+    }
+
+    @Test fun aSaveFailureDoesNotSurviveProcessDeath() {
+        disk.state = WidgetState(board, null, NOW)
+        disk.failSaves = true
+        runner().run { it.withBoard(newer) }
+        val restarted = ShownStateStore(disk) // a new process: the transient banner is gone
+        assertEquals("the last really saved board is shown", WidgetState(board, null, NOW), restarted.load())
+    }
+
+    @Test fun aRecoveryThatCannotSaveStillShowsItsTimeoutInTheStore() {
+        disk.state = WidgetState(board, null, NOW)
+        tracker.begin()
+        time.advance(Duration.ofMinutes(2))
+        disk.failSaves = true
+        val recovered = runner().recoverIfStale()!!
+        assertEquals(recovered, states.load())
+        assertEquals(BoardError.Timeout, states.load().error)
+    }
+
+    @Test fun aSaveThatFailsWhileANewerRunWaitsNeverLandsOverTheNewerBoard() {
+        val inSave = CountDownLatch(1)
+        val failNow = CountDownLatch(1)
+        val slowFailingDisk = object : io.github.veganmarshmallow.taskboard.core.snapshot.WidgetStateStore {
+            @Volatile var state = WidgetState.INITIAL
+            @Volatile var failNext = true
+            override fun load() = state
+            override fun save(state: WidgetState) {
+                if (failNext) { failNext = false; inSave.countDown(); failNow.await(); throw IllegalStateException("disk full") }
+                this.state = state
+            }
+        }
+        val shown = ShownStateStore(slowFailingDisk)
+        val pool = Executors.newCachedThreadPool()
+        val older = pool.submit<Result> { RefreshRunner(tracker, shown, clock).run { it.withBoard(board) } }
+        assertTrue(inSave.await(5, TimeUnit.SECONDS))
+        val newerRun = pool.submit<Result> { RefreshRunner(tracker, shown, clock).run { it.withBoard(newer) } }
+        failNow.countDown()
+        older.get(5, TimeUnit.SECONDS)
+        newerRun.get(5, TimeUnit.SECONDS)
+        assertEquals("the last render, whoever draws it, shows the newest board", newer, shown.load().board)
+        assertNull(shown.load().error)
+        pool.shutdown()
+    }
+
+    @Test fun overlappingRunsEndWithTheNewestStoredBoardForEveryRender() {
+        val aLoaded = CountDownLatch(1)
+        val aRelease = CountDownLatch(1)
+        val pool = Executors.newCachedThreadPool()
+        val a = pool.submit<Result> { runner().run { aLoaded.countDown(); aRelease.await(); it.withBoard(board) } }
+        assertTrue(aLoaded.await(5, TimeUnit.SECONDS))
+        val b = runner().run { it.withBoard(newer) }
+        aRelease.countDown()
+        assertEquals(Result.Superseded, a.get(5, TimeUnit.SECONDS))
+        assertEquals("A's late render reads the store, not A's board", b.state(), states.load())
+        pool.shutdown()
+    }
+
     @Test fun anUnreadableStoredStateStillEndsTheRun() {
-        states.failLoads = true
+        disk.failLoads = true
         var seen: WidgetState? = null
         val r = runner().run { seen = it; it.withBoard(board) }
         assertEquals(WidgetState.INITIAL, seen)
@@ -133,15 +212,15 @@ class RefreshRunnerTest {
 
     @Test fun aSweepAfterASuccessfulRefreshLeavesTheGoodBoardAlone() {
         val good = runner().run { it.withBoard(board) }.state()
-        val savesBefore = states.saves
+        val savesBefore = disk.saves
         time.advance(Duration.ofSeconds(65)) // when the sweep job fires
         assertNull(runner().recoverIfStale())
-        assertEquals(good, states.state)
-        assertEquals(savesBefore, states.saves)
+        assertEquals(good, disk.state)
+        assertEquals(savesBefore, disk.saves)
     }
 
     @Test fun aRebootMidRefreshRecoversRightAway() {
-        states.state = WidgetState(board, null, NOW)
+        disk.state = WidgetState(board, null, NOW)
         tracker.begin() // the phone restarts during the fetch
         time.uptime.reboot(upFor = Duration.ofSeconds(20))
         val recovered = RefreshRunner(RefreshTracker(marks, time.uptime), states, clock).recoverIfStale()!!
@@ -150,10 +229,10 @@ class RefreshRunnerTest {
     }
 
     @Test fun recoveryThatCannotSaveStillReturnsTheErrorAndClearsTheMark() {
-        states.state = WidgetState(board, null, NOW)
+        disk.state = WidgetState(board, null, NOW)
         tracker.begin()
         time.advance(Duration.ofMinutes(2))
-        states.failSaves = true
+        disk.failSaves = true
         assertEquals(BoardError.Timeout, runner().recoverIfStale()?.error)
         assertEquals(Status.IDLE, tracker.status())
     }
@@ -173,13 +252,13 @@ class RefreshRunnerTest {
         assertEquals(board, manual.state().board)
         release.countDown()
         assertEquals(Result.Superseded, stuck.get(5, TimeUnit.SECONDS))
-        assertNull("the newer board is not overwritten", states.state.error)
+        assertNull("the newer board is not overwritten", disk.state.error)
         assertEquals(Status.IDLE, tracker.status())
         pool.shutdown()
     }
 
     @Test fun processDeathMidRefreshRecoversToATimeoutError() {
-        states.state = WidgetState(board, null, NOW)
+        disk.state = WidgetState(board, null, NOW)
         tracker.begin() // the process is killed during the fetch
         time.advance(Duration.ofSeconds(30))
         val restarted = RefreshRunner(RefreshTracker(marks, time.uptime), states, clock)
@@ -189,14 +268,14 @@ class RefreshRunnerTest {
         assertEquals(BoardError.Timeout, recovered.error)
         assertEquals(board, recovered.board)
         assertEquals(clock.now, recovered.attemptedAt)
-        assertEquals(recovered, states.state)
+        assertEquals(recovered, disk.state)
         assertEquals(Status.IDLE, RefreshTracker(marks, time.uptime).status())
         assertNull("nothing left to recover", restarted.recoverIfStale())
     }
 
     @Test fun recoverIfStaleDoesNothingWhenIdle() {
         assertNull(runner().recoverIfStale())
-        assertEquals(0, states.saves)
+        assertEquals(0, disk.saves)
     }
 
     @Test fun budgetIsBelowTheStaleLimitAndAboveTheBroadcastLimit() {

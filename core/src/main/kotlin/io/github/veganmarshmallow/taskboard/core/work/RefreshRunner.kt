@@ -1,8 +1,8 @@
 package io.github.veganmarshmallow.taskboard.core.work
 
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
+import io.github.veganmarshmallow.taskboard.core.snapshot.ShownStateStore
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
-import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetStateStore
 import java.time.Clock
 import java.time.Duration
 
@@ -10,16 +10,19 @@ import java.time.Duration
  * Runs one refresh so that it always ends in the new board or an error within [budget]: mark the
  * run as started, load under a [TimeLimit], and save the result if this run is still the newest.
  * A run that died with its process is cleaned up later by [recoverIfStale].
+ *
+ * A save that fails is shown through [states] ([ShownStateStore.showUnsaved]), inside the tracker's
+ * lock, so the store always holds what the widget should show and every render can read it there.
  */
 class RefreshRunner(
     private val tracker: RefreshTracker,
-    private val states: WidgetStateStore,
+    private val states: ShownStateStore,
     private val clock: Clock,
     private val limit: TimeLimit = TimeLimit(),
     private val budget: Duration = RUN_BUDGET,
 ) {
     sealed class Result {
-        /** This run's state was saved; render it. */
+        /** This run ended; [state] is what the store now shows (the new board, or the save failure). */
         data class Committed(val state: WidgetState) : Result()
 
         /** A newer run started meanwhile, so this run's result was dropped. */
@@ -46,16 +49,33 @@ class RefreshRunner(
             Timed.TimedOut -> previous.withError(BoardError.Timeout, clock.instant())
         }
         return try {
-            if (tracker.commitIfCurrent(mark.runId) { states.save(next) }) Result.Committed(next) else Result.Superseded
+            val committed = tracker.commitIfCurrent(mark.runId) {
+                saveOrShow(next) { t -> previous.withError(crashError(t), clock.instant()) }
+            }
+            if (committed) Result.Committed(next) else Result.Superseded
         } catch (t: Throwable) {
-            // The save (or clearing the mark) failed. The tracker has ended the run; show the failure.
-            Result.Committed(previous.withError(crashError(t), clock.instant()))
+            // The save or clearing the mark failed; the tracker has ended the run. Either way the
+            // store now shows the right thing: the saved board, or the save failure.
+            Result.Committed(loadOrInitial())
         }
     }
 
     /**
-     * If a run died (its mark went stale): records a timeout and returns the state to render.
-     * Otherwise null (so a sweep after a good refresh never touches the good board). Never throws.
+     * Saves [state]; if that fails, shows [onFailure]'s state instead and rethrows. Called inside
+     * the tracker's lock, so a newer run's save can never land before the failure is shown.
+     */
+    private fun saveOrShow(state: WidgetState, onFailure: (Throwable) -> WidgetState) {
+        try {
+            states.save(state)
+        } catch (t: Throwable) {
+            states.showUnsaved(onFailure(t))
+            throw t
+        }
+    }
+
+    /**
+     * If a run died (its mark went stale): records a timeout (shown even if saving it fails) and
+     * returns it. Otherwise null (so a sweep after a good refresh never touches the good board). Never throws.
      */
     fun recoverIfStale(): WidgetState? {
         var recovered: WidgetState? = null
@@ -63,10 +83,10 @@ class RefreshRunner(
             tracker.clearIfStale {
                 val state = loadOrInitial().withError(BoardError.Timeout, clock.instant())
                 recovered = state
-                states.save(state)
+                saveOrShow(state) { state }
             }
         } catch (t: Throwable) {
-            // Saving failed; the mark is cleared anyway. Still render the error over "updating…".
+            // Saving failed; the mark is cleared anyway, and the store shows the error over "updating…".
         }
         return recovered
     }
