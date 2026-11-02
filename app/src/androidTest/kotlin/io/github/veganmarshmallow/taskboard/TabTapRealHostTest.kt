@@ -150,7 +150,7 @@ class TabTapRealHostTest {
             SystemClock.sleep(20)
             running.set(false)
             redraws.join()
-            val expected = context.getString(R.string.tab_description, Section.TODO.title, next.count(Section.TODO))
+            val expected = context.getString(R.string.tab_description, context.getString(R.string.tab_title_todo), next.count(Section.TODO))
             host.assertTextSettles("round $round: Todo count", expected) { host.slotDescription(Section.TODO) }
         }
     }
