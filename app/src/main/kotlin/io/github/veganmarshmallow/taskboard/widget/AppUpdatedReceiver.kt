@@ -3,6 +3,7 @@ package io.github.veganmarshmallow.taskboard.widget
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import io.github.veganmarshmallow.taskboard.core.work.BoardJob
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTrigger
 
@@ -20,11 +21,15 @@ class AppUpdatedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         val app = context.applicationContext
-        if (WidgetRenderer(app).widgetIds().isEmpty()) return // no widget, nothing to recover
-        restartRefresh(app)
+        val hasWidget = WidgetRenderer(app).widgetIds().isNotEmpty() // no widget, nothing to recover
+        if (hasWidget) restartRefresh(app)
+        // emulator tests wait for this line before checking the recovery (app-update-test.sh, #42)
+        Log.i(TAG, "handled MY_PACKAGE_REPLACED: ${if (hasWidget) "refresh restarted" else "no widget"}")
     }
 
     companion object {
+        private const val TAG = "AppUpdatedReceiver"
+
         /**
          * Replaces any pending refresh with one built by this version (it waits for any network
          * with internet), and schedules a sweep that turns a dead run's "updating…" into an error.
