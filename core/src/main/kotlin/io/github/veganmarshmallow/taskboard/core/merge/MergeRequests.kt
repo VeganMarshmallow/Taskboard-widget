@@ -3,6 +3,7 @@ package io.github.veganmarshmallow.taskboard.core.merge
 import io.github.veganmarshmallow.taskboard.core.github.GitHubRequests
 import io.github.veganmarshmallow.taskboard.core.github.GitHubRequests.Companion.API
 import io.github.veganmarshmallow.taskboard.core.http.HttpRequest
+import io.github.veganmarshmallow.taskboard.core.model.GitHubNames
 import io.github.veganmarshmallow.taskboard.core.model.Repo
 
 /**

@@ -1,5 +1,6 @@
 package io.github.veganmarshmallow.taskboard.core.task
 
+import io.github.veganmarshmallow.taskboard.core.model.GitHubNames
 import io.github.veganmarshmallow.taskboard.core.model.Repo
 
 /**
@@ -20,11 +21,7 @@ object RepoInput {
         data class Invalid(val reason: String) : Result()
     }
 
-    private val OWNER = Regex("^[A-Za-z0-9](?:-?[A-Za-z0-9])*$")
-    private val NAME = Regex("^[A-Za-z0-9._-]+$")
     private val LINK_PREFIX = Regex("^(?:(?:https?://)?(?:www\\.)?github\\.com/|git@github\\.com:)", RegexOption.IGNORE_CASE)
-    private const val MAX_OWNER = 39
-    private const val MAX_NAME = 100
     const val FORMAT_HINT = "Use owner/name, e.g. VeganMarshmallow/my-app"
 
     fun parse(input: String, defaultOwner: String = DEFAULT_OWNER): Result {
@@ -63,9 +60,9 @@ object RepoInput {
     private fun build(owner: String, name: String): Result = when {
         owner.isEmpty() -> Result.Invalid("Owner is missing. $FORMAT_HINT")
         name.isEmpty() -> Result.Invalid("Repo name is missing. $FORMAT_HINT")
-        owner.length > MAX_OWNER || !OWNER.matches(owner) ->
+        !GitHubNames.isTypedOwner(owner) ->
             Result.Invalid("“$owner” isn't a valid GitHub owner. $FORMAT_HINT")
-        name.length > MAX_NAME || !NAME.matches(name) || name == "." || name == ".." ->
+        !GitHubNames.isName(name) ->
             Result.Invalid("“$name” isn't a valid repo name. Use letters, digits, '.', '-' or '_'")
         else -> Result.Valid(Repo(owner, name))
     }

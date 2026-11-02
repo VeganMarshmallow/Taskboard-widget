@@ -6,6 +6,7 @@ import io.github.veganmarshmallow.taskboard.core.json.JsonParser
 import io.github.veganmarshmallow.taskboard.core.json.list
 import io.github.veganmarshmallow.taskboard.core.json.long
 import io.github.veganmarshmallow.taskboard.core.json.string
+import io.github.veganmarshmallow.taskboard.core.model.GitHubNames
 import io.github.veganmarshmallow.taskboard.core.model.Repo
 import java.time.Instant
 import java.time.format.DateTimeParseException

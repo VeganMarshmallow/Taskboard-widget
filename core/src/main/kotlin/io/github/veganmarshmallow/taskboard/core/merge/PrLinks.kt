@@ -1,5 +1,6 @@
 package io.github.veganmarshmallow.taskboard.core.merge
 
+import io.github.veganmarshmallow.taskboard.core.model.GitHubNames
 import io.github.veganmarshmallow.taskboard.core.model.Repo
 
 /**
@@ -47,7 +48,7 @@ object PrLinks {
 
     private fun ref(at: Int, owner: String, rawName: String, number: String): Pair<Int, PullRef>? {
         val name = rawName.removeSuffix(".git").trimEnd('.')
-        if (name.isEmpty() || name == "." || name == "..") return null
+        if (!GitHubNames.isName(name)) return null
         val n = number.toIntOrNull()?.takeIf { it > 0 } ?: return null
         return at to PullRef(Repo(owner, name), n)
     }
