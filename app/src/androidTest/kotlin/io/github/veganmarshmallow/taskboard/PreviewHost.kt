@@ -31,6 +31,8 @@ class PreviewHost(context: Context, fontScale: Float? = null, night: Boolean? = 
         val views = PreviewViews(sheet, AppGraph.messages(themed))
         views.bind(screen)
         prepare(sheet)
+        // A detached sheet never runs state animations: show checkboxes in their end state, not frame 0.
+        sheet.jumpDrawablesToCurrentState()
         val w = (widthDp * density).toInt()
         val h = (heightDp * density).toInt()
         frame.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY))
