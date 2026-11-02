@@ -88,7 +88,7 @@ class SetupActivity : Activity() {
     private fun runTest(token: String) {
         setBusy(true)
         showStatus(getString(R.string.testing), isError = false)
-        tester.test(token) { result ->
+        tester.test(this, token) { result ->
             if (isDestroyed) return@test
             setBusy(false)
             when (result) {

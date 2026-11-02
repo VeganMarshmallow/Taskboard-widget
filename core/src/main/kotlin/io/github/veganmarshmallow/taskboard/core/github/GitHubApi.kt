@@ -2,6 +2,7 @@ package io.github.veganmarshmallow.taskboard.core.github
 
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.error.ErrorClassifier
+import io.github.veganmarshmallow.taskboard.core.error.NetworkProbe
 import io.github.veganmarshmallow.taskboard.core.http.HttpClient
 import io.github.veganmarshmallow.taskboard.core.http.HttpRequest
 import io.github.veganmarshmallow.taskboard.core.http.HttpResponse
@@ -15,18 +16,22 @@ import io.github.veganmarshmallow.taskboard.core.task.NewIssue
 import io.github.veganmarshmallow.taskboard.core.task.RecentIssue
 import io.github.veganmarshmallow.taskboard.core.task.RepoSuggestions
 import java.io.IOException
-import java.net.SocketTimeoutException
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 
-/** The board's use of the GitHub REST API: load issues, approve a task, check a token. */
+/**
+ * The board's use of the GitHub REST API: load issues, approve a task, check a token. Every request
+ * (including [io.github.veganmarshmallow.taskboard.core.preview.PreviewApi]'s and the merge
+ * package's) goes through [send], so [probe] gives all of them the same connection-failure wording.
+ */
 class GitHubApi(
     private val http: HttpClient,
     token: String,
     internal val clock: Clock = Clock.systemUTC(),
     repo: Repo = Repo.BOARD,
     private val maxPages: Int = PagedFetcher.DEFAULT_MAX_PAGES,
+    private val probe: NetworkProbe? = null, // null only in core tests: no probe, the raw wording
 ) {
     internal val requests = GitHubRequests(repo, token)
 
@@ -74,13 +79,10 @@ class GitHubApi(
     ): Outcome<HttpResponse> {
         val response = try {
             http.execute(request)
-        } catch (e: SocketTimeoutException) {
-            return Outcome.Failure(BoardError.Timeout) // connected, or tried to, but GitHub never answered in time
         } catch (e: IOException) {
-            return Outcome.Failure(BoardError.Network)
+            return Outcome.Failure(ErrorClassifier.classifyFailure(e, probe))
         } catch (e: RuntimeException) {
-            // e.g. SecurityException or a platform bug inside the HTTP stack; never crash the caller.
-            return Outcome.Failure(BoardError.Unexpected("request failed: ${e.javaClass.simpleName}"))
+            return Outcome.Failure(ErrorClassifier.classifyFailure(e, probe)) // never crash the caller
         }
         return classify(response)?.let { Outcome.Failure(it) } ?: Outcome.Success(response)
     }

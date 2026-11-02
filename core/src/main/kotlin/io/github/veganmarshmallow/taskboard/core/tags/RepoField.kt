@@ -5,6 +5,7 @@ import io.github.veganmarshmallow.taskboard.core.markdown.MarkdownBlock
 import io.github.veganmarshmallow.taskboard.core.markdown.MarkdownBlocks
 import io.github.veganmarshmallow.taskboard.core.markdown.MarkdownInline
 import io.github.veganmarshmallow.taskboard.core.markdown.MarkdownSections
+import io.github.veganmarshmallow.taskboard.core.model.GitHubNames
 import io.github.veganmarshmallow.taskboard.core.model.Repo
 
 /**
@@ -18,8 +19,6 @@ object RepoField {
     private val LINE = Regex("""(?i)^[ \t>*_-]*\**repo(?:sitory)?\**[ \t]*:\**[ \t]*(.+)$""")
     private val GITHUB_URL = Regex("""(?i)^(?:(?:https?://)?(?:www\.)?github\.com/|git@github\.com:)""")
 
-    /** GitHub owner and repo names: letters, digits, `-`, `_`, `.`; at most 100 characters. */
-    private val OWNER_NAME = Regex("""^([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))/([A-Za-z0-9._-]{1,100})$""")
     private const val MAX_INPUT = 64 * 1024
 
     fun name(body: String?): String? = repo(body)?.name
@@ -68,8 +67,8 @@ object RepoField {
         val parts = s.split('/')
         if (parts.size > 2) s = parts.take(2).joinToString("/") // github.com/owner/name/issues/3
         s = s.removeSuffix(".git")
-        val match = OWNER_NAME.find(s) ?: return null
-        val name = match.groupValues[2].takeUnless { it == "." || it == ".." } ?: return null
-        return Repo(match.groupValues[1], name)
+        val owner = s.substringBefore('/', missingDelimiterValue = "")
+        val name = s.substringAfter('/', missingDelimiterValue = "")
+        return if (GitHubNames.isOwner(owner) && GitHubNames.isName(name)) Repo(owner, name) else null
     }
 }

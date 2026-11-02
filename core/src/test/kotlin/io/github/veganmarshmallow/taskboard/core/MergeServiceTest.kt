@@ -264,6 +264,25 @@ class MergeServiceTest {
         assertEquals(listOf("Approval", "Queued"), (s.prepare().problem() as MergeProblem.ChecksRunning).names)
     }
 
+    @Test fun aWorkflowThatRanForThePrButNotYetOnTheHeadIsStillRunning() {
+        val s = Script()
+        s.override({ _, u -> "/actions/runs?branch=" in u }) {
+            ok(runsJson(wfRun("Fast", workflow = 1, sha = SHA_B, event = "pull_request"), wfRun("Slow", workflow = 2, sha = SHA_B, event = "pull_request")))
+        }
+        s.override({ _, u -> "/actions/workflows" in u }) {
+            ok("""{"total_count":2,"workflows":[{"id":1,"name":"Fast","state":"active"},{"id":2,"name":"Slow","state":"active"}]}""")
+        }
+        s.checks = runsJson(wfRun("Fast", workflow = 1, event = "pull_request"))
+        assertEquals(listOf("Slow (not started)"), (s.prepare().problem() as MergeProblem.ChecksRunning).names)
+        assertTrue("never merges", s.urls().none { it.startsWith("PUT") })
+        s.checks = runsJson(wfRun("Fast", workflow = 1, event = "pull_request"), wfRun("Slow", workflow = 2, event = "pull_request"))
+        assertEquals(12, s.prepare().pr().number)
+        val before = s.urls().count { "branch=" in it }
+        s.checks = runsJson(wfRun("Fast", "failure", workflow = 1, event = "pull_request"))
+        assertTrue(s.prepare().problem() is MergeProblem.ChecksFailed)
+        assertEquals("a head that fails anyway costs no extra call", before, s.urls().count { "branch=" in it })
+    }
+
     @Test fun checksFailed() {
         val s = Script()
         listOf("failure", "cancelled", "timed_out", "action_required").forEach { c ->

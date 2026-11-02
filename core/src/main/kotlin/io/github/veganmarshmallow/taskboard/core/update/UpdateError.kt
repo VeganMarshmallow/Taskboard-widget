@@ -7,8 +7,11 @@ sealed class UpdateError {
     /** No token saved yet. */
     data object NoToken : UpdateError()
 
-    /** No response at all (offline, DNS, timeout, connection dropped). */
+    /** No response at all, and the device had no network. */
     data object Network : UpdateError()
+
+    /** No response at all although the device has a network (DNS, VPN, timeout, connection dropped). */
+    data object Unreachable : UpdateError()
 
     /** The token cannot read Taskboard-widget: the repo isn't added to it, or it lacks Contents: Read-only. */
     data object NoRepoAccess : UpdateError()

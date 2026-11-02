@@ -4,7 +4,6 @@ import android.content.Context
 import android.util.Log
 import io.github.veganmarshmallow.taskboard.core.board.BoardLoader
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
-import io.github.veganmarshmallow.taskboard.core.error.Reachability
 import io.github.veganmarshmallow.taskboard.core.merge.MergeLaneLoader
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.core.work.RefreshRunner
@@ -21,10 +20,9 @@ class WidgetRefresher(private val context: Context) {
     private val renderer = WidgetRenderer(context)
 
     fun refresh(): RefreshRunner.Result {
+        // Connection errors are already worded from the device's network state by the api (#29, #35).
         val result = renderAfter(runner.run(onStarted = ::onStarted) { previous ->
-            val next = BoardLoader(AppGraph.clock, mergeLanes = MergeLaneLoader.forRefresh(AppGraph.clock)).refresh(previous, AppGraph.apiOrNull(context))
-            // "No network" only when the device really has none; otherwise GitHub is unreachable (#29).
-            if (next.error == null) next else Reachability.refine(next, Connectivity.isOnline(context))
+            BoardLoader(AppGraph.clock, mergeLanes = MergeLaneLoader.forRefresh(AppGraph.clock)).refresh(previous, AppGraph.apiOrNull(context))
         })
         AppGraph.updates(context).checkInBackgroundIfDue() // queued on its own thread; never delays the board
         return result

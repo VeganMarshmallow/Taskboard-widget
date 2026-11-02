@@ -42,7 +42,7 @@ class UpdateStatusTest {
 
     @Test fun codecRoundTripsEveryError() {
         val errors = listOf(
-            UpdateError.NoToken, UpdateError.Network, UpdateError.NoRepoAccess, UpdateError.BadToken,
+            UpdateError.NoToken, UpdateError.Network, UpdateError.Unreachable, UpdateError.NoRepoAccess, UpdateError.BadToken,
             UpdateError.NoRelease, UpdateError.ReleaseChanged,
             UpdateError.RateLimited(null), UpdateError.RateLimited(NOW), UpdateError.Server(503),
             UpdateError.Malformed("x \"y\" ✓"), UpdateError.Unexpected("עברית"), null,
@@ -68,6 +68,12 @@ class UpdateStatusTest {
         listOf("UpToDate", "Corrupt", "Untrusted", "InstallNotAllowed").forEach { kind ->
             assertNull(UpdateStatusCodec.decode("""{"v":1,"checkedAt":1,"error":{"k":"$kind","d":"x"}}""").error)
         }
+    }
+
+    @Test fun aNetworkErrorSavedBeforeUnreachableExistedStillReadsAsNoNetwork() {
+        // #35: "Network" keeps its stored name, so a status saved by an older build decodes unchanged.
+        assertEquals(UpdateError.Network, UpdateStatusCodec.decode("""{"v":1,"checkedAt":1,"error":{"k":"Network"}}""").error)
+        assertEquals(UpdateError.Unreachable, UpdateStatusCodec.decode("""{"v":1,"checkedAt":1,"error":{"k":"Unreachable"}}""").error)
     }
 
     @Test fun codecNeverThrowsOnGarbage() {
@@ -128,7 +134,7 @@ class UpdateStatusTest {
 
     @Test fun everyErrorHasAMessage() {
         listOf(
-            UpdateError.NoToken, UpdateError.Network, UpdateError.NoRepoAccess, UpdateError.BadToken, UpdateError.NoRelease,
+            UpdateError.NoToken, UpdateError.Network, UpdateError.Unreachable, UpdateError.NoRepoAccess, UpdateError.BadToken, UpdateError.NoRelease,
             UpdateError.ReleaseChanged, UpdateError.RateLimited(null), UpdateError.RateLimited(NOW),
             UpdateError.Server(500), UpdateError.Malformed("m"), UpdateError.Unexpected("u"),
         ).forEach { assertTrue(it.toString(), messages.message(it).isNotBlank()) }

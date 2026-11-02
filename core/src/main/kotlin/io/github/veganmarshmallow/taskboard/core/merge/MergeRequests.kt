@@ -3,6 +3,7 @@ package io.github.veganmarshmallow.taskboard.core.merge
 import io.github.veganmarshmallow.taskboard.core.github.GitHubRequests
 import io.github.veganmarshmallow.taskboard.core.github.GitHubRequests.Companion.API
 import io.github.veganmarshmallow.taskboard.core.http.HttpRequest
+import io.github.veganmarshmallow.taskboard.core.model.GitHubNames
 import io.github.veganmarshmallow.taskboard.core.model.Repo
 
 /**
@@ -31,6 +32,18 @@ internal fun GitHubRequests.workflowRuns(repo: Repo, sha: String): HttpRequest {
     require(SHA.matches(sha)) { "not a commit SHA" }
     return get("${repoPath(repo)}/actions/runs?head_sha=$sha&per_page=${GitHubRequests.PER_PAGE}")
 }
+
+/**
+ * The newest `pull_request` runs on the PR branch [branch], any commit (#41: which workflows normally
+ * run for this PR). One page of 100 is enough: only the workflows' ids are read, not every run.
+ */
+internal fun GitHubRequests.pullRequestRuns(repo: Repo, branch: String): HttpRequest {
+    require(GitHubNames.isBranch(branch)) { "not a branch name" }
+    return get("${repoPath(repo)}/actions/runs?branch=$branch&event=pull_request&per_page=${GitHubRequests.PER_PAGE}")
+}
+
+/** The repo's workflows and their `state` (#41: a disabled or deleted workflow isn't waited for). */
+internal fun GitHubRequests.workflows(repo: Repo): HttpRequest = get("${repoPath(repo)}/actions/workflows?per_page=${GitHubRequests.PER_PAGE}")
 
 /**
  * How far [sha] is behind [base] (#45: `behind_by` > 0 means the PR still has to be updated with it).

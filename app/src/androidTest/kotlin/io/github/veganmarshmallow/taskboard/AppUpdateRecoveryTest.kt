@@ -22,7 +22,7 @@ import org.junit.runner.RunWith
 /**
  * #29 across a real app update: a widget stuck on an error recovers by itself after a new APK is
  * installed over the old one. An instrumentation cannot reinstall its own app, so
- * `.github/scripts/emulator-tests.sh` runs [prepare], then `adb install -r`, then [verify], each
+ * `.github/scripts/app-update-test.sh` runs [prepare], then `adb install -r`, then [verify], each
  * selected with `-e appUpdateStep <name>`. Both are skipped in the normal test run.
  *
  * The real GitHub is used (the new process has no fakes) with a fake token, so the recovering
@@ -54,7 +54,10 @@ class AppUpdateRecoveryTest {
     @Test fun verify() {
         assumeTrue(step == "verify")
         try {
-            h.await(120_000, "a refresh after the update, with no tap") { h.state().attemptedAt != STUCK.attemptedAt && h.idle() }
+            // Not h.await: its request count is the fake GitHub's, which this process never uses.
+            // app-update-test.sh starts this step only after AppUpdatedReceiver ran (#42).
+            val refreshed = h.waitUntil(120_000) { h.state().attemptedAt != STUCK.attemptedAt && h.idle() }
+            assertTrue("timed out waiting for a refresh after the update, with no tap (state: ${h.state()})", refreshed)
             assertNotEquals(STUCK, h.state())
         } finally {
             AppWidgetHost(context, HOST_ID).deleteHost()

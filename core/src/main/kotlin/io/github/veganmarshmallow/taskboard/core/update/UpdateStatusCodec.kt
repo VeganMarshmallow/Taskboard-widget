@@ -50,6 +50,7 @@ object UpdateStatusCodec {
     private fun errorToMap(e: UpdateError): Map<String, Any?> = when (e) {
         UpdateError.NoToken -> mapOf("k" to "NoToken")
         UpdateError.Network -> mapOf("k" to "Network")
+        UpdateError.Unreachable -> mapOf("k" to "Unreachable")
         UpdateError.NoRepoAccess -> mapOf("k" to "NoRepoAccess")
         UpdateError.BadToken -> mapOf("k" to "BadToken")
         UpdateError.NoRelease -> mapOf("k" to "NoRelease")
@@ -63,6 +64,7 @@ object UpdateStatusCodec {
     private fun errorFromMap(m: Map<*, *>): UpdateError? = when (m.string("k")) {
         "NoToken" -> UpdateError.NoToken
         "Network" -> UpdateError.Network
+        "Unreachable" -> UpdateError.Unreachable
         "NoRepoAccess" -> UpdateError.NoRepoAccess
         "BadToken" -> UpdateError.BadToken
         "NoRelease" -> UpdateError.NoRelease
