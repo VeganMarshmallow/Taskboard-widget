@@ -11,10 +11,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Screenshots of the task preview sheet (issue #11). Each also checks what the picture claims. */
+@Screenshot
 @RunWith(AndroidJUnit4::class)
 class PreviewScreenshotTest {
-    private val instrumentation = InstrumentationRegistry.getInstrumentation()
-    private val context = instrumentation.targetContext
+    private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
     private fun capture(
         name: String,
@@ -23,15 +23,7 @@ class PreviewScreenshotTest {
         widthDp: Int = 380,
         host: () -> PreviewHost = { PreviewHost(context) },
         prepare: (View) -> Unit = {},
-    ): View {
-        lateinit var sheet: View
-        instrumentation.runOnMainSync {
-            val rendered = host().render(screen, widthDp = widthDp, heightDp = heightDp, prepare = prepare)
-            sheet = rendered.sheet
-            Screenshots.save(context, name, WidgetHost.toBitmap(rendered.root))
-        }
-        return sheet
-    }
+    ): View = ScreenshotCapture.preview(name, screen, widthDp, heightDp, host, prepare)
 
     private fun View.text(id: Int) = findViewById<TextView>(id).text.toString()
     private fun View.visible(id: Int) = findViewById<View>(id).visibility == View.VISIBLE

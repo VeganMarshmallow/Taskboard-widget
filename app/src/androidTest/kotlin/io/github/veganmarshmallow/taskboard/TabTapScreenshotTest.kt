@@ -9,6 +9,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** #33 screenshots: the widget as a real host draws it, before and after one tap on Blocked. */
+@Screenshot
 @RunWith(AndroidJUnit4::class)
 class TabTapScreenshotTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()

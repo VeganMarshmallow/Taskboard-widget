@@ -2,7 +2,6 @@ package io.github.veganmarshmallow.taskboard
 
 import android.app.Activity
 import android.content.Intent
-import android.graphics.Bitmap
 import android.widget.Button
 import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -31,6 +30,7 @@ import java.util.concurrent.CountDownLatch
  * #20 screenshots: the New task form opened after a submit was cut short (process death or a
  * timeout), in each state of the GitHub check. Each test also checks what its picture claims.
  */
+@Screenshot
 @RunWith(AndroidJUnit4::class)
 class NewTaskRecoveryScreenshotTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -72,11 +72,7 @@ class NewTaskRecoveryScreenshotTest {
         }
     }
 
-    private fun Activity.capture(name: String) {
-        var bitmap: Bitmap? = null
-        instrumentation.runOnMainSync { bitmap = WidgetHost.toBitmap(window.decorView) }
-        Screenshots.save(context, name, bitmap!!)
-    }
+    private fun Activity.capture(name: String) = ScreenshotCapture.activity(name, this)
 
     private fun Activity.close() = instrumentation.runOnMainSync { finish() }
 

@@ -7,9 +7,13 @@ import android.widget.TextView
 import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.widget.TabViews
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import java.util.Locale
 
-/** Test helpers for the tab row: find the label a tab shows, and contexts with another font scale, theme or locale. */
+/**
+ * Test helpers for the tab row: find the label a tab shows, check every label fits its tab, measure where a view
+ * sits, and contexts with another font scale, theme or locale.
+ */
 object TabTestViews {
     /** The label the tab currently shows. Exactly one of its two labels is visible. */
     fun View.shownTab(section: Section): TextView {
@@ -23,6 +27,36 @@ object TabTestViews {
         findViewById<View>(TabViews.ids(section).selectedLabel).visibility == View.VISIBLE
 
     fun View.tabSlot(section: Section): View = findViewById(TabViews.ids(section).slot)
+
+    /** Every tab label fits its tab: at most two lines, broken between words, nothing cut off, not below 8dp. */
+    fun tabFitProblems(widget: View, what: String): List<String> {
+        val density = widget.resources.displayMetrics.density
+        return Section.entries.flatMap { section ->
+            val tab = widget.shownTab(section)
+            val layout = tab.layout
+            val name = "$what $section '${tab.text}' @${"%.1f".format(tab.textSize / density)}dp"
+            val problems = mutableListOf<String>()
+            if (layout.lineCount > 2) problems += "$name: ${layout.lineCount} lines"
+            if ((0 until layout.lineCount).any { layout.getEllipsisCount(it) > 0 }) problems += "$name: cut off"
+            if ((0 until layout.lineCount - 1).any { tab.text[layout.getLineEnd(it) - 1] != ' ' }) problems += "$name: breaks inside a word"
+            if (layout.height > tab.height - tab.paddingTop - tab.paddingBottom) problems += "$name: taller than the tab"
+            if (tab.textSize < 8 * density - 0.5f) problems += "$name: below 8dp"
+            problems
+        }
+    }
+
+    fun assertTabsFit(widget: View, what: String) {
+        val problems = tabFitProblems(widget, what)
+        assertTrue(problems.joinToString("; "), problems.isEmpty())
+    }
+
+    /** This view's top edge in [root]'s coordinates (sum of the tops up the parent chain). */
+    fun View.topIn(root: View): Int {
+        var y = 0
+        var v: View = this
+        while (v !== root) { y += v.top; v = v.parent as View }
+        return y
+    }
 
     fun configured(base: Context, fontScale: Float = 1f, night: Boolean? = null, locale: Locale? = null): Context {
         val config = Configuration(base.resources.configuration)
