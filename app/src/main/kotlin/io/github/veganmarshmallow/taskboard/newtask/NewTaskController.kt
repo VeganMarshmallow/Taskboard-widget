@@ -10,6 +10,7 @@ import io.github.veganmarshmallow.taskboard.core.task.SubmitJournal
 import io.github.veganmarshmallow.taskboard.core.task.SubmitMarker
 import io.github.veganmarshmallow.taskboard.core.task.SubmitRecovery
 import io.github.veganmarshmallow.taskboard.core.task.TaskDraft
+import io.github.veganmarshmallow.taskboard.core.work.crashError
 
 /**
  * Owner of the New task form's [session], so the draft and an in-flight request
@@ -77,7 +78,7 @@ class NewTaskController(val deps: NewTaskDeps) {
             val result = try {
                 deps.apiProvider(app)?.createIssue(issue) ?: Outcome.Failure(BoardError.NoToken)
             } catch (e: RuntimeException) {
-                Outcome.Failure(BoardError.Unexpected("internal error: ${e.javaClass.simpleName}"))
+                Outcome.Failure(crashError(e))
             }
             deps.mainThread.execute { finish(app, result) }
         }
