@@ -3,6 +3,7 @@ package io.github.veganmarshmallow.taskboard
 import android.content.Context
 import android.content.res.Configuration
 import android.view.View
+import android.view.ViewGroup
 import android.widget.TextView
 import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.widget.TabViews
@@ -12,7 +13,7 @@ import java.util.Locale
 
 /**
  * Test helpers for the tab row and header: find the label a tab shows, check every label fits its tab, check the
- * header buttons fit the widget, measure where a view sits, and contexts with another font scale, theme or locale.
+ * header buttons and the list rows (#49) fit the widget, measure where a view sits, and contexts with another font scale, theme or locale.
  */
 object TabTestViews {
     /** The label the tab currently shows. Exactly one of its two labels is visible. */
@@ -75,6 +76,56 @@ object TabTestViews {
 
     fun assertHeaderFits(widget: View, what: String) {
         val problems = headerFitProblems(widget, what)
+        assertTrue(problems.joinToString("; "), problems.isEmpty())
+    }
+
+    /**
+     * #49: every task row in the widget's list keeps at least its title's first word visible (or half the row, for
+     * one very long word), draws no text taller than its view, and shows Approve and Merge whole: one line, not
+     * ellipsized, as wide and as tall as their text, and inside the row and the widget's content area.
+     */
+    fun rowFitProblems(widget: View, what: String): List<String> {
+        val list = widget.findViewById<ViewGroup>(R.id.board_list)
+        val right = widget.width - widget.paddingRight
+        return (0 until list.childCount).map { list.getChildAt(it) }.flatMap { row ->
+            val title = row.findViewById<TextView>(R.id.item_text) ?: return@flatMap emptyList<String>()
+            val name = "$what '${title.text}'"
+            val problems = mutableListOf<String>()
+            val word = title.text.trim().split(Regex("\\s+")).first()
+            val wanted = minOf(title.paint.measureText(word), row.width / 2f)
+            val shown = title.width - title.totalPaddingLeft - title.totalPaddingRight
+            if (shown < wanted) problems += "$name: title ${shown}px wide, its first word '$word' needs ${wanted.toInt()}px"
+            if (title.layout != null && title.layout.height > title.height - title.totalPaddingTop - title.totalPaddingBottom) {
+                problems += "$name: title text taller than its view"
+            }
+            listOf("approve" to R.id.item_approve, "merge" to R.id.item_merge).forEach { (label, id) ->
+                val button = row.findViewById<TextView>(id)
+                if (button.visibility == View.VISIBLE) problems += buttonProblems(button, row, widget, right, "$name $label")
+            }
+            problems
+        }
+    }
+
+    private fun buttonProblems(button: TextView, row: View, widget: View, right: Int, name: String): List<String> {
+        val layout = button.layout ?: return listOf("$name: not laid out")
+        val problems = mutableListOf<String>()
+        if (layout.lineCount != 1) problems += "$name: ${layout.lineCount} lines"
+        if (layout.getEllipsisCount(0) > 0) problems += "$name: label cut off"
+        if (button.paint.measureText(button.text.toString()) > button.width - button.totalPaddingLeft - button.totalPaddingRight + 1) {
+            problems += "$name: label wider than the button"
+        }
+        if (layout.height > button.height - button.totalPaddingTop - button.totalPaddingBottom) {
+            problems += "$name: label ${layout.height}px tall in a ${button.height}px button (clipped at the bottom)"
+        }
+        val top = button.topIn(row)
+        if (top < 0 || top + button.height > row.height) problems += "$name: spans y=$top..${top + button.height}px of a ${row.height}px row"
+        val x = button.leftIn(widget)
+        if (x < widget.paddingLeft || x + button.width > right) problems += "$name: spans x=$x..${x + button.width}px, content is ${widget.paddingLeft}..${right}px"
+        return problems
+    }
+
+    fun assertRowsFit(widget: View, what: String) {
+        val problems = rowFitProblems(widget, what)
         assertTrue(problems.joinToString("; "), problems.isEmpty())
     }
 

@@ -3,6 +3,7 @@ package io.github.veganmarshmallow.taskboard.widget
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
+import android.os.Bundle
 import android.util.Log
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTrigger
 import io.github.veganmarshmallow.taskboard.data.TabStore
@@ -23,6 +24,15 @@ class BoardWidgetProvider : AppWidgetProvider() {
             Log.w(TAG, "drawing the cached board failed: ${e.javaClass.simpleName}")
         }
         BoardJobs.refresh(app, RefreshTrigger.AUTOMATIC)
+    }
+
+    /** The widget was resized (or the launcher sent its size): redraw it, the rows may need another layout (#49). */
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, appWidgetId: Int, newOptions: Bundle) {
+        try {
+            WidgetRenderer(context.applicationContext).renderStored(intArrayOf(appWidgetId))
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "redrawing after a resize failed: ${e.javaClass.simpleName}")
+        }
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {

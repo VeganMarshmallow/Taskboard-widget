@@ -25,18 +25,20 @@ class WidgetViews(private val context: Context) {
     /**
      * [selected] is the tab to show; [WidgetRenderer] reads it from TabStore for each widget.
      * [updating]: a refresh is running right now (never true for a dead one; see RefreshTracker).
+     * [widthDp]: the widget's width (null when unknown), which picks the row layout (#49).
      */
     fun build(
         state: WidgetState,
         widgetId: Int,
         selected: Section = TabSelection.default(state.board),
         updating: Boolean = false,
+        widthDp: Int? = null,
     ): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_board)
         bindHeader(views, state)
         if (updating) views.setTextViewText(R.id.updated, context.getString(R.string.updating))
         tabs.bind(views, state.board, selected, widgetId)
-        bindList(views, state, selected, widgetId)
+        bindList(views, state, selected, widgetId, widthDp)
         bindError(views, state)
         return views
     }
@@ -63,8 +65,8 @@ class WidgetViews(private val context: Context) {
         const val ROOT = android.R.id.background
     }
 
-    private fun bindList(views: RemoteViews, state: WidgetState, selected: Section, widgetId: Int) {
-        list.bind(views, state.board, selected, widgetId)
+    private fun bindList(views: RemoteViews, state: WidgetState, selected: Section, widgetId: Int, widthDp: Int?) {
+        list.bind(views, state.board, selected, widgetId, widthDp)
         views.setPendingIntentTemplate(R.id.board_list, WidgetIntents.rowTemplate(context))
         val hasBoard = state.board != null
         views.setViewVisibility(R.id.board_list, if (hasBoard) View.VISIBLE else View.GONE)

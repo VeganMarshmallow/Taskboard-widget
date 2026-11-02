@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- One-line task row. Narrow widths and big fonts use row_item_narrow (#49, RowFit). Buttons wrap their text: no fixed heights. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/item_root"
     android:layout_width="match_parent"
@@ -31,11 +32,13 @@
     <TextView
         android:id="@+id/item_approve"
         android:layout_width="wrap_content"
-        android:layout_height="28dp"
+        android:layout_height="wrap_content"
+        android:minHeight="28dp"
         android:layout_marginStart="8dp"
         android:background="@drawable/approve_background"
         android:gravity="center"
         android:paddingHorizontal="12dp"
+        android:paddingVertical="2dp"
         android:text="@string/approve"
         android:textColor="@color/widget_accent_text"
         android:textSize="12sp"
@@ -57,11 +60,13 @@
     <TextView
         android:id="@+id/item_merge"
         android:layout_width="wrap_content"
-        android:layout_height="28dp"
+        android:layout_height="wrap_content"
+        android:minHeight="28dp"
         android:layout_marginStart="8dp"
         android:background="@drawable/merge_background"
         android:gravity="center"
         android:paddingHorizontal="12dp"
+        android:paddingVertical="2dp"
         android:text="@string/merge"
         android:textColor="@color/status_text"
         android:textSize="12sp"
