@@ -103,6 +103,14 @@ class PullJsonParserTest {
         assertEquals("push" to "pull_request", ci.event to lint.event)
     }
 
+    @Test fun workflowRunTitleMarksPartialRuns() {
+        val page = PullJsonParser.parseWorkflowRuns(
+            runsJson(wfRun("build", title = "build: claude/52-x [partial]"), wfRun("build", title = "build: claude/52-x"), wfRun("CI")),
+        )
+        assertEquals(listOf("build: claude/52-x [partial]", "build: claude/52-x", null), page.runs.map { it.displayTitle })
+        assertEquals(listOf(true, false, false), page.runs.map { it.partial })
+    }
+
     @Test fun workflowRunsWithMissingFields() {
         val bare = PullJsonParser.parseWorkflowRuns("""﻿{"workflow_runs":[{"head_sha":"$SHA_A"},{"name":"  ","run_number":"x","head_sha":"$SHA_A"}]}""")
         assertNull(bare.totalCount)
