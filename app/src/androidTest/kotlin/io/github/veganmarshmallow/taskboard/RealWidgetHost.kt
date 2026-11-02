@@ -75,9 +75,19 @@ class RealWidgetHost(private val instrumentation: Instrumentation) : AutoCloseab
         }
     }
 
-    /** Stores [state] as the cached board and draws it, after binding's own refresh is out of the way. */
+    /**
+     * Stores [state] as the cached board and draws it, after binding's own refresh is out of the way.
+     *
+     * #50: the broadcasts that start a refresh (binding's APPWIDGET_UPDATE, and MY_PACKAGE_REPLACED
+     * after the APKs were installed) can reach the app seconds late, on a freshly booted emulator
+     * especially, so for the first test of a run. Arriving after [stopBackgroundRefresh], they
+     * queued a refresh that, with no token, saved an empty board over the seeded one: the list
+     * went empty under the still-highlighted tab. So wait for every queued broadcast to be handled
+     * first; the cancel then catches whatever they scheduled.
+     */
     fun seed(state: WidgetState) {
         TokenStore(context).clear() // no refresh here may touch the network
+        shell("am wait-for-broadcast-idle")
         stopBackgroundRefresh()
         StateStore(context).save(state)
         WidgetRenderer(context).render(state, intArrayOf(widgetId), updating = false)
@@ -105,6 +115,13 @@ class RealWidgetHost(private val instrumentation: Instrumentation) : AutoCloseab
         var text = ""
         instrumentation.runOnMainSync { text = view.findViewById<View>(TabViews.ids(section).slot).contentDescription?.toString().orEmpty() }
         return text
+    }
+
+    /** The stored state in a few words, for failure messages: was the seeded board replaced? */
+    fun storedSummary(): String {
+        val state = StateStore(context).load()
+        val board = state.board?.let { "${it.sections.sumOf { s -> s.items.size }} items" } ?: "none"
+        return "stored board: $board, error: ${state.error?.javaClass?.simpleName ?: "none"}"
     }
 
     /** The text of a TextView in the hosted widget, e.g. the header's "last updated". */

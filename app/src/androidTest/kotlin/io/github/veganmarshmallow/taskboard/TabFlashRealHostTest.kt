@@ -14,7 +14,6 @@ import io.github.veganmarshmallow.taskboard.widget.BoardListFactory
 import io.github.veganmarshmallow.taskboard.widget.StateRedraw
 import io.github.veganmarshmallow.taskboard.widget.WidgetRenderer
 import org.junit.After
-import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -79,19 +78,25 @@ class TabFlashRealHostTest {
     private fun watch(section: Section, why: String) {
         host.awaitHighlighted(section, why)
         val expectedRows = BoardRows.of(board, section).map { it.id }
-        val end = SystemClock.uptimeMillis() + WATCH_MS
+        val start = SystemClock.uptimeMillis()
+        val seen = mutableListOf<String>()
+        var last: Pair<Set<Section>, List<Long>>? = null
+        fun failWith(message: String): Nothing =
+            throw AssertionError("$why: $message. Seen (ms after the highlight: tabs, rows): ${seen.joinToString()}; ${host.storedSummary()}")
         var listSettled = false
-        while (SystemClock.uptimeMillis() < end) {
+        while (SystemClock.uptimeMillis() - start < WATCH_MS) {
             val shown = host.highlighted()
-            if (shown != setOf(section)) {
-                fail("$why: $section was highlighted, then after ${WATCH_MS - (end - SystemClock.uptimeMillis())} ms the host showed $shown")
-            }
             val rows = rowIds()
+            if (last != shown to rows) {
+                last = shown to rows
+                seen += "+${SystemClock.uptimeMillis() - start}: $shown $rows"
+            }
+            if (shown != setOf(section)) failWith("$section was highlighted, then the host showed $shown")
             if (rows == expectedRows) listSettled = true
-            else if (listSettled) fail("$why: the list showed $section's rows, then changed to $rows")
+            else if (listSettled) failWith("the list showed $section's rows, then changed to $rows")
             SystemClock.sleep(POLL_MS)
         }
-        if (!listSettled) fail("$why: the list never showed $section's rows $expectedRows (last: ${rowIds()})")
+        if (!listSettled) failWith("the list never showed $section's rows $expectedRows (last: ${rowIds()})")
     }
 
     /**
