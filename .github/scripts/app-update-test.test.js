@@ -12,7 +12,8 @@ const receiverKt = path.join(__dirname, '..', '..',
   'app/src/main/kotlin/io/github/veganmarshmallow/taskboard/widget/AppUpdatedReceiver.kt');
 
 // The fake adb appends each call to calls.txt. Behaviour, from env:
-//   FAKE_FAIL_STEP=<prepare|verify|install>  that step fails
+//   FAKE_FAIL_STEP=<prepare|verify|install|clear>  that step fails
+//   FAKE_LOGCAT_FLOOD=1                      many lines follow the receiver's (a reader that stops early SIGPIPEs adb)
 //   FAKE_RECEIVER_AFTER=<n>                   the receiver's line shows on the n-th `logcat -d -s` (0: never)
 const FAKE_ADB = `#!/usr/bin/env bash
 dir="$(dirname "$0")"
@@ -24,7 +25,8 @@ case "$*" in
   "logcat -d -s "*)
     n=$(( $(cat "$dir/polls" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$dir/polls"
     after="\${FAKE_RECEIVER_AFTER:-1}"
-    [ "$after" -gt 0 ] && [ "$n" -ge "$after" ] && echo "I AppUpdatedReceiver: handled MY_PACKAGE_REPLACED: refresh restarted";;
+    [ "$after" -gt 0 ] && [ "$n" -ge "$after" ] && { echo "I AppUpdatedReceiver: handled MY_PACKAGE_REPLACED: refresh restarted"; [ -n "\${FAKE_LOGCAT_FLOOD:-}" ] && { seq 200000 || exit $?; }; };;
+  "logcat -c") [ "\${FAKE_FAIL_STEP:-}" = clear ] && exit 1;;
   "shell dumpsys jobscheduler "*) echo "JOB #u0a1/1 io.github.veganmarshmallow.taskboard/.widget.BoardJobService";;
   "logcat -d -v time") echo "I/AppUpdatedReceiver: something"; echo "I/Unrelated: noise";;
 esac
@@ -62,6 +64,13 @@ test('verify starts only after the receiver handled the update', () => {
   assert.doesNotMatch(r.out, /diagnostics/);
 });
 
+test('a match followed by more logcat output still counts (no SIGPIPE miss under pipefail)', () => {
+  const r = run({ FAKE_RECEIVER_AFTER: '1', FAKE_LOGCAT_FLOOD: '1' });
+  assert.strictEqual(r.status, 0, r.out);
+  assert.strictEqual(r.calls.filter((c) => /^logcat -d -s/.test(c)).length, 1, r.out);
+  assert.match(r.out, /handled the update after ~0s/);
+});
+
 test('a receiver that never reports still runs verify, after the wait', () => {
   const r = run({ FAKE_RECEIVER_AFTER: '0', RECEIVER_WAIT_S: '2', POLL_S: '0' }); // 0 is clamped to 1
   assert.strictEqual(r.status, 0, r.out);
@@ -85,6 +94,14 @@ test('a failed prepare skips the install and verify', () => {
   assert.strictEqual(index(r.calls, /^install /), -1);
   assert.strictEqual(index(r.calls, /appUpdateStep verify/), -1);
   assert.match(r.out, /App-update diagnostics/);
+});
+
+test('a failed logcat -c is not fatal: install, wait and verify still run', () => {
+  const r = run({ FAKE_FAIL_STEP: 'clear' });
+  assert.strictEqual(r.status, 0, r.out);
+  assert.match(r.out, /logcat -c failed/);
+  assert.ok(index(r.calls, /^install /) < index(r.calls, /appUpdateStep verify/));
+  assert.match(r.out, /App-update recovery passed/);
 });
 
 test('a failed install skips verify', () => {
