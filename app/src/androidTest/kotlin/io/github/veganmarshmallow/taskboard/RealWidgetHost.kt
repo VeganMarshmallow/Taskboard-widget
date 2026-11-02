@@ -75,12 +75,42 @@ class RealWidgetHost(private val instrumentation: Instrumentation) : AutoCloseab
         }
     }
 
-    /** Stores [state] as the cached board and draws it, after binding's own refresh is out of the way. */
+    /**
+     * Stores [state] as the cached board and draws it, after binding's own refresh is out of the way.
+     *
+     * #50: the broadcasts that start a refresh (binding's APPWIDGET_UPDATE, and MY_PACKAGE_REPLACED
+     * after the APKs were installed) can reach the app seconds late, on a freshly booted emulator
+     * especially, so for the first test of a run. Arriving after [stopBackgroundRefresh], they
+     * queued a refresh that, with no token, saved an empty board over the seeded one: the list
+     * went empty under the still-highlighted tab. So wait for every queued broadcast to be handled
+     * first; the cancel then catches whatever they scheduled. After seeding, the same wait runs
+     * again and the stored board is checked, so anything that still slipped in is seen and the
+     * board seeded again instead of the test tapping on a board that is about to be replaced.
+     */
     fun seed(state: WidgetState) {
         TokenStore(context).clear() // no refresh here may touch the network
+        repeat(SEED_ATTEMPTS) {
+            awaitQuiet()
+            StateStore(context).save(state)
+            WidgetRenderer(context).render(state, intArrayOf(widgetId), updating = false)
+            awaitQuiet()
+            if (sameContent(StateStore(context).load(), state)) return
+        }
+        fail("the seeded board was replaced $SEED_ATTEMPTS times; ${storedSummary()}")
+    }
+
+    /** Every queued broadcast handled, every refresh it started cancelled or finished. */
+    private fun awaitQuiet() {
+        val output = shell("am wait-for-broadcast-idle")
+            ?: throw AssertionError("am wait-for-broadcast-idle did not return within $SHELL_TIMEOUT_MS ms")
+        if (BROADCAST_IDLE_ERRORS.any { output.contains(it, ignoreCase = true) }) fail("am wait-for-broadcast-idle failed: ${output.trim()}")
         stopBackgroundRefresh()
-        StateStore(context).save(state)
-        WidgetRenderer(context).render(state, intArrayOf(widgetId), updating = false)
+    }
+
+    /** Same rows in every section and same error kind (a disk round trip may not keep [WidgetState] equal). */
+    private fun sameContent(stored: WidgetState, seeded: WidgetState): Boolean {
+        fun rows(s: WidgetState) = s.board?.sections?.map { section -> section.items.map { it.number } }
+        return rows(stored) == rows(seeded) && stored.error?.javaClass == seeded.error?.javaClass
     }
 
     /** A real click on the tab's slot, on the main thread like a finger would be. */
@@ -105,6 +135,13 @@ class RealWidgetHost(private val instrumentation: Instrumentation) : AutoCloseab
         var text = ""
         instrumentation.runOnMainSync { text = view.findViewById<View>(TabViews.ids(section).slot).contentDescription?.toString().orEmpty() }
         return text
+    }
+
+    /** The stored state in a few words, for failure messages: was the seeded board replaced? */
+    fun storedSummary(): String {
+        val state = StateStore(context).load()
+        val board = state.board?.let { "${it.sections.sumOf { s -> s.items.size }} items" } ?: "none"
+        return "stored board: $board, error: ${state.error?.javaClass?.simpleName ?: "none"}"
     }
 
     /** The text of a TextView in the hosted widget, e.g. the header's "last updated". */
@@ -180,9 +217,17 @@ class RealWidgetHost(private val instrumentation: Instrumentation) : AutoCloseab
         fail("timed out waiting for $what")
     }
 
-    private fun shell(command: String) {
-        // Reading the output to the end waits for the command to finish.
-        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use { it.readBytes() }
+    /**
+     * Runs [command] as the shell and returns its output, or null if it is still running after
+     * [timeoutMs] (reading the output to the end is what waits for the command to finish).
+     */
+    private fun shell(command: String, timeoutMs: Long = SHELL_TIMEOUT_MS): String? {
+        val pfd = instrumentation.uiAutomation.executeShellCommand(command)
+        var output: String? = null
+        val reader = Thread { ParcelFileDescriptor.AutoCloseInputStream(pfd).use { output = String(it.readBytes()) } }
+        reader.start()
+        reader.join(timeoutMs)
+        return if (reader.isAlive) null else output
     }
 
     companion object {
@@ -192,6 +237,10 @@ class RealWidgetHost(private val instrumentation: Instrumentation) : AutoCloseab
         private const val TIMEOUT_MS = 5_000L
         private const val POLL_MS = 20L
         private const val SETTLE_MS = 600L
+        private const val SEED_ATTEMPTS = 3
+        private const val SHELL_TIMEOUT_MS = 60_000L
+        /** What `am` prints instead of waiting: an unknown command, a missing permission. */
+        private val BROADCAST_IDLE_ERRORS = listOf("Unknown command", "Exception", "Error")
         private val WALLPAPER = Color.rgb(0x5B, 0x6B, 0x7F)
     }
 }
