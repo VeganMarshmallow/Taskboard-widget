@@ -5,6 +5,7 @@ import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.task.SubmitMarker
 import io.github.veganmarshmallow.taskboard.core.task.SubmitRecovery
+import io.github.veganmarshmallow.taskboard.core.work.crashError
 
 /**
  * Runs [SubmitRecovery] for a leftover [SubmitMarker] on the send thread and hands the result to
@@ -27,7 +28,7 @@ class RecoveryCheck(private val deps: NewTaskDeps) {
                     deps.apiProvider(app)?.issuesUpdatedSince(since) ?: Outcome.Failure(BoardError.NoToken)
                 }
             } catch (e: RuntimeException) {
-                SubmitRecovery.Result.CheckFailed(marker.title, BoardError.Unexpected("internal error: ${e.javaClass.simpleName}"))
+                SubmitRecovery.Result.CheckFailed(marker.title, crashError(e))
             }
             deps.mainThread.execute {
                 checking = null

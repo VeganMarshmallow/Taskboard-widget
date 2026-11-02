@@ -5,6 +5,7 @@ import io.github.veganmarshmallow.taskboard.core.github.GitHubApi
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.model.Issue
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
+import io.github.veganmarshmallow.taskboard.core.work.crashError
 import java.time.Clock
 
 /** One refresh: fetch, build, and fold the result into the previous [WidgetState]. */
@@ -23,7 +24,7 @@ class BoardLoader(
         } catch (e: RuntimeException) {
             // A bug or an odd platform exception must not crash the widget's process or leave it
             // stuck on "updating…"; report it like any other failed refresh.
-            Outcome.Failure(BoardError.Unexpected("internal error: ${e.javaClass.simpleName}"))
+            Outcome.Failure(crashError(e))
         }
         return when (result) {
             is Outcome.Success -> previous.withBoard(withLanes(builder.build(result.value, now), result.value, api))
