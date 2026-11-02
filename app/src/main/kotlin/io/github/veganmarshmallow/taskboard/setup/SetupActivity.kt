@@ -12,7 +12,7 @@ import android.widget.TextView
 import android.widget.Toast
 import io.github.veganmarshmallow.taskboard.R
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
-import io.github.veganmarshmallow.taskboard.core.token.TokenValidator
+import io.github.veganmarshmallow.taskboard.core.setup.SetupFlow
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.TokenStore
 import io.github.veganmarshmallow.taskboard.update.UpdateSection
@@ -21,6 +21,7 @@ import io.github.veganmarshmallow.taskboard.widget.WidgetIntents
 /**
  * Launcher and widget-configuration screen: paste a token, test it, save it.
  * The saved token is never displayed again; the field only shows whether one is saved.
+ * The rules live in [SetupFlow]; this class renders its decisions and runs the side effects.
  */
 class SetupActivity : Activity() {
     private lateinit var tokenStore: TokenStore
@@ -34,6 +35,7 @@ class SetupActivity : Activity() {
         intent?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
             ?: AppWidgetManager.INVALID_APPWIDGET_ID
     }
+    private val flow by lazy { SetupFlow(isConfiguring = widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,7 +58,7 @@ class SetupActivity : Activity() {
 
         // As the widget's configure screen (shown on placement before Android 12), always accept the
         // widget: without a token it shows "No GitHub token set · tap to set up" instead of vanishing.
-        if (isConfiguring()) {
+        if (flow.acceptsWidgetOnOpen) {
             setResult(RESULT_OK, widgetResult())
             sendBroadcast(WidgetIntents.refreshIntent(this))
         }
@@ -77,7 +79,13 @@ class SetupActivity : Activity() {
     }
 
     private fun onTest() {
-        val token = validatedToken() ?: return
+        when (val d = flow.onTest(typedToken(), tokenStore.get())) {
+            is SetupFlow.ShowError -> showStatus(d.reason, isError = true)
+            is SetupFlow.Test -> { showWarning(d.warning); runTest(d.token) }
+        }
+    }
+
+    private fun runTest(token: String) {
         setBusy(true)
         showStatus(getString(R.string.testing), isError = false)
         tester.test(token) { result ->
@@ -91,14 +99,20 @@ class SetupActivity : Activity() {
     }
 
     private fun onSave() {
-        val token = validatedToken() ?: return
+        when (val d = flow.onSave(typedToken(), tokenStore.get())) {
+            is SetupFlow.ShowError -> showStatus(d.reason, isError = true)
+            is SetupFlow.Save -> { showWarning(d.warning); save(d.token, d.finishWithOk) }
+        }
+    }
+
+    private fun save(token: String, finishWithOk: Boolean) {
         tokenStore.save(token)
         tokenField.text.clear()
         showSavedState()
         sendBroadcast(WidgetIntents.refreshIntent(this))
         Toast.makeText(this, R.string.saved, Toast.LENGTH_SHORT).show()
         updates.onTokenChanged()
-        if (isConfiguring()) {
+        if (finishWithOk) {
             setResult(RESULT_OK, widgetResult())
             finish()
         }
@@ -111,14 +125,10 @@ class SetupActivity : Activity() {
         sendBroadcast(WidgetIntents.refreshIntent(this))
     }
 
-    /** Validates the field, or the saved token when the field is empty (so "Test" works after saving). */
-    private fun validatedToken(): String? {
-        val typed = tokenField.text.toString()
-        if (typed.isBlank()) tokenStore.get()?.let { return it }
-        return when (val r = TokenValidator.validate(typed)) {
-            is TokenValidator.Result.Invalid -> { showStatus(r.reason, isError = true); null }
-            is TokenValidator.Result.Valid -> { r.warning?.let { showStatus(it, isError = false) }; r.token }
-        }
+    private fun typedToken() = tokenField.text.toString()
+
+    private fun showWarning(warning: String?) {
+        warning?.let { showStatus(it, isError = false) }
     }
 
     private fun showSavedState() {
@@ -136,8 +146,6 @@ class SetupActivity : Activity() {
         testButton.isEnabled = !busy
         saveButton.isEnabled = !busy
     }
-
-    private fun isConfiguring() = widgetId != AppWidgetManager.INVALID_APPWIDGET_ID
 
     private fun widgetResult() = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
 
