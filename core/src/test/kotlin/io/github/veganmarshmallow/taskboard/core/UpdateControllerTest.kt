@@ -108,6 +108,32 @@ class UpdateControllerTest {
         assertTrue(background.pending.isEmpty())
     }
 
+    @Test fun openedWithTokenAndNoRecentCheckStartsOne() {
+        controller.opened()
+        assertEquals(Activity.Checking, controller.activity)
+        assertEquals(1, background.pending.size)
+        finishCheck()
+        assertEquals(1, fetches)
+        assertEquals(Activity.Idle, controller.activity)
+    }
+
+    @Test fun openedDuringACheckKeepsCheckingWithoutASecondCheck() {
+        controller.check()
+        controller.opened() // e.g. the screen was rotated mid-check
+        assertEquals(Activity.Checking, controller.activity)
+        assertEquals(1, background.pending.size)
+    }
+
+    @Test fun openedRightAfterACheckDoesNotCheckAgainAndClearsAShownFailure() {
+        controller.check()
+        finishCheck()
+        controller.fail(UpdateError.Network)
+        controller.opened() // the check just ran (fixed clock), so it isn't due
+        assertEquals(Activity.Idle, controller.activity)
+        assertTrue(background.pending.isEmpty())
+        assertEquals(1, fetches)
+    }
+
     @Test fun failShowsTheErrorAndNotifies() {
         var calls = 0
         controller.addListener { calls++ }
