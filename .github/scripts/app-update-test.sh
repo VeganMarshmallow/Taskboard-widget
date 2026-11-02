@@ -29,8 +29,14 @@ update_step() {
   grep -q '^OK (1 test)' "update-$1.log"
 }
 
+# Not grep -q: it can exit before logcat finishes, and with pipefail logcat's SIGPIPE would read as a miss.
 receiver_ran() {
-  "$adb" logcat -d -s "$receiver_tag:I" 2>/dev/null | grep -qF "$receiver_mark"
+  "$adb" logcat -d -s "$receiver_tag:I" 2>/dev/null | grep -F "$receiver_mark" >/dev/null
+}
+
+# A failed clear only makes the wait less useful (an old line could end it early), so it is not fatal.
+clear_logcat() {
+  "$adb" logcat -c || echo "logcat -c failed; the receiver wait may end early"
 }
 
 # Waits for AppUpdatedReceiver, never fails: a receiver that never runs is the test's to report.
@@ -59,7 +65,7 @@ diagnostics() {
 
 "$adb" shell appwidget grantbind --package "$pkg" || "$adb" shell cmd appwidget grantbind --package "$pkg"
 if update_step prepare &&
-  "$adb" logcat -c &&
+  clear_logcat &&
   "$adb" install -r -t "$apk" 2>&1 | tee -a instrument.log &&
   await_receiver &&
   update_step verify; then
