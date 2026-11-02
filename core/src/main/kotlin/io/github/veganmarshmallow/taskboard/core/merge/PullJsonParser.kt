@@ -50,6 +50,7 @@ object PullJsonParser {
                     status = run.string("status") ?: "unknown",
                     conclusion = run.string("conclusion"),
                     event = run.string("event"),
+                    displayTitle = run.string("display_title"),
                 )
             },
             obj.long("total_count")?.takeIf { it >= 0 },
