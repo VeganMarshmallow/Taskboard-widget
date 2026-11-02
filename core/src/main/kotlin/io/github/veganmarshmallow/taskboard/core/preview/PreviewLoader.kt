@@ -3,6 +3,7 @@ package io.github.veganmarshmallow.taskboard.core.preview
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.github.GitHubApi
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
+import io.github.veganmarshmallow.taskboard.core.work.guarded
 
 /**
  * One blocking load for the preview: the issue, then (only if that worked) its comments. Results are
@@ -25,11 +26,5 @@ class PreviewLoader(private val api: GitHubApi?) {
         if (issue !is Outcome.Success) return
         val comments = guarded { preview.fetchRecentComments(number) }
         if (comments is Outcome.Success) onComments(comments.value)
-    }
-
-    private fun <T> guarded(block: () -> Outcome<T>): Outcome<T> = try {
-        block()
-    } catch (e: RuntimeException) {
-        Outcome.Failure(BoardError.Unexpected("internal error: ${e.javaClass.simpleName}"))
     }
 }

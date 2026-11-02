@@ -1,12 +1,17 @@
 package io.github.veganmarshmallow.taskboard
 
 import android.app.job.JobScheduler
+import android.content.Context
 import android.os.Looper
 import android.os.SystemClock
+import android.view.View
+import android.widget.Button
+import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
+import io.github.veganmarshmallow.taskboard.core.preview.IssueDetails
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.core.work.RetryBackoff
 import io.github.veganmarshmallow.taskboard.data.AppGraph
@@ -18,6 +23,7 @@ import io.github.veganmarshmallow.taskboard.newtask.NewTaskDeps
 import io.github.veganmarshmallow.taskboard.preview.PreviewWorker
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -27,12 +33,14 @@ import org.junit.runner.RunWith
 import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Task #23: the debug-only [TestOverrides] seams fall back to the app's own pieces when reset, and
  * the preview's Approve (its own thread, no longer BackgroundWork) reports on the main thread and
- * still finishes after the preview closes.
+ * still finishes after the preview closes. Task #47: a crash in the approver or the load is reported
+ * as a failure instead of crashing the app.
  */
 @RunWith(AndroidJUnit4::class)
 class AppGraphSeamsTest {
@@ -101,6 +109,49 @@ class AppGraphSeamsTest {
         assertTrue("the approval still reached GitHub", s.received.any { it.method == "POST" && it.path.endsWith("/issues/7/labels") })
         instrumentation.waitForIdleSync()
         assertTrue("a closed preview gets no callback", !delivered.await(1, TimeUnit.SECONDS))
+    }
+
+    @Test fun anApproverThatThrowsIsReportedAsAFailureAndThePreviewCanApproveAgain() {
+        val secret = "github_pat_TESTONLY_SECRET"
+        val worker = PreviewWorker(context, approver = { _, _ -> throw IllegalStateException("token $secret") })
+        val (result, onMain) = approveAndWait(worker)
+        val expected = BoardError.Unexpected("internal error: IllegalStateException")
+        assertEquals(Outcome.Failure(expected), result)
+        assertTrue("result delivered on the main thread", onMain)
+
+        // What TaskPreviewActivity does with that failure: the error shows and Approve is back.
+        val screen = FakePreviews.todoLoaded().approveStarted().approveFailed(expected)
+        var sheet: View? = null
+        instrumentation.runOnMainSync { sheet = PreviewHost(context).render(screen).sheet }
+        val error = sheet!!.findViewById<TextView>(R.id.preview_error)
+        val approve = sheet!!.findViewById<Button>(R.id.preview_approve)
+        assertEquals(View.VISIBLE, error.visibility)
+        val text = error.text.toString()
+        assertTrue(text, text.contains("#11") && text.contains("IllegalStateException"))
+        assertFalse("no token in the error", text.contains(secret))
+        assertEquals(View.VISIBLE, approve.visibility)
+        assertTrue("Approve enabled again", approve.isEnabled)
+        assertEquals(context.getString(R.string.approve), approve.text.toString())
+    }
+
+    @Test fun anApprovalAfterACrashStillRuns() {
+        val calls = AtomicInteger()
+        val approver: (Context, Int) -> Outcome<Unit> = { _, _ ->
+            if (calls.incrementAndGet() == 1) throw NoSuchMethodError("x") else Outcome.Success(Unit)
+        }
+        assertTrue(approveAndWait(PreviewWorker(context, approver = approver)).first is Outcome.Failure)
+        val next = approveAndWait(PreviewWorker(context, approver = approver)).first
+        assertEquals("the shared approve thread survived the crash", Outcome.Success(Unit), next)
+    }
+
+    @Test fun aLoadWhoseTokenStoreThrowsReportsTheIssueAsFailed() {
+        val worker = PreviewWorker(context, apiOrNull = { throw SecurityException("keystore") })
+        val result = AtomicReference<Outcome<IssueDetails>?>()
+        val done = CountDownLatch(1)
+        worker.load(7, onIssue = { result.set(it); done.countDown() }, onComments = {})
+        assertTrue("load answered", done.await(10, TimeUnit.SECONDS))
+        instrumentation.runOnMainSync { worker.close() }
+        assertEquals(Outcome.Failure(BoardError.Unexpected("internal error: SecurityException")), result.get())
     }
 
     private fun serveApprove(): FakeGitHubServer {
