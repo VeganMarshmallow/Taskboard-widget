@@ -7,14 +7,27 @@ import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.task.CreateErrors
 import io.github.veganmarshmallow.taskboard.core.task.CreatedIssue
+import io.github.veganmarshmallow.taskboard.core.task.SubmitRecovery
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.widget.WidgetIntents
 
 /** What happens after a submission: a toast with the new number and a widget refresh, or a failure toast. */
 object NewTaskEffects {
     fun created(context: Context, created: CreatedIssue) {
-        context.sendBroadcast(WidgetIntents.refreshIntent(context))
+        refreshWidget(context)
         Toast.makeText(context, message(context, created), Toast.LENGTH_LONG).show()
+    }
+
+    fun refreshWidget(context: Context) = context.sendBroadcast(WidgetIntents.refreshIntent(context))
+
+    /** What the form says about a submit the app was closed during ([SubmitRecovery]). */
+    fun recoveryText(context: Context, result: SubmitRecovery.Result): String = when (result) {
+        is SubmitRecovery.Result.Created -> context.getString(R.string.task_recovered_created, result.title, result.number)
+        is SubmitRecovery.Result.NotCreated -> context.getString(R.string.task_recovered_not_created, result.title)
+        is SubmitRecovery.Result.TooOld -> context.getString(R.string.task_recovered_too_old, result.title)
+        is SubmitRecovery.Result.CheckFailed -> context.getString(
+            R.string.task_recovered_check_failed, result.title, AppGraph.messages(context).message(result.error),
+        )
     }
 
     fun failedInBackground(context: Context, result: Outcome<CreatedIssue>) {

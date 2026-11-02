@@ -68,7 +68,7 @@ class ScreenshotTest {
     @Test fun newTaskForm() {
         val intent = Intent(context, io.github.veganmarshmallow.taskboard.newtask.NewTaskActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        io.github.veganmarshmallow.taskboard.newtask.NewTaskController.session.draft =
+        io.github.veganmarshmallow.taskboard.data.AppGraph.newTask.session.draft =
             io.github.veganmarshmallow.taskboard.core.task.TaskDraft(
                 title = "Weekly digest email of finished tasks",
                 goal = "Every Sunday, email a summary of tasks done that week.\n- Group by repo\n- Link each PR",
@@ -86,8 +86,9 @@ class ScreenshotTest {
         }
         Screenshots.save(context, "9-new-task-form", bitmap!!)
         instrumentation.runOnMainSync { activity.finish() }
-        io.github.veganmarshmallow.taskboard.newtask.NewTaskController.session.draft =
+        io.github.veganmarshmallow.taskboard.data.AppGraph.newTask.session.draft =
             io.github.veganmarshmallow.taskboard.core.task.TaskDraft.EMPTY
+        io.github.veganmarshmallow.taskboard.data.NewTaskPrefs(context).draft = null // saved on pause (#20)
     }
 
     @Test fun widgetWithBoard() {
