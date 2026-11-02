@@ -53,7 +53,8 @@ class WidgetHeaderTapTest {
         val v = widget(state)
         assertFalse("$state title", v.clickable(R.id.title))
         assertFalse("$state updated", v.clickable(R.id.updated))
-        assertFalse("$state header row", (v.findViewById<View>(R.id.title).parent as View).hasOnClickListeners())
+        assertFalse("$state header text", v.clickable(R.id.header_text))
+        assertFalse("$state header row", v.clickable(R.id.header))
     }
 
     @Test fun explicitControlsAndTheNoOpRootAreWired() = states.forEach { state ->
