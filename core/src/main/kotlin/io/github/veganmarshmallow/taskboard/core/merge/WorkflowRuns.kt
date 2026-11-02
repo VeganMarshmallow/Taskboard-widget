@@ -72,6 +72,9 @@ sealed class ChecksVerdict {
  *   It still fails or blocks as usual, but a workflow with nothing but partial runs on the commit
  *   isn't a pass: it counts as still running ("<name> (full run)") until a full run of that workflow,
  *   from any event, shows up. Workflows that never use the marker are unaffected.
+ * - Not started yet (#41): GitHub lists only the runs it has registered, so a workflow that normally
+ *   runs for the PR but has no run on the head yet is still running ("<name> (not started)"). Which
+ *   workflows are expected is [ExpectedWorkflows]; the caller passes their labels as `notStarted`.
  */
 object WorkflowRuns {
     /** Marks a partial run's title; see `run-name` in .github/workflows/build.yml. */
@@ -91,7 +94,11 @@ object WorkflowRuns {
         .values
         .map { group -> group.sortedWith(NEWEST_FIRST).first() }
 
-    fun verdict(runs: List<WorkflowRun>, sha: String): ChecksVerdict {
+    /**
+     * [notStarted]: labels of workflows expected on [sha] that have no run yet ([ExpectedChecks], #41).
+     * They count as still running, after failures and before the [PARTIAL_MARK] rule.
+     */
+    fun verdict(runs: List<WorkflowRun>, sha: String, notStarted: List<String> = emptyList()): ChecksVerdict {
         val kept = latest(runs, sha)
         if (kept.isEmpty()) return ChecksVerdict.None
         val (completed, running) = kept.partition { it.status.equals("completed", ignoreCase = true) }
@@ -99,7 +106,7 @@ object WorkflowRuns {
         val partialOnly = kept.groupBy(::workflowKey).values.filter { group -> group.all { it.partial } }
         return when {
             failed.isNotEmpty() -> ChecksVerdict.Failed(failed.map { it.name }.distinct())
-            running.isNotEmpty() -> ChecksVerdict.Running(running.map { it.name }.distinct())
+            running.isNotEmpty() || notStarted.isNotEmpty() -> ChecksVerdict.Running((running.map { it.name } + notStarted).distinct())
             partialOnly.isNotEmpty() -> ChecksVerdict.Running(partialOnly.map { "${it.first().name} (full run)" }.distinct())
             completed.none { it.conclusion.equals("success", ignoreCase = true) } -> ChecksVerdict.NothingPassed
             else -> ChecksVerdict.Passed

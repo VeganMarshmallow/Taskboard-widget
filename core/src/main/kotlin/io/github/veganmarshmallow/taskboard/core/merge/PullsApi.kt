@@ -10,6 +10,7 @@ import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.json.JsonParser
 import io.github.veganmarshmallow.taskboard.core.json.string
 import io.github.veganmarshmallow.taskboard.core.model.Repo
+import java.time.Instant
 
 /** Typed project-repo calls for merging, through [GitHubApi]'s request pipeline (timeouts, network errors). */
 class PullsApi(private val api: GitHubApi) {
@@ -65,6 +66,21 @@ class PullsApi(private val api: GitHubApi) {
         }
         return MergeStep.Stop(MergeProblem.Failed(BoardError.Unexpected("more than ${MAX_RUN_PAGES * 100} workflow runs")))
     }
+
+    /** The newest page of `pull_request` runs on [branch], any commit (#41, [ExpectedChecks]). */
+    fun pullRequestRuns(repo: Repo, branch: String): MergeStep<List<WorkflowRun>> =
+        read(repo, { api.requests.pullRequestRuns(repo, branch) }, { MergeErrors.forActions(it, api.clock.instant(), repo) }) {
+            PullJsonParser.parseWorkflowRuns(it.body).runs
+        }
+
+    /** The repo's workflows, one page of 100 (#41, [ExpectedChecks]). */
+    fun workflows(repo: Repo): MergeStep<WorkflowList> =
+        read(repo, { api.requests.workflows(repo) }, { MergeErrors.forActions(it, api.clock.instant(), repo) }) {
+            PullJsonParser.parseWorkflows(it.body)
+        }
+
+    /** The API's clock: how old a commit's first run is ([ExpectedWorkflows.GRACE]). */
+    fun now(): Instant = api.clock.instant()
 
     /** Commits on [base] that [sha] lacks (`behind_by` of the compare API, #45). */
     fun behindBy(repo: Repo, base: String, sha: String): MergeStep<Long> = read(repo, { api.requests.compare(repo, base, sha) }) {

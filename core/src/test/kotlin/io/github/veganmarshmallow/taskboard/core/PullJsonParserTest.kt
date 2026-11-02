@@ -103,6 +103,21 @@ class PullJsonParserTest {
         assertEquals("push" to "pull_request", ci.event to lint.event)
     }
 
+    @Test fun workflows() {
+        val list = PullJsonParser.parseWorkflows(
+            """{"total_count":4,"workflows":[{"id":1,"name":"build","state":"active"},{"id":2,"name":"old","state":"disabled_manually"},""" +
+                """{"name":"no id","state":"active"},{"id":3}]}""",
+        )
+        assertEquals(4L, list.totalCount)
+        assertEquals(listOf(1L, 2L, 3L), list.workflows.map { it.id })
+        assertEquals(listOf(true, false, false), list.workflows.map { it.active })
+        assertEquals("workflow" to "unknown", list.workflows[2].name to list.workflows[2].state)
+        assertNull(PullJsonParser.parseWorkflows("""{"workflows":[]}""").totalCount)
+        listOf("[]", "{}", """{"workflows":[1]}""", """{"workflows":{}}""", "x", "").forEach { body ->
+            assertThrows(body, MalformedResponseException::class.java) { PullJsonParser.parseWorkflows(body) }
+        }
+    }
+
     @Test fun workflowRunTitleMarksPartialRuns() {
         val page = PullJsonParser.parseWorkflowRuns(
             runsJson(wfRun("build", title = "build: claude/52-x [partial]"), wfRun("build", title = "build: claude/52-x"), wfRun("CI")),

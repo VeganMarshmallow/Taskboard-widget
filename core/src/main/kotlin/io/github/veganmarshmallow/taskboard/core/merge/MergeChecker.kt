@@ -6,8 +6,9 @@ import java.time.Duration
  * The pre-merge checks (task #30), in this order: the PR is open, not merged and not a draft; its
  * base is the repo's default branch (a stacked PR would merge into another PR's branch, the
  * mistake that put PR #3 on the wrong branch); `mergeable` is true; the head commit's GitHub
- * Actions runs passed ([WorkflowRuns]). GitHub computes `mergeable` lazily, so a null is re-polled up to [polls]
- * times, waiting [pollDelay] × attempt between tries.
+ * Actions runs passed ([WorkflowRuns]), and every workflow that normally runs for the PR has a run
+ * on it ([ExpectedChecks], #41). GitHub computes `mergeable` lazily, so a null is re-polled up to
+ * [polls] times, waiting [pollDelay] × attempt between tries.
  */
 class MergeChecker(
     private val pulls: PullsApi,
@@ -83,8 +84,13 @@ class MergeChecker(
         null -> MergeStep.Stop(MergeProblem.MergeabilityUnknown(pr))
     }
 
+    private val expected = ExpectedChecks(pulls)
+
+    /** The extra calls for expected workflows (#41) are made only for a head that would pass without them. */
     private fun checks(pr: PullRequest): MergeStep<CheckedPr> = pulls.workflowRuns(pr.repo, pr.headSha).then { runs ->
-        when (val verdict = WorkflowRuns.verdict(runs, pr.headSha)) {
+        val registered = WorkflowRuns.verdict(runs, pr.headSha)
+        val verdict = if (registered == ChecksVerdict.Passed) WorkflowRuns.verdict(runs, pr.headSha, expected.notStarted(pr, runs)) else registered
+        when (verdict) {
             ChecksVerdict.Passed -> MergeStep.Ok(CheckedPr(pr, WorkflowRuns.latest(runs, pr.headSha)))
             is ChecksVerdict.Running -> MergeStep.Stop(MergeProblem.ChecksRunning(pr, verdict.names))
             is ChecksVerdict.Failed -> MergeStep.Stop(MergeProblem.ChecksFailed(pr, verdict.names))

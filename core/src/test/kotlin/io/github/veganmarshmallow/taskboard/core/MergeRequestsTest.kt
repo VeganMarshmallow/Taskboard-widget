@@ -7,8 +7,10 @@ import io.github.veganmarshmallow.taskboard.core.merge.compare
 import io.github.veganmarshmallow.taskboard.core.merge.mergePull
 import io.github.veganmarshmallow.taskboard.core.merge.openPulls
 import io.github.veganmarshmallow.taskboard.core.merge.pull
+import io.github.veganmarshmallow.taskboard.core.merge.pullRequestRuns
 import io.github.veganmarshmallow.taskboard.core.merge.repository
 import io.github.veganmarshmallow.taskboard.core.merge.workflowRuns
+import io.github.veganmarshmallow.taskboard.core.merge.workflows
 import io.github.veganmarshmallow.taskboard.core.model.Repo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -27,6 +29,18 @@ class MergeRequestsTest {
             assertEquals("GET", it.method)
             assertEquals("Bearer $TOKEN", it.headers["Authorization"])
         }
+    }
+
+    @Test fun expectedWorkflowReadsGoToTheProjectRepo() {
+        assertEquals(
+            "$base/actions/runs?branch=claude/41-expected&event=pull_request&per_page=100",
+            requests.pullRequestRuns(WIDGET, "claude/41-expected").url,
+        )
+        assertEquals("$base/actions/workflows?per_page=100", requests.workflows(WIDGET).url)
+        listOf("", "a b", "x&event=push", "../main", "/x", "x/", "a?b", "x#y").forEach { branch ->
+            assertThrows(branch, IllegalArgumentException::class.java) { requests.pullRequestRuns(WIDGET, branch) }
+        }
+        assertThrows(IllegalArgumentException::class.java) { requests.workflows(Repo("o", "r/../x")) }
     }
 
     @Test fun mergeIsAPutPinnedToTheHeadSha() {
