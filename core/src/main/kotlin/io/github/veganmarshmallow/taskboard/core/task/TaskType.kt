@@ -1,5 +1,7 @@
 package io.github.veganmarshmallow.taskboard.core.task
 
+import io.github.veganmarshmallow.taskboard.core.model.Labels
+
 /** The issue form's Type dropdown. [value] is what the form writes and what follows `type: ` in the label. */
 enum class TaskType(val value: String) {
     FEATURE("feature"),
@@ -7,5 +9,5 @@ enum class TaskType(val value: String) {
     REFACTOR("refactor"),
     RESEARCH("research");
 
-    val label: String get() = "type: $value"
+    val label: String get() = Labels.type(value)
 }
