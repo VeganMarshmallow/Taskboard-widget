@@ -6,7 +6,6 @@ import android.widget.RemoteViews
 import io.github.veganmarshmallow.taskboard.R
 import io.github.veganmarshmallow.taskboard.core.board.Board
 import io.github.veganmarshmallow.taskboard.core.board.Section
-import io.github.veganmarshmallow.taskboard.core.board.TabLabel
 
 /**
  * Binds the five status tabs: label with count, highlight on [selected], and a tap that selects the tab.
@@ -18,7 +17,7 @@ class TabViews(private val context: Context) {
         for (section in Section.entries) {
             val ids = ids(section)
             val isSelected = section == selected
-            val label = if (board == null) section.shortLabel else TabLabel.of(board, section)
+            val label = if (board == null) context.getString(TabText.name(section)) else TabText.label(context, section, board.count(section))
             views.setTextViewText(ids.label, label)
             views.setTextViewText(ids.selectedLabel, label)
             views.setViewVisibility(ids.label, if (isSelected) View.GONE else View.VISIBLE)
@@ -30,7 +29,8 @@ class TabViews(private val context: Context) {
 
     /** Full name and count, e.g. "In progress: 2, selected". No count before the first load. */
     private fun description(section: Section, board: Board?, isSelected: Boolean): String {
-        val base = if (board == null) section.title else context.getString(R.string.tab_description, section.title, board.count(section))
+        val title = context.getString(TabText.title(section))
+        val base = if (board == null) title else context.getString(R.string.tab_description, title, board.count(section))
         return if (isSelected) base + context.getString(R.string.tab_selected) else base
     }
 
