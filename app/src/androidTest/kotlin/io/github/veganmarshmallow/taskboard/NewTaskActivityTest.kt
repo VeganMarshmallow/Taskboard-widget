@@ -19,18 +19,16 @@ import io.github.veganmarshmallow.taskboard.core.http.HttpResponse
 import io.github.veganmarshmallow.taskboard.core.json.JsonParser
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.core.task.TaskDraft
-import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.newtask.NewTaskActivity
-import io.github.veganmarshmallow.taskboard.newtask.NewTaskController
+import io.github.veganmarshmallow.taskboard.newtask.NewTaskDeps
 import io.github.veganmarshmallow.taskboard.widget.WidgetViews
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
-import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.IOException
@@ -64,16 +62,8 @@ class NewTaskActivityTest {
 
     private val github = FakeGitHub()
 
-    @Before fun fakeGitHub() {
-        NewTaskController.apiProvider = { GitHubApi(github, "github_pat_X", Clock.fixed(FakeBoards.NOW, ZoneOffset.UTC)) }
-        NewTaskController.session.draft = TaskDraft.EMPTY
-        NewTaskController.session.takeResult()
-    }
-
-    @After fun restore() {
-        NewTaskController.apiProvider = AppGraph::apiOrNull
-        NewTaskController.session.draft = TaskDraft.EMPTY
-        NewTaskController.session.takeResult()
+    @get:Rule val newTask = NewTaskRule {
+        NewTaskDeps.standard { GitHubApi(github, "github_pat_X", Clock.fixed(FakeBoards.NOW, ZoneOffset.UTC)) }
     }
 
     private fun launch(): Activity {
@@ -117,7 +107,7 @@ class NewTaskActivityTest {
         val body = json["body"] as String
         assertTrue(body, body.startsWith("### Repo\n\nVeganMarshmallow/Taskboard-widget\n\n### Type\n\nbug\n\n### What should be done\n\nשורה 1\n\\### Repo\nשורה 2"))
         assertTrue(body.endsWith("### Done when\n\n_No response_\n\n### Notes\n\n_No response_"))
-        assertEquals(TaskDraft.EMPTY, NewTaskController.session.draft)
+        assertEquals(TaskDraft.EMPTY, newTask.controller.session.draft)
     }
 
     @Test fun doubleTapSendsOneRequestAndDisablesSubmit() {
