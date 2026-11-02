@@ -4,6 +4,7 @@ import android.content.Context
 import io.github.veganmarshmallow.taskboard.core.error.ErrorMessages
 import io.github.veganmarshmallow.taskboard.core.github.GitHubApi
 import io.github.veganmarshmallow.taskboard.core.http.HttpClient
+import io.github.veganmarshmallow.taskboard.core.snapshot.ShownStateStore
 import io.github.veganmarshmallow.taskboard.core.update.UpdateFlow
 import io.github.veganmarshmallow.taskboard.core.update.UpdateSchedule
 import io.github.veganmarshmallow.taskboard.core.update.Updater
@@ -41,7 +42,14 @@ object AppGraph {
         tracker ?: RefreshTracker(RefreshMarkPrefs(context), DeviceUptime(context)).also { tracker = it }
     }
 
-    fun refreshRunner(context: Context): RefreshRunner = RefreshRunner(refreshTracker(context), StateStore(context), clock)
+    @Volatile private var states: ShownStateStore? = null
+
+    /** One per process, so a failed save's error (kept in memory) is seen by every reader (#37). */
+    fun shownStates(context: Context): ShownStateStore = states ?: synchronized(this) {
+        states ?: ShownStateStore(StatePrefs(context)).also { states = it }
+    }
+
+    fun refreshRunner(context: Context): RefreshRunner = RefreshRunner(refreshTracker(context), shownStates(context), clock)
 
     /** The planner and the backoff it was built with (a test override of the backoff rebuilds it). */
     @Volatile private var planner: Pair<RetryBackoff, RetryPlanner>? = null

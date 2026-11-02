@@ -13,7 +13,9 @@ import io.github.veganmarshmallow.taskboard.data.StateStore
 /**
  * Blocking refresh, record-offline and sweep steps, run by [BoardJobService] on a background thread
  * (approving is [WidgetApprover]). Every refresh goes through [RefreshRunner], so it always ends in
- * the new board or an error, and the widget is re-rendered from that result.
+ * the new board or an error. The widget is then redrawn from the store, read inside the render gate
+ * ([WidgetRenderer.renderStored]); the store shows a failed save's error too (#37), so no path draws
+ * a state handed in from outside the gate, and an older run's board can never land last.
  */
 class WidgetRefresher(private val context: Context) {
     private val runner = AppGraph.refreshRunner(context)
@@ -36,7 +38,7 @@ class WidgetRefresher(private val context: Context) {
 
     /** If a refresh died with its process, shows an error instead of "updating…". */
     fun recoverIfStale() {
-        runner.recoverIfStale()?.let(::show)
+        if (runner.recoverIfStale() != null) redraw()
     }
 
     /**
@@ -46,7 +48,7 @@ class WidgetRefresher(private val context: Context) {
      */
     fun sweep(): WidgetState? {
         val recovered = runner.recoverIfStale()
-        draw { if (recovered != null) renderer.render(recovered) else renderer.renderStored() }
+        redraw()
         return recovered
     }
 
@@ -55,22 +57,17 @@ class WidgetRefresher(private val context: Context) {
      * launcher after the newer run's final render. The header then shows the tracker's truth.
      */
     private fun renderAfter(result: RefreshRunner.Result): RefreshRunner.Result {
-        when (result) {
-            is RefreshRunner.Result.Committed -> show(result.state)
-            RefreshRunner.Result.Superseded -> draw { renderer.renderStored() }
-        }
+        redraw()
         return result
     }
 
     /**
-     * Draws [state] on every widget. A drawing failure is logged, never thrown: the caller must still
-     * plan the next retry, or the widget could stay on an error after the network is back (#29).
+     * Draws what is stored on every widget. A drawing failure is logged, never thrown: the caller must
+     * still plan the next retry, or the widget could stay on an error after the network is back (#29).
      */
-    private fun show(state: WidgetState) = draw { renderer.render(state) }
-
-    private fun draw(render: () -> Unit) {
+    private fun redraw() {
         try {
-            render()
+            renderer.renderStored()
         } catch (e: RuntimeException) {
             Log.w(TAG, "drawing the widget failed: ${e.javaClass.simpleName}")
         }

@@ -33,17 +33,18 @@ class WidgetRenderer(private val context: Context) {
     fun widgetIds(): IntArray = manager.getAppWidgetIds(ComponentName(context, BoardWidgetProvider::class.java))
 
     /**
-     * Draws [state]. Use this only for a state that may differ from the stored one (a refresh's
-     * result); for "redraw what is cached" use [renderStored], which reads it inside the gate.
+     * Draws [state]. For tests only: production code always draws with [renderStored], which reads
+     * the state inside the gate, so an older state handed in from outside can never land last (#37).
      * [updating]: null reads it from the refresh tracker (inside the gate, so it is current).
      */
     fun render(state: WidgetState, ids: IntArray = widgetIds(), updating: Boolean? = null) =
         push(ids, notifyList = true, updating = updating) { state }
 
     /**
-     * Draws the cached state, read inside the gate. A state loaded before waiting for the gate
-     * could be older than a refresh that saved and drew meanwhile; drawn last, it would leave the
-     * header (tab counts, time) behind the list, which re-reads the store itself.
+     * Draws the stored state (with a failed save's error, see [StateStore]), read inside the gate.
+     * A state loaded before waiting for the gate could be older than a refresh that saved and drew
+     * meanwhile; drawn last, it would leave the header (tab counts, time) behind the list, which
+     * re-reads the store itself, or bring back an older run's board over a newer one.
      */
     fun renderStored(ids: IntArray = widgetIds()) = push(ids, notifyList = true) { StateStore(context).load() }
 
