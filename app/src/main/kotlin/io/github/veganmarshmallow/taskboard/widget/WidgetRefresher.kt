@@ -9,7 +9,6 @@ import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.core.work.RefreshRunner
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.StateStore
-import io.github.veganmarshmallow.taskboard.update.UpdateController
 
 /**
  * Blocking refresh, record-offline and sweep steps, run by [BoardJobService] on a background thread
@@ -26,7 +25,7 @@ class WidgetRefresher(private val context: Context) {
             // "No network" only when the device really has none; otherwise GitHub is unreachable (#29).
             if (next.error == null) next else Reachability.refine(next, Connectivity.isOnline(context))
         })
-        UpdateController.checkInBackgroundIfDue(context) // queued on its own thread; never delays the board
+        AppGraph.updates(context).checkInBackgroundIfDue() // queued on its own thread; never delays the board
         return result
     }
 
