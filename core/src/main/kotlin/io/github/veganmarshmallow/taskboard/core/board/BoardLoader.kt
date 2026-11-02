@@ -3,6 +3,7 @@ package io.github.veganmarshmallow.taskboard.core.board
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.github.GitHubApi
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
+import io.github.veganmarshmallow.taskboard.core.model.Issue
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import java.time.Clock
 
@@ -10,6 +11,8 @@ import java.time.Clock
 class BoardLoader(
     private val clock: Clock,
     private val builder: BoardBuilder = BoardBuilder(),
+    /** Ranks the PRs waiting for a merge (#45); null skips that step. */
+    private val mergeLanes: MergeLaneSource? = null,
 ) {
     /** [api] is null when no token is saved. */
     fun refresh(previous: WidgetState, api: GitHubApi?): WidgetState {
@@ -23,8 +26,14 @@ class BoardLoader(
             Outcome.Failure(BoardError.Unexpected("internal error: ${e.javaClass.simpleName}"))
         }
         return when (result) {
-            is Outcome.Success -> previous.withBoard(builder.build(result.value, now))
+            is Outcome.Success -> previous.withBoard(withLanes(builder.build(result.value, now), result.value, api))
             is Outcome.Failure -> previous.withError(result.error, now)
         }
+    }
+
+    private fun withLanes(board: Board, issues: List<Issue>, api: GitHubApi): Board {
+        val source = mergeLanes ?: return board
+        if (board.sections.none { s -> s.items.any { it.canMerge } }) return board
+        return board.withMergeLanes(source.lanes(issues, api))
     }
 }

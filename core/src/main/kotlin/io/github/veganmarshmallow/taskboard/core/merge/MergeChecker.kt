@@ -20,7 +20,10 @@ class MergeChecker(
     }
 
     /** The PR as it stands now, with the head SHA that was checked; merge exactly that SHA. */
-    fun check(found: FoundPr): MergeStep<PullRequest> = withDefaultBranch(found.pr).then { first ->
+    fun check(found: FoundPr): MergeStep<PullRequest> = evaluate(found).then { MergeStep.Ok(it.pr) }
+
+    /** [check], also keeping the newest run of each workflow on the checked head (#45 dates "ready" from them). */
+    fun evaluate(found: FoundPr): MergeStep<CheckedPr> = withDefaultBranch(found.pr).then { first ->
         refuse(first, found.openInRepo) ?: poll(first).then { fresh ->
             val current = fresh.copy(defaultBranch = fresh.defaultBranch ?: first.defaultBranch)
             refuse(current, found.openInRepo) ?: mergeable(current).then(::checks)
@@ -80,12 +83,15 @@ class MergeChecker(
         null -> MergeStep.Stop(MergeProblem.MergeabilityUnknown(pr))
     }
 
-    private fun checks(pr: PullRequest): MergeStep<PullRequest> = pulls.workflowRuns(pr.repo, pr.headSha).then { runs ->
+    private fun checks(pr: PullRequest): MergeStep<CheckedPr> = pulls.workflowRuns(pr.repo, pr.headSha).then { runs ->
         when (val verdict = WorkflowRuns.verdict(runs, pr.headSha)) {
-            ChecksVerdict.Passed -> MergeStep.Ok(pr)
+            ChecksVerdict.Passed -> MergeStep.Ok(CheckedPr(pr, WorkflowRuns.latest(runs, pr.headSha)))
             is ChecksVerdict.Running -> MergeStep.Stop(MergeProblem.ChecksRunning(pr, verdict.names))
             is ChecksVerdict.Failed -> MergeStep.Stop(MergeProblem.ChecksFailed(pr, verdict.names))
             ChecksVerdict.None, ChecksVerdict.NothingPassed -> MergeStep.Stop(MergeProblem.NoChecks(pr))
         }
     }
 }
+
+/** A PR that passed every check, and the runs that passed it (the newest of each workflow and event). */
+data class CheckedPr(val pr: PullRequest, val runs: List<WorkflowRun>)

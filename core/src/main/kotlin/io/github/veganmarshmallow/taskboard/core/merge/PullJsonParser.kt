@@ -50,12 +50,17 @@ object PullJsonParser {
                     status = run.string("status") ?: "unknown",
                     conclusion = run.string("conclusion"),
                     event = run.string("event"),
+                    updatedAt = run.string("updated_at")?.let(::instant),
                     displayTitle = run.string("display_title"),
                 )
             },
             obj.long("total_count")?.takeIf { it >= 0 },
         )
     }
+
+    /** `behind_by` from a compare response; malformed when missing or negative. */
+    fun behindBy(body: String): Long =
+        (parse(body) as? Map<*, *>)?.long("behind_by")?.takeIf { it >= 0 } ?: throw MalformedResponseException("Compare without behind_by")
 
     /** GitHub's `message` from an error or merge response; null when there is none. */
     fun message(body: String): String? = try {
@@ -91,6 +96,7 @@ object PullJsonParser {
             headRef = head.string("ref").orEmpty(),
             headSha = sha,
             defaultBranch = (base["repo"] as? Map<*, *>)?.string("default_branch")?.takeIf { it.isNotEmpty() },
+            labels = obj.list("labels").orEmpty().mapNotNull { (it as? Map<*, *>)?.string("name") }.toSet(),
         )
     }
 

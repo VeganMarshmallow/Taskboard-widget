@@ -66,6 +66,11 @@ class PullsApi(private val api: GitHubApi) {
         return MergeStep.Stop(MergeProblem.Failed(BoardError.Unexpected("more than ${MAX_RUN_PAGES * 100} workflow runs")))
     }
 
+    /** Commits on [base] that [sha] lacks (`behind_by` of the compare API, #45). */
+    fun behindBy(repo: Repo, base: String, sha: String): MergeStep<Long> = read(repo, { api.requests.compare(repo, base, sha) }) {
+        PullJsonParser.behindBy(it.body)
+    }
+
     /** Merges [pr] at its checked head SHA. Never retried: a lost response may still mean it merged. */
     fun merge(pr: PullRequest): MergeStep<Unit> {
         val request = try {

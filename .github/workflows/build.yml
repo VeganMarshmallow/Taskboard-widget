@@ -82,6 +82,9 @@ jobs:
           set -o pipefail
           ./gradlew :core:test --console=plain 2>&1 | tee test.log
 
+      - name: Workflow script tests
+        run: node --test .github/scripts/*.test.js
+
       - name: Annotate test failure
         if: failure() && steps.test.outcome == 'failure'
         run: .github/scripts/annotate-failure.sh test.log "core tests"

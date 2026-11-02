@@ -32,6 +32,16 @@ internal fun GitHubRequests.workflowRuns(repo: Repo, sha: String): HttpRequest {
     return get("${repoPath(repo)}/actions/runs?head_sha=$sha&per_page=${GitHubRequests.PER_PAGE}")
 }
 
+/**
+ * How far [sha] is behind [base] (#45: `behind_by` > 0 means the PR still has to be updated with it).
+ * `{base}...{sha}` compares the merge base with the head, so commits on the head don't count.
+ */
+internal fun GitHubRequests.compare(repo: Repo, base: String, sha: String): HttpRequest {
+    require(GitHubNames.isBranch(base)) { "not a branch name" }
+    require(SHA.matches(sha)) { "not a commit SHA" }
+    return get("${repoPath(repo)}/compare/$base...$sha")
+}
+
 /** A merge commit, pinned to the head SHA that was checked: if the PR changed since, GitHub answers 409. */
 internal fun GitHubRequests.mergePull(pr: PullRequest): HttpRequest {
     require(SHA.matches(pr.headSha)) { "not a commit SHA" }

@@ -25,7 +25,7 @@ class RowActionActivity : Activity() {
             is RowAction.Open -> open(action.url)
             is RowAction.Approve -> confirmApprove(action)
             is RowAction.Preview -> preview(action.issue)
-            is RowAction.Merge -> merge(action.issue)
+            is RowAction.Merge -> action.mergeFirst?.let(::mergeFirst) ?: merge(action.issue)
             null -> finish()
         }
     }
@@ -33,6 +33,12 @@ class RowActionActivity : Activity() {
     override fun onDestroy() {
         mergeFlow?.close()
         super.onDestroy()
+    }
+
+    /** A muted Merge (#45): another PR goes first. The row and its preview still open the PR on GitHub. */
+    private fun mergeFirst(title: String) {
+        Toast.makeText(this, MergeLaneViews.mergeFirst(this, title), Toast.LENGTH_LONG).show()
+        finish()
     }
 
     private fun merge(issue: Int) {

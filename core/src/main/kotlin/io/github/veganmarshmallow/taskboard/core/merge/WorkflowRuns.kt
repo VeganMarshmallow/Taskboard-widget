@@ -18,6 +18,8 @@ data class WorkflowRun(
     val status: String,
     val conclusion: String?,
     val event: String? = null,
+    /** When the run last changed: for a completed run, roughly when it finished (#45 "ready since"). */
+    val updatedAt: Instant? = null,
     /** The run's `display_title` (the workflow's `run-name`); carries [WorkflowRuns.PARTIAL_MARK]. */
     val displayTitle: String? = null,
 ) {

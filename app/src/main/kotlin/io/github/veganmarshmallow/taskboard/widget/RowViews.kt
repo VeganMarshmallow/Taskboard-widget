@@ -13,6 +13,7 @@ import io.github.veganmarshmallow.taskboard.core.board.Section
 /** Maps one [BoardRow] to its RemoteViews, with fill-in intents for taps. */
 class RowViews(private val context: Context) {
     private val links = BoardLinks()
+    private val mergeLanes = MergeLaneViews(context)
 
     fun build(row: BoardRow): RemoteViews = when (row) {
         is BoardRow.Item -> item(row.item, row.section)
@@ -37,12 +38,7 @@ class RowViews(private val context: Context) {
         } else {
             setViewVisibility(R.id.item_approve, View.GONE)
         }
-        if (item.canMerge) {
-            setViewVisibility(R.id.item_merge, View.VISIBLE)
-            setOnClickFillInIntent(R.id.item_merge, RowAction.Merge(item.number).toFillIn())
-        } else {
-            setViewVisibility(R.id.item_merge, View.GONE)
-        }
+        mergeLanes.bind(this, item)
     }
 
     private fun note(text: String, row: BoardRow) = RemoteViews(context.packageName, R.layout.row_note).apply {

@@ -6,6 +6,20 @@
     <string name="merge_open_github">Open on GitHub</string>
     <string name="merge_edit_token">Edit token</string>
     <string name="merge_set_up">Set up</string>
+    <!-- #45: tapping a muted Merge while another PR is to be merged first. -->
+    <string name="merge_first">Merge %1$s first</string>
+    <!-- #45: why a Merge button is muted, shown next to it. Short: the row is narrow. -->
+    <string name="merge_wait_queued">ready</string>
+    <string name="merge_wait_draft">draft</string>
+    <string name="merge_wait_stacked">stacked</string>
+    <string name="merge_wait_checks_running">checks running</string>
+    <string name="merge_wait_checks_failed">checks failed</string>
+    <string name="merge_wait_no_checks">no checks yet</string>
+    <string name="merge_wait_conflict">conflict</string>
+    <string name="merge_wait_conflict_claude">conflict: Claude will fix</string>
+    <string name="merge_wait_updating">updating</string>
+    <string name="merge_wait_no_pr">no PR</string>
+    <string name="merge_wait_unknown">can\'t check</string>
     <string name="preview_merged">Merged. Claude closes the task on its next run</string>
     <string name="setup_merge_instructions"><b>To merge from the widget</b> (optional): the Merge button on tasks waiting for review merges Claude\'s PR from this phone. Edit the token and, for each project repo:\n\n1. Repository access: add the project repo (for example Taskboard-widget)\n2. Permissions → Repository: <b>Contents: Read and write</b>, <b>Pull requests: Read and write</b>, and <b>Actions: Read-only</b> (to see that CI passed)\n\n<b>This gives the phone write access to those repos\' code</b>: anyone with the token could push to them. Skip it if you only want to read the board and approve tasks.</string>
 </resources>
