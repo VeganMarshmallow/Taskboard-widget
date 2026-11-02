@@ -26,7 +26,8 @@ class ExpectedWorkflowsTest {
         status: String = "completed",
         conclusion: String? = "success",
         title: String? = null,
-    ) = WorkflowRun(ids++, workflow, name, sha, 1, 1, created?.let(Instant::parse), status, conclusion, event, displayTitle = title)
+        updated: String? = null,
+    ) = WorkflowRun(ids++, workflow, name, sha, 1, 1, created?.let(Instant::parse), status, conclusion, event, updated?.let(Instant::parse), title)
 
     private val fast = ExpectedWorkflow(1, "Fast")
     private val slow = ExpectedWorkflow(2, "Slow")
@@ -113,6 +114,23 @@ class ExpectedWorkflowsTest {
         assertFalse("no time at all: no wait", within(null))
         assertFalse(within())
     }
+
+    @Test fun graceUsesGitHubsTimesWhenTheDeviceClockIsBehind() {
+        val behind = Instant.parse("2026-10-22T09:00:00Z") // device three hours slow
+        fun within(updated: String) = ExpectedWorkflows.withinGrace(
+            listOf(run("Fast", 1, sha = SHA_A, created = "2026-10-22T11:50:00Z", updated = updated)), SHA_A, behind)
+        assertTrue("finished 5 min after it was created: still within", within("2026-10-22T11:55:00Z"))
+        assertFalse("GitHub's own times show 10 min passed", within("2026-10-22T12:00:00Z"))
+        assertFalse("any head run's update time counts", ExpectedWorkflows.withinGrace(
+            listOf(run("Fast", 1, sha = SHA_A, created = "2026-10-22T11:50:00Z"), run("Slow", 2, sha = SHA_A, created = "2026-10-22T11:51:00Z", updated = "2026-10-22T12:30:00Z"),
+                run("Fast", 1, sha = SHA_B, created = "2026-10-22T11:00:00Z", updated = "2026-10-22T13:00:00Z")), SHA_A, behind))
+        assertTrue("other commits' times are ignored", ExpectedWorkflows.withinGrace(
+            listOf(run("Fast", 1, sha = SHA_A, created = "2026-10-22T11:50:00Z"), run("Fast", 1, sha = SHA_B, created = "2026-10-22T11:00:00Z", updated = "2026-10-22T13:00:00Z")), SHA_A, behind))
+    }
+
+    @Test fun graceEndsEarlyWhenTheDeviceClockIsAhead() =
+        assertFalse("fails open to the check before #41", ExpectedWorkflows.withinGrace(
+            listOf(run("Fast", 1, sha = SHA_A, created = "2026-10-22T11:59:00Z")), SHA_A, Instant.parse("2026-10-22T15:00:00Z")))
 
     @Test fun graceIgnoresRunsOnOtherCommits() {
         val now = Instant.parse("2026-10-22T12:00:00Z")

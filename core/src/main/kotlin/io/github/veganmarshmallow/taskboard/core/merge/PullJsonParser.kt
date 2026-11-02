@@ -59,7 +59,6 @@ object PullJsonParser {
         )
     }
 
-    /** `behind_by` from a compare response; malformed when missing or negative. */
     /**
      * `{"total_count": n, "workflows": [...]}` from the Actions workflows list (#41). A workflow
      * without an id is dropped (it can't be matched to a run); a missing state is "unknown" (not active).
@@ -77,6 +76,7 @@ object PullJsonParser {
         )
     }
 
+    /** `behind_by` from a compare response; malformed when missing or negative. */
     fun behindBy(body: String): Long =
         (parse(body) as? Map<*, *>)?.long("behind_by")?.takeIf { it >= 0 } ?: throw MalformedResponseException("Compare without behind_by")
 

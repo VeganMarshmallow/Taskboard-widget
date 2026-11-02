@@ -62,10 +62,17 @@ object ExpectedWorkflows {
         return missing.filter { byId[it.workflowId]?.active ?: !list.complete }
     }
 
-    /** Whether [now] is less than [GRACE] after the first run on [sha]. False when no run has a time. */
+    /**
+     * Whether it is less than [GRACE] since the first run on [sha]. False when no run has a time.
+     * "Now" is the later of the device's [now] and the newest time GitHub stamped on those runs, so a
+     * device clock that is behind can't keep the Merge button waiting past [GRACE] of GitHub's own time.
+     * (A clock that is ahead ends the wait early: the check before #41, never a stuck button.)
+     */
     fun withinGrace(headRuns: List<WorkflowRun>, sha: String, now: Instant): Boolean {
-        val first = headRuns.filter { onCommit(it, sha) }.mapNotNull { it.createdAt }.minOrNull() ?: return false
-        return Duration.between(first, now) < GRACE
+        val onHead = headRuns.filter { onCommit(it, sha) }
+        val first = onHead.mapNotNull { it.createdAt }.minOrNull() ?: return false
+        val seen = onHead.flatMap { listOfNotNull(it.createdAt, it.updatedAt) }.maxOrNull() ?: first
+        return Duration.between(first, maxOf(now, seen)) < GRACE
     }
 
     /** How a missing workflow is named in "Checks still running". */
