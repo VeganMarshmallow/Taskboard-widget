@@ -51,6 +51,7 @@ object PullJsonParser {
                     conclusion = run.string("conclusion"),
                     event = run.string("event"),
                     updatedAt = run.string("updated_at")?.let(::instant),
+                    displayTitle = run.string("display_title"),
                 )
             },
             obj.long("total_count")?.takeIf { it >= 0 },

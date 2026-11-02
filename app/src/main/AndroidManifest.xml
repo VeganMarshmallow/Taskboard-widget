@@ -55,7 +55,8 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:taskAffinity=""
-            android:theme="@style/Theme.Taskboard.Preview" />
+            android:theme="@style/Theme.Taskboard.Preview"
+            android:windowSoftInputMode="adjustResize" />
 
         <!-- Exported only because the system must deliver APPWIDGET_UPDATE to it. -->
         <receiver

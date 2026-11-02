@@ -24,6 +24,9 @@ class PreviewViews(private val root: View, private val messages: ErrorMessages) 
     private val tags: FlowLayout = root.findViewById(R.id.preview_tags)
     private val summary: TextView = root.findViewById(R.id.preview_summary)
     private val claude = ClaudeCommentViews(root)
+
+    /** The reply box (task #44); the activity wires its input through [ReplyViews.listen]. */
+    val reply = ReplyViews(root, messages)
     private val error: TextView = root.findViewById(R.id.preview_error)
     private val approved: View = root.findViewById(R.id.preview_approved)
     private val approve: Button = root.findViewById(R.id.preview_approve)
@@ -40,6 +43,7 @@ class PreviewViews(private val root: View, private val messages: ErrorMessages) 
         TagPillViews.bind(tags, task?.tags.orEmpty())
         bindSummary(screen.summaryState)
         claude.bind(screen.claudeComment)
+        reply.bind(screen)
         error.showText(screen.error?.let { errorText(it, screen.number) })
         approved.visibility = if (screen.justApproved) View.VISIBLE else View.GONE
         approve.visibility = if (screen.showApprove || screen.approving) View.VISIBLE else View.GONE
