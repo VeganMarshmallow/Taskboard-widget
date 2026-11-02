@@ -9,6 +9,7 @@ import android.widget.TextView
 import io.github.veganmarshmallow.taskboard.R
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.task.NewTaskSession
+import io.github.veganmarshmallow.taskboard.core.task.SubmitRecovery
 import io.github.veganmarshmallow.taskboard.core.task.TaskType
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 
@@ -16,7 +17,8 @@ import io.github.veganmarshmallow.taskboard.data.AppGraph
  * The "New task" form, opened from the widget's + button. A thin binder: validation, the draft
  * and the in-flight guard live in [NewTaskSession] (core), the request in [NewTaskController].
  * The draft survives rotation because the controller (and its session) is one per process, owned
- * by [AppGraph], not part of this Activity.
+ * by [AppGraph], not part of this Activity; it survives process death because the controller
+ * also saves it to disk, and a submit cut short by process death is checked when the form opens.
  */
 class NewTaskActivity : Activity() {
     private val controller = AppGraph.newTask
@@ -40,9 +42,12 @@ class NewTaskActivity : Activity() {
         // Opening the form afresh: a success from an earlier, closed form was already toasted and
         // must not close this one. (After rotation, savedInstanceState is set and it is kept.)
         if (savedInstanceState == null) session.dropShownSuccess()
+        controller.restore(this) // after process death: the saved draft, and a check of a cut-short submit
         form.write(session.draft)
 
-        savedInstanceState?.getCharSequence(KEY_ERROR)?.let(::showError) // a failure shown before rotation
+        savedInstanceState?.let { saved -> // a message shown before rotation
+            saved.getCharSequence(KEY_STATUS)?.let { showStatus(it, saved.getInt(KEY_STATUS_COLOR, R.color.error)) }
+        }
         submit.setOnClickListener { onSubmit() }
         findViewById<Button>(R.id.task_cancel).setOnClickListener { onCancel() }
     }
@@ -55,14 +60,20 @@ class NewTaskActivity : Activity() {
 
     override fun onPause() {
         // Back, Home and rotation keep what was typed; Cancel and a successful submit clear it.
-        if (keepDraft && !session.isSubmitting) session.draft = form.read()
+        if (keepDraft && !session.isSubmitting && controller.checking == null) {
+            session.draft = form.read()
+            controller.saveDraft(this, session.draft)
+        }
         controller.listener = null
         super.onPause()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        if (status.visibility == View.VISIBLE) outState.putCharSequence(KEY_ERROR, status.text)
+        if (status.visibility == View.VISIBLE) {
+            outState.putCharSequence(KEY_STATUS, status.text)
+            outState.putInt(KEY_STATUS_COLOR, statusColor)
+        }
     }
 
     private fun bindRepoField() {
@@ -91,30 +102,48 @@ class NewTaskActivity : Activity() {
     private fun onCancel() {
         if (session.isSubmitting) return // the request can't be recalled; the button is disabled anyway
         keepDraft = false
-        session.discard()
+        controller.discard(this)
         finish()
     }
 
-    /** Shows the busy state and any finished result. */
+    /** Shows the busy state and any finished result or recovery check. */
     private fun render() {
-        val busy = session.isSubmitting
+        val checking = controller.checking
+        val busy = session.isSubmitting || checking != null
         submit.isEnabled = !busy
-        submit.setText(if (busy) R.string.task_submitting else R.string.task_submit)
+        submit.setText(if (session.isSubmitting) R.string.task_submitting else R.string.task_submit)
         form.setEnabled(!busy)
         findViewById<Button>(R.id.task_cancel).isEnabled = !busy
         when (val result = session.takeResult()) {
             null -> Unit
             is Outcome.Success -> { keepDraft = false; finish() } // NewTaskEffects already toasted and refreshed
-            is Outcome.Failure -> showError(NewTaskEffects.failureText(this, result.error))
+            is Outcome.Failure -> showStatus(NewTaskEffects.failureText(this, result.error), R.color.error)
         }
+        if (checking != null) showStatus(getString(R.string.task_recovery_checking, checking.title), R.color.widget_muted)
+        controller.takeRecovery()?.let(::showRecovery)
     }
 
-    private fun showError(text: CharSequence) {
+    private fun showRecovery(result: SubmitRecovery.Result) {
+        if (result is SubmitRecovery.Result.Created) form.write(session.draft) // the controller cleared it
+        val color = when (result) {
+            is SubmitRecovery.Result.Created -> R.color.ok
+            is SubmitRecovery.Result.NotCreated -> R.color.widget_muted
+            else -> R.color.error
+        }
+        showStatus(NewTaskEffects.recoveryText(this, result), color)
+    }
+
+    private var statusColor = R.color.error
+
+    private fun showStatus(text: CharSequence, color: Int) {
+        statusColor = color
+        status.setTextColor(getColor(color))
         status.text = text
         status.visibility = View.VISIBLE
     }
 
     private companion object {
-        const val KEY_ERROR = "error"
+        const val KEY_STATUS = "error"
+        const val KEY_STATUS_COLOR = "status_color"
     }
 }

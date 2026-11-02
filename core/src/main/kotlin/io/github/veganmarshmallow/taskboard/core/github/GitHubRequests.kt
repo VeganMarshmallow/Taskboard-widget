@@ -71,6 +71,20 @@ class GitHubRequests(internal val repo: Repo, private val token: String) {
     /** The newest issues in any state, with their bodies: where the New task form finds repo suggestions. */
     fun recentIssues(): HttpRequest = get(issuesUrl("state" to "all"))
 
+    /**
+     * Issues in any state updated since [since], newest created first: where the New task form looks
+     * for a task a dead process may have created. Not filtered by creator (that would need another
+     * request for the token's login); callers match the exact title and creation time instead.
+     */
+    fun issuesUpdatedSince(since: Instant): HttpRequest = get(
+        issuesUrl(
+            "state" to "all",
+            "since" to since.truncatedTo(ChronoUnit.SECONDS).toString(),
+            "sort" to "created",
+            "direction" to "desc",
+        ),
+    )
+
     internal fun get(url: String) = HttpRequest("GET", url, headers())
 
     /** A write with a JSON body, for requests built elsewhere in core (the PR merge of task #30). */

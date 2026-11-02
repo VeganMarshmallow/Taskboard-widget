@@ -12,11 +12,13 @@ import io.github.veganmarshmallow.taskboard.core.task.CreateErrors
 import io.github.veganmarshmallow.taskboard.core.task.CreatedIssue
 import io.github.veganmarshmallow.taskboard.core.task.IssueResponseParser
 import io.github.veganmarshmallow.taskboard.core.task.NewIssue
+import io.github.veganmarshmallow.taskboard.core.task.RecentIssue
 import io.github.veganmarshmallow.taskboard.core.task.RepoSuggestions
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.time.Clock
 import java.time.Duration
+import java.time.Instant
 
 /** The board's use of the GitHub REST API: load issues, approve a task, check a token. */
 class GitHubApi(
@@ -45,6 +47,10 @@ class GitHubApi(
     /** Repo suggestions from the newest 100 issues' bodies (one request, no pagination). */
     fun repoSuggestions(): Outcome<List<String>> =
         send(requests.recentIssues()).map { RepoSuggestions.fromBodies(IssueResponseParser.issueBodies(it.body)) }
+
+    /** One page (newest created first) of issues updated since [since], for [io.github.veganmarshmallow.taskboard.core.task.SubmitRecovery]. */
+    fun issuesUpdatedSince(since: Instant): Outcome<List<RecentIssue>> =
+        send(requests.issuesUpdatedSince(since)).map { IssueResponseParser.recentIssues(it.body) }
 
     /** Checks the token can read the repository and its issues. */
     fun testConnection(): Outcome<Unit> =
