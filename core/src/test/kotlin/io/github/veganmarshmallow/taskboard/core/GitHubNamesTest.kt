@@ -1,7 +1,10 @@
 package io.github.veganmarshmallow.taskboard.core
 
 import io.github.veganmarshmallow.taskboard.core.model.GitHubNames
+import io.github.veganmarshmallow.taskboard.core.tags.RepoField
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -46,6 +49,26 @@ class GitHubNamesTest {
     @Test fun dotAndDotDotAreNotNamesBecauseTheyChangeTheUrlPath() {
         assertFalse(GitHubNames.isName("."))
         assertFalse(GitHubNames.isName(".."))
+    }
+
+    @Test fun lineEndingsControlCharsAndEncodedDotsAreRefused() {
+        listOf("o\n", "o\r", "o\u0085", "\no", "o%2e", "O\t").forEach { assertFalse(it, GitHubNames.isOwner(it)) }
+        listOf("r\n", "r\r\n", "r\u0085", "r\u2028", "%2e%2e", "%2E", "r\u0000").forEach { assertFalse(it, GitHubNames.isName(it)) }
+        listOf("main\n", "a%2e%2e/b", "%2e%2e").forEach { assertFalse(it, GitHubNames.isBranch(it)) }
+        assertTrue(GitHubNames.isOwner("VEGAN"))
+        assertTrue(GitHubNames.isName("MY.APP"))
+    }
+
+    /** RepoField splits on `/` and asks [GitHubNames] (#36); the old one-regex parse took the same inputs. */
+    @Test fun repoFieldParseAcceptsTheSameShapesAsBefore() {
+        assertEquals("name", RepoField.parse("owner/name"))
+        assertEquals("name", RepoField.parse("owner/name.git"))
+        assertEquals("name", RepoField.parse("owner/name/issues/3"))
+        assertEquals("name", RepoField.parse("https://github.com/owner/name?tab=x"))
+        assertEquals("a".repeat(100), RepoField.parse("o/" + "a".repeat(100)))
+        listOf("", "owner", "/name", "owner/", "owner/.", "owner/..", "owner/.git", "-o/name", "o_x/name", "${"a".repeat(40)}/n",
+            "o/" + "a".repeat(101), "o/%2e%2e", "בעלים/שם", "o/שם", "o /name")
+            .forEach { assertNull(it, RepoField.parse(it)) }
     }
 
     @Test fun shas() {

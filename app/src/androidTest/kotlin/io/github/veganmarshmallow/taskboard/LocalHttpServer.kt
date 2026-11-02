@@ -34,6 +34,8 @@ abstract class LocalHttpServer(private val name: String) : AutoCloseable {
                 val socket = try { server.accept() } catch (e: IOException) { break }
                 connections.incrementAndGet()
                 sockets.add(socket)
+                // close() may have run between accept() and add(): don't serve a socket it missed.
+                if (server.isClosed) { runCatching { socket.close() }; break }
                 thread(isDaemon = true, name = "$name-serve") { serve(socket) }
             }
         }
