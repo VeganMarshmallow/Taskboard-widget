@@ -38,10 +38,10 @@ class WidgetHost(private val context: Context) {
         }
         val pad = (16 * density).toInt()
         frame.setPadding(pad, pad, pad, pad)
-        val widget = WidgetViews(context).build(state, WIDGET_ID, tab).apply(context, frame)
+        val widget = WidgetViews(context).build(state, WIDGET_ID, tab, widthDp = widthDp).apply(context, frame)
         frame.addView(widget, FrameLayout.LayoutParams((widthDp * density).toInt(), (heightDp * density).toInt()))
 
-        replaceListWithRows(widget, state.board?.let { BoardRows.of(it, tab) }.orEmpty())
+        replaceListWithRows(widget, state.board?.let { BoardRows.of(it, tab) }.orEmpty(), widthDp)
 
         val w = ((widthDp + 32) * density).toInt()
         val h = ((heightDp + 32) * density).toInt()
@@ -55,7 +55,7 @@ class WidgetHost(private val context: Context) {
      * through the RemoteViewsService; doing it directly keeps the capture synchronous and avoids
      * the list's remote adapter (bound to a widget id no launcher owns here) replacing the rows.
      */
-    private fun replaceListWithRows(widget: View, rows: List<BoardRow>) {
+    private fun replaceListWithRows(widget: View, rows: List<BoardRow>, widthDp: Int) {
         val list = widget.findViewById<View>(R.id.board_list)
         val parent = list.parent as ViewGroup
         val column = LinearLayout(context).apply {
@@ -64,7 +64,7 @@ class WidgetHost(private val context: Context) {
             visibility = list.visibility
         }
         val rowViews = RowViews(context)
-        rows.forEach { column.addView(rowViews.build(it).apply(context, column)) }
+        rows.forEach { column.addView(rowViews.build(it, widthDp).apply(context, column)) }
         val index = parent.indexOfChild(list)
         parent.removeViewAt(index)
         parent.addView(column, index, list.layoutParams)

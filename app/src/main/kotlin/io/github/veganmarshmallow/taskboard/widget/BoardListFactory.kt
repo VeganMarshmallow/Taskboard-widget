@@ -15,6 +15,7 @@ import io.github.veganmarshmallow.taskboard.data.TabStore
  */
 class BoardListFactory(private val context: Context, private val widgetId: Int) : RemoteViewsService.RemoteViewsFactory {
     private var rows: List<BoardRow> = emptyList()
+    private var widthDp: Int? = null
     private val rowViews = RowViews(context)
 
     override fun onCreate() = Unit
@@ -22,6 +23,7 @@ class BoardListFactory(private val context: Context, private val widgetId: Int) 
     override fun onDataSetChanged() {
         val board = StateStore(context).load().board
         rows = board?.let { BoardRows.of(it, TabStore(context).selected(widgetId, it)) }.orEmpty()
+        widthDp = WidgetSize.widthDp(context, widgetId)
     }
 
     override fun onDestroy() {
@@ -30,7 +32,7 @@ class BoardListFactory(private val context: Context, private val widgetId: Int) 
 
     override fun getCount(): Int = rows.size
 
-    override fun getViewAt(position: Int): RemoteViews? = rows.getOrNull(position)?.let(rowViews::build)
+    override fun getViewAt(position: Int): RemoteViews? = rows.getOrNull(position)?.let { rowViews.build(it, widthDp) }
 
     override fun getLoadingView(): RemoteViews? = null
 

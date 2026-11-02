@@ -69,7 +69,7 @@ class WidgetRenderer(private val context: Context) {
     }
 
     private fun build(state: WidgetState, ids: IntArray, updating: Boolean): List<Pair<Int, RemoteViews>> =
-        ids.map { id -> id to views.build(state, id, tabs.selected(id, state.board), updating) }
+        ids.map { id -> id to views.build(state, id, tabs.selected(id, state.board), updating, WidgetSize.widthDp(context, id)) }
 
     private companion object {
         /** One per process: refresh jobs, the sweep, the update dot and tab taps all draw through it. */
