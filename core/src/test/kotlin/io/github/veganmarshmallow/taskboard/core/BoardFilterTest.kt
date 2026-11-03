@@ -147,7 +147,7 @@ class BoardFilterTest {
         assertEquals(listOf(site.fullName, widget.fullName), options.repos)
         assertEquals(listOf("feature", "bug", "research"), options.types)
         assertEquals(listOf(Priority.HIGH, Priority.NORMAL, Priority.LOW), options.priorities)
-        assertEquals(listOf("feature", "chore"), FilterOptions.of(board(task(1, TODO, Labels.type("chore")), task(2, TODO, Labels.type("feature")))).types)
+        assertEquals(listOf("feature", "chore"), FilterOptions.of(board(task(8, TODO, Labels.type("chore")), task(9, TODO, Labels.type("feature")))).types)
     }
 
     @Test fun aPickedValueNoLongerOnTheBoardIsStillOffered() {
