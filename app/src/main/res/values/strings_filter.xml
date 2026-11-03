@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The board filter (#59). -->
+    <string name="filter">Filter</string>
+    <string name="filter_active_description">Filter, %1$d on</string>
+    <string name="filter_title">Filter tasks</string>
+    <string name="filter_clear">Clear filters</string>
+    <string name="filter_done">Done</string>
+    <string name="filter_search_hint">Search title, #number or repo</string>
+    <string name="filter_repos">Repo</string>
+    <string name="filter_types">Type</string>
+    <string name="filter_priorities">Priority</string>
+    <string name="filter_priority_high">High priority</string>
+    <string name="filter_priority_normal">Normal priority</string>
+    <string name="filter_priority_low">Low priority</string>
+    <string name="filter_text_quoted">“%1$s”</string>
+    <string name="filter_separator">, </string>
+    <string name="filter_chip_on">%1$s, on</string>
+    <string name="filter_chip_off">%1$s, off</string>
+    <string name="filter_no_board">The board hasn\'t loaded yet: filters apply once it has.</string>
+    <string name="filter_no_options">No repos, types or priorities on the board yet. Search still works.</string>
+    <plurals name="filter_showing">
+        <item quantity="one">Showing %1$d of %2$d open task</item>
+        <item quantity="other">Showing %1$d of %2$d open tasks</item>
+    </plurals>
+    <!-- The widget's line while a filter is on: %1$s is the summary, e.g. "Bug, taskboard-widget". -->
+    <string name="filter_bar">Filtered: %1$s</string>
+    <string name="filter_bar_clear">Clear</string>
+    <string name="filter_bar_clear_description">Clear filters</string>
+    <!-- An empty tab while a filter is on. -->
+    <string name="empty_filtered">No matching tasks here</string>
+</resources>

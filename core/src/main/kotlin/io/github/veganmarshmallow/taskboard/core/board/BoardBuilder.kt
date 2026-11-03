@@ -58,6 +58,8 @@ class BoardBuilder(
         canApprove = Placement.canApprove(issue),
         needsYouReason = Placement.needsYouReason(issue),
         canMerge = Placement.canMerge(issue),
+        repo = issue.repo?.fullName,
+        types = issue.labels.mapNotNull(Labels::typeValue).filter { it.isNotEmpty() }.toSet(),
     )
 
     private fun isRecentlyDone(issue: Issue, now: Instant): Boolean {

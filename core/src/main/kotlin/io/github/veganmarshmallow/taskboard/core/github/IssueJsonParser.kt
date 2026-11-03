@@ -42,7 +42,7 @@ object IssueJsonParser {
             isOpen = open,
             closedAt = parseInstant(obj.string("closed_at"), number),
             isPullRequest = obj["pull_request"] is Map<*, *>,
-            repo = if (open) RepoField.repo(obj.string("body")) else null,
+            repo = RepoField.repo(obj.string("body")),
         )
     }
 

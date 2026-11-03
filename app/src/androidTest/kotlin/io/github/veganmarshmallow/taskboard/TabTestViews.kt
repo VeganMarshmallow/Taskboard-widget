@@ -59,7 +59,7 @@ object TabTestViews {
         val left = widget.paddingLeft
         val right = widget.width - widget.paddingRight
         val bottom = widget.height - widget.paddingBottom
-        return listOf("refresh" to R.id.refresh, "new_task" to R.id.new_task, "update_dot" to R.id.update_dot).mapNotNull { (name, id) ->
+        return listOf("refresh" to R.id.refresh, "new_task" to R.id.new_task, "filter" to R.id.filter, "update_dot" to R.id.update_dot).mapNotNull { (name, id) ->
             val button = widget.findViewById<View>(id)
             if (button.visibility != View.VISIBLE) return@mapNotNull null
             val x = button.leftIn(widget)

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One filter value (#59): outlined when off, filled with the accent when picked (FilterChips sets isSelected). -->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/filter_chip_background"
+    android:ellipsize="end"
+    android:gravity="center"
+    android:maxLines="1"
+    android:minHeight="36dp"
+    android:paddingHorizontal="14dp"
+    android:textColor="@color/filter_chip_text"
+    android:textSize="14sp" />
