@@ -46,7 +46,8 @@ class MergeAllMachine(
             !pr.isStacked -> Step(started.at(UPDATE, github.now()))
             state.merged.none { it.ref.repo == pr.repo && it.headRef == pr.baseRef } -> stop(state, MergeAllStop(MergeAllStop.Kind.STACKED, pr.baseRef))
             else -> when (val moved = github.retarget(pr, pr.defaultBranch!!)) {
-                is MergeStep.Stop -> stop(state, moved.problem)
+                // Retargeting twice is harmless: a lost answer is retried after reading the PR again.
+                is MergeStep.Stop -> if (MergeAllStops.transient(moved.problem)) keepWaiting(state, moved.problem) else stop(state, moved.problem)
                 is MergeStep.Ok -> Step(started.at(UPDATE, github.now()))
             }
         }
@@ -60,8 +61,13 @@ class MergeAllMachine(
             } else {
                 when (val sent = github.updateBranch(pr)) {
                     is MergeStep.Ok -> Step(state.copy(oldHead = pr.headSha, checkedHead = null).at(WAIT, github.now()), poll)
-                    // The repo's update workflow moved the branch first: look again once it settles.
-                    is MergeStep.Stop -> if (sent.problem is MergeProblem.HeadChanged) keepWaiting(state, sent.problem) else stop(state, sent.problem)
+                    // The repo's update workflow moved the branch first, or the answer was lost: look again
+                    // once it settles (the request is pinned to the head, so it never updates twice).
+                    is MergeStep.Stop -> if (sent.problem is MergeProblem.HeadChanged || MergeAllStops.transient(sent.problem)) {
+                        keepWaiting(state, sent.problem)
+                    } else {
+                        stop(state, sent.problem)
+                    }
                 }
             }
         }

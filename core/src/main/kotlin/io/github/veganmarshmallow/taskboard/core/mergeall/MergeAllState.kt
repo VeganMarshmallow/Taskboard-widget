@@ -62,6 +62,7 @@ data class MergeAllState(
     init {
         require(plan.isNotEmpty()) { "empty plan" }
         require(index in plan.indices) { "index out of the plan" }
+        require((end as? MergeAllEnd.Stopped)?.at?.let { it in plan.indices } ?: true) { "stop out of the plan" }
     }
 
     val running: Boolean get() = end == null

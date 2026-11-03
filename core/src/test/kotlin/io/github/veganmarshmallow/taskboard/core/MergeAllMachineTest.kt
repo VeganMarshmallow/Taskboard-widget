@@ -97,6 +97,33 @@ class MergeAllMachineTest {
         assertEquals(MergeAllEnd.Done, drive(start(31)).end)
     }
 
+    @Test fun networkTroubleOnRetargetOrUpdateIsWaitedOut() {
+        github.add(mergeAllPr(31), mergeAllPr(34, base = "claude/31"))
+        github.behind[34] = 1
+        github.fail("retarget", 34, MergeProblem.Failed(BoardError.Timeout))
+        github.fail("update", 34, MergeProblem.Failed(BoardError.Server(502)))
+        val end = drive(start(31, 34))
+        assertEquals(MergeAllEnd.Done, end.end)
+        assertEquals(listOf("merge #31", "retarget #34 to main", "update #34", "merge #34"), github.calls)
+    }
+
+    @Test fun aPrUnreadableForTheWholeTimeoutStopsOnTheNetwork() {
+        github.add(mergeAllPr(31), mergeAllPr(32))
+        github.fail("pull", 32, *Array(500) { MergeProblem.Failed(BoardError.Network) })
+        val end = drive(start(31, 32))
+        assertEquals(Kind.NETWORK, stopOf(end).stop.kind)
+        assertEquals(1, stopOf(end).at)
+        assertEquals(listOf(31), end.merged.map { it.ref.number })
+    }
+
+    @Test fun anUpdateThatKeepsFailingStopsAfterTheTimeout() {
+        github.add(mergeAllPr(31))
+        github.behind[31] = 1
+        github.fail("update", 31, *Array(500) { MergeProblem.Failed(BoardError.Unreachable) })
+        assertEquals(Kind.NETWORK, stopOf(drive(start(31))).stop.kind)
+        assertTrue(github.calls.isEmpty())
+    }
+
     // --- every stop reason ---
 
     @Test fun conflictWhenUpdatingStopsAndKeepsEarlierMerges() {

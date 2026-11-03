@@ -14,6 +14,9 @@ import java.time.Instant
 object MergeErrors {
     private const val MAX_DETAIL = 160
 
+    /** update-branch 422 messages that mean "the branch moved or is already up to date", not a conflict. */
+    private val UPDATE_LOOK_AGAIN = listOf("expected", "no new commits")
+
     /** A read (PR, PR list, repo) in [repo]. Null for 2xx. */
     fun forRead(response: HttpResponse, now: Instant, repo: Repo): MergeProblem? {
         if (response.isSuccessful) return null
@@ -57,14 +60,19 @@ object MergeErrors {
 
     /**
      * The update-branch PUT (#57): 202 is success (null). 422 is either a moved head (the
-     * `expected_head_sha` no longer matches) or a merge conflict with the default branch.
+     * `expected_head_sha` no longer matches), a branch already up to date ("no new commits", e.g. the
+     * repo's update workflow got there first: look again, like a moved head), or a merge conflict.
      */
     fun forUpdate(response: HttpResponse, now: Instant, pr: PullRequest): MergeProblem? {
         if (response.isSuccessful) return null
         common(response, now)?.let { return it }
         val message = PullJsonParser.message(response.body)?.take(MAX_DETAIL)
         return when (response.status) {
-            422 -> if (message?.contains("expected", ignoreCase = true) == true) MergeProblem.HeadChanged(pr) else MergeProblem.Conflicts(pr, message)
+            422 -> if (message != null && UPDATE_LOOK_AGAIN.any { message.contains(it, ignoreCase = true) }) {
+                MergeProblem.HeadChanged(pr)
+            } else {
+                MergeProblem.Conflicts(pr, message)
+            }
             403, 404 -> MergeProblem.NoRepoAccess(pr.repo, pr)
             else -> MergeProblem.Failed(classify(response, now))
         }

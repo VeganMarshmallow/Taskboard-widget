@@ -37,6 +37,8 @@ class MergeAllApiTest {
         }
         assertEquals(MergeProblem.HeadChanged(pr(12)), answer(422, "expected head sha didn't match current head ref."))
         assertEquals(MergeProblem.Conflicts(pr(12), "merge conflict between base and head"), answer(422, "merge conflict between base and head"))
+        assertEquals(MergeProblem.HeadChanged(pr(12)), answer(422, "There are no new commits on the base branch."))
+        assertEquals(MergeProblem.Conflicts(pr(12), null), answer(422, ""))
         assertEquals(MergeProblem.NoRepoAccess(WIDGET, pr(12)), answer(403, "Resource not accessible by personal access token"))
         assertEquals(MergeProblem.Failed(BoardError.Server(502)), answer(502, "Bad gateway"))
     }

@@ -58,6 +58,8 @@ class MergeAllStateTest {
             good.replace("\"v\":1", "\"v\":2"),
             good.replace("\"PREPARE\"", "\"SOMETHING\""),
             good.replace("\"index\":0", "\"index\":7"),
+            MergeAllStateCodec.encode(run.copy(end = MergeAllEnd.Stopped(0, MergeAllStop(MergeAllStop.Kind.NETWORK)))).replace("\"at\":0", "\"at\":3"),
+            good.replace("\"merged\":[]", "\"merged\":[{}]"),
             good.replace("\"pr\":31", "\"pr\":-1"),
             good.replace("\"plan\":[", "\"plan\":[7,"),
         ).forEach { assertNull("decoded: $it", MergeAllStateCodec.decode(it)) }
