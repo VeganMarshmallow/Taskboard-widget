@@ -14,11 +14,15 @@ sealed class RowAction {
      */
     data class Merge(val issue: Int, val mergeFirst: String? = null) : RowAction()
 
+    /** Merge all (#57): plans the run, confirms the order, and starts it in the background. */
+    data object MergeAll : RowAction()
+
     fun toFillIn(): Intent = when (this) {
         is Open -> Intent().putExtra(KIND, OPEN).putExtra(URL, url)
         is Approve -> Intent().putExtra(KIND, APPROVE).putExtra(ISSUE, issue).putExtra(TITLE, title)
         is Preview -> Intent().putExtra(KIND, PREVIEW).putExtra(ISSUE, issue)
         is Merge -> Intent().putExtra(KIND, MERGE).putExtra(ISSUE, issue).putExtra(FIRST, mergeFirst)
+        MergeAll -> Intent().putExtra(KIND, MERGE_ALL)
     }
 
     companion object {
@@ -27,6 +31,7 @@ sealed class RowAction {
         private const val APPROVE = "approve"
         private const val PREVIEW = "preview"
         private const val MERGE = "merge"
+        private const val MERGE_ALL = "merge_all"
         private const val URL = "row_url"
         private const val ISSUE = "row_issue"
         private const val TITLE = "row_title"
@@ -43,6 +48,7 @@ sealed class RowAction {
                 ?.let { Approve(it, intent.getStringExtra(TITLE).orEmpty()) }
             PREVIEW -> intent.getIntExtra(ISSUE, 0).takeIf { it > 0 }?.let(::Preview)
             MERGE -> intent.getIntExtra(ISSUE, 0).takeIf { it > 0 }?.let { Merge(it, intent.getStringExtra(FIRST)?.takeIf(String::isNotBlank)) }
+            MERGE_ALL -> MergeAll
             else -> null
         }
     }

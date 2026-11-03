@@ -55,6 +55,21 @@ object MergeErrors {
         }
     }
 
+    /**
+     * The update-branch PUT (#57): 202 is success (null). 422 is either a moved head (the
+     * `expected_head_sha` no longer matches) or a merge conflict with the default branch.
+     */
+    fun forUpdate(response: HttpResponse, now: Instant, pr: PullRequest): MergeProblem? {
+        if (response.isSuccessful) return null
+        common(response, now)?.let { return it }
+        val message = PullJsonParser.message(response.body)?.take(MAX_DETAIL)
+        return when (response.status) {
+            422 -> if (message?.contains("expected", ignoreCase = true) == true) MergeProblem.HeadChanged(pr) else MergeProblem.Conflicts(pr, message)
+            403, 404 -> MergeProblem.NoRepoAccess(pr.repo, pr)
+            else -> MergeProblem.Failed(classify(response, now))
+        }
+    }
+
     /** Rate limits and a rejected token (401) mean the same as on the board. */
     private fun common(response: HttpResponse, now: Instant): MergeProblem? = when (val error = classify(response, now)) {
         is BoardError.RateLimited -> MergeProblem.Failed(error)

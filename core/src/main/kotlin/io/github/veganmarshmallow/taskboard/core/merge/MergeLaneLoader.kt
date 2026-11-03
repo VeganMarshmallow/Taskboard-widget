@@ -4,7 +4,6 @@ import io.github.veganmarshmallow.taskboard.core.board.MergeLane
 import io.github.veganmarshmallow.taskboard.core.board.MergeLaneSource
 import io.github.veganmarshmallow.taskboard.core.board.MergeWait
 import io.github.veganmarshmallow.taskboard.core.board.Placement
-import io.github.veganmarshmallow.taskboard.core.board.TitleCleaner
 import io.github.veganmarshmallow.taskboard.core.github.GitHubApi
 import io.github.veganmarshmallow.taskboard.core.model.Issue
 import io.github.veganmarshmallow.taskboard.core.model.Repo
@@ -33,26 +32,10 @@ class MergeLaneLoader(
         val tasks = issues.filter(Placement::canMerge).distinctBy { it.number }
         if (tasks.isEmpty()) return emptyMap()
         val left = deadline?.let { minOf(budget, Duration.between(clock.instant(), it)) } ?: budget
-        val result = if (left.isNegative || left.isZero) Timed.TimedOut else limit.run(left) { candidates(tasks, api) }
+        val result = if (left.isNegative || left.isZero) Timed.TimedOut else limit.run(left) { MergeCandidates(board).of(tasks, api) }
         return when (result) {
             is Timed.Done -> MergeNext.lanes(result.value)
             else -> tasks.associate { it.number to MergeLane(isNext = false, wait = MergeWait.UNKNOWN, firstTitle = null) }
-        }
-    }
-
-    private fun candidates(tasks: List<Issue>, api: GitHubApi): List<MergeCandidate> {
-        val pulls = PullsApi(api)
-        val finder = PrFinder(pulls, board)
-        val readiness = MergeReadiness(pulls)
-        val listed = HashMap<Repo, MergeStep<List<PullRequest>>>()
-        return tasks.map { task ->
-            val title = TitleCleaner.clean(task.title)
-            val repo = task.repo ?: return@map MergeCandidate(task.number, title, null, Readiness.Waiting(MergeWait.NO_PR))
-            val found = listed.getOrPut(repo) { pulls.openPulls(repo) }.then { finder.fromOpen(task.number, repo, it) }
-            when (found) {
-                is MergeStep.Stop -> MergeCandidate(task.number, title, found.problem.pr?.number, Readiness.Waiting(MergeReadiness.waitFor(found.problem)))
-                is MergeStep.Ok -> MergeCandidate(task.number, title, found.value.pr.number, readiness.of(found.value))
-            }
         }
     }
 

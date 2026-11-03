@@ -3,8 +3,17 @@ package io.github.veganmarshmallow.taskboard.core.merge
 import io.github.veganmarshmallow.taskboard.core.board.MergeLane
 import io.github.veganmarshmallow.taskboard.core.board.MergeWait
 
-/** A task offering Merge, with its PR's number (null when none was found) and [readiness]. */
-data class MergeCandidate(val issue: Int, val title: String, val prNumber: Int?, val readiness: Readiness)
+/**
+ * A task offering Merge, with its PR's number (null when none was found) and [readiness]. [pr]: the
+ * PR as the repo's open list showed it (null when none was found), for Merge all's stacks (#57).
+ */
+data class MergeCandidate(
+    val issue: Int,
+    val title: String,
+    val prNumber: Int?,
+    val readiness: Readiness,
+    val pr: PullRequest? = null,
+)
 
 /**
  * Picks the one PR to merge next (#45): among the ready ones, the one ready first ([Readiness.Ready.since],
@@ -16,8 +25,11 @@ object MergeNext {
         .thenBy { it.prNumber ?: Int.MAX_VALUE }
         .thenBy { it.issue }
 
-    fun pick(candidates: List<MergeCandidate>): MergeCandidate? =
-        candidates.filter { it.readiness is Readiness.Ready }.minWithOrNull(ORDER)
+    fun pick(candidates: List<MergeCandidate>): MergeCandidate? = ranked(candidates).firstOrNull()
+
+    /** The ready candidates, the one to merge next first (Merge all's order, #57). */
+    fun ranked(candidates: List<MergeCandidate>): List<MergeCandidate> =
+        candidates.filter { it.readiness is Readiness.Ready }.sortedWith(ORDER)
 
     /** Each candidate's lane, by issue number (a task listed twice keeps its first entry). */
     fun lanes(candidates: List<MergeCandidate>): Map<Int, MergeLane> {
