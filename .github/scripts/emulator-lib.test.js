@@ -93,3 +93,52 @@ test('build.yml retries the emulator step only when no test result exists', () =
   // With continue-on-error, a real failure must still fail the job.
   assert.match(yml, /if: steps\.emulator\.outcome == 'failure' && steps\.retry\.outputs\.retry != 'true'\n\s+run: exit 1/);
 });
+
+// Fakes for stop_emulator: pgrep sees qemu until FAKE_QEMU_FILE is gone; adb emu kill removes it
+// unless FAKE_QEMU_STUCK; pkill logs and removes it.
+function stopSandbox({ stuck = false } = {}) {
+  const dir = sandbox();
+  const qemu = path.join(dir, 'qemu-running');
+  fs.writeFileSync(qemu, '');
+  fs.writeFileSync(path.join(dir, 'adb'),
+    `#!/usr/bin/env bash\n[ "$*" = "emu kill" ] && [ -z "${stuck ? '1' : ''}" ] && rm -f "${qemu}"; exit 0\n`, { mode: 0o755 });
+  fs.writeFileSync(path.join(dir, 'pgrep'), `#!/usr/bin/env bash\n[ -e "${qemu}" ]\n`, { mode: 0o755 });
+  fs.writeFileSync(path.join(dir, 'pkill'), `#!/usr/bin/env bash\necho "$*" >> "${dir}/pkill.log"; rm -f "${qemu}"\n`, { mode: 0o755 });
+  const avd = path.join(dir, 'avd', 'test.avd');
+  fs.mkdirSync(path.join(avd, 'multiinstance.lock'), { recursive: true });
+  fs.writeFileSync(path.join(avd, 'hardware-qemu.ini.lock'), '');
+  fs.writeFileSync(path.join(avd, 'config.ini'), '');
+  return { dir, avd, env: { ANDROID_AVD_HOME: path.join(dir, 'avd') } };
+}
+
+test('stop_emulator: a clean quit needs no kill, and the lock files go but the AVD stays', () => {
+  const { dir, avd, env } = stopSandbox();
+  const r = run('stop_emulator 5', dir, env);
+  assert.strictEqual(r.status, 0, r.stdout + r.stderr);
+  assert.ok(!fs.existsSync(path.join(dir, 'pkill.log')));
+  assert.deepStrictEqual(fs.readdirSync(avd), ['config.ini']);
+});
+
+test('stop_emulator: kills qemu when it does not quit in time', () => {
+  const { dir, avd, env } = stopSandbox({ stuck: true });
+  const r = run('stop_emulator 1', dir, env);
+  assert.strictEqual(r.status, 0, r.stdout + r.stderr);
+  assert.match(fs.readFileSync(path.join(dir, 'pkill.log'), 'utf8'), /-9 -f qemu-system/);
+  assert.deepStrictEqual(fs.readdirSync(avd), ['config.ini']);
+});
+
+test('stop_emulator: fine with no emulator and no AVD dir at all', () => {
+  const dir = sandbox();
+  fs.writeFileSync(path.join(dir, 'pgrep'), '#!/usr/bin/env bash\nexit 1\n', { mode: 0o755 });
+  const r = run('stop_emulator 1', dir, { ANDROID_AVD_HOME: path.join(dir, 'none') });
+  assert.strictEqual(r.status, 0, r.stdout + r.stderr);
+});
+
+test('build.yml: the retry stops the failed emulator first, and step ids are unique per job', () => {
+  const yml = fs.readFileSync(path.join(__dirname, '..', 'workflows', 'build.yml'), 'utf8');
+  assert.match(yml, /stop_emulator 30\n\s+echo "retry=true"/);
+  for (const job of yml.split(/\n  [\w-]+:\n/)) {
+    const ids = [...job.matchAll(/^\s+id: (\S+)$/gm)].map((m) => m[1]);
+    assert.deepStrictEqual(ids, [...new Set(ids)], `duplicate step id in: ${ids}`);
+  }
+});

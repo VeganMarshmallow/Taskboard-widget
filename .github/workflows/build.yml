@@ -270,6 +270,7 @@ jobs:
             echo "retry=false" >> "$GITHUB_OUTPUT"
           else
             echo "::warning title=Emulator retried::the emulator or adb failed before any instrumented test result existed"
+            stop_emulator 30
             echo "retry=true" >> "$GITHUB_OUTPUT"
           fi
 

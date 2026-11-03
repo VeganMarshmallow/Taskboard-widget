@@ -20,3 +20,20 @@ wait_for_system() {
     sleep "$interval"
   done
 }
+
+# Makes sure no emulator from a failed attempt is left before the runner starts a new one: asks it to
+# quit, waits up to <timeout> seconds (default 30) for qemu to exit, then kills it and removes the
+# AVD lock files it may have left (or the next launch says another instance is running).
+stop_emulator() {
+  local deadline=$((SECONDS + ${1:-30}))
+  timeout 10 adb emu kill > /dev/null 2>&1 || true
+  while pgrep -f qemu-system > /dev/null; do
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      pkill -9 -f qemu-system || true
+      sleep 1
+      break
+    fi
+    sleep 1
+  done
+  rm -rf "${ANDROID_AVD_HOME:-$HOME/.android/avd}"/*.avd/*.lock
+}
