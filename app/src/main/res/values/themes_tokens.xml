@@ -77,13 +77,13 @@
     </style>
 
     <!-- Components. Colours, radii and fonts come from the tokens above, so one style serves both looks. -->
-    <style name="Text.Taskboard.Headline">
+    <style name="Text.Taskboard.Headline" parent="">
         <item name="android:fontFamily">?attr/tbTitleFont</item>
         <item name="android:textColor">?attr/tbText</item>
         <item name="android:textSize">24sp</item>
         <item name="android:textStyle">bold</item>
     </style>
-    <style name="Text.Taskboard.Section">
+    <style name="Text.Taskboard.Section" parent="">
         <item name="android:fontFamily">sans-serif-medium</item>
         <item name="android:textColor">?attr/tbText</item>
         <item name="android:textSize">16sp</item>
@@ -94,12 +94,12 @@
         <item name="android:letterSpacing">0.1</item>
         <item name="android:textSize">12sp</item>
     </style>
-    <style name="Text.Taskboard.Body">
+    <style name="Text.Taskboard.Body" parent="">
         <item name="android:textColor">?attr/tbText</item>
         <item name="android:textSize">15sp</item>
         <item name="android:lineSpacingExtra">3dp</item>
     </style>
-    <style name="Text.Taskboard.Caption">
+    <style name="Text.Taskboard.Caption" parent="">
         <item name="android:textColor">?attr/tbMuted</item>
         <item name="android:textSize">13sp</item>
     </style>
@@ -134,7 +134,7 @@
         <item name="android:textColor">?attr/tbText</item>
     </style>
 
-    <style name="Field.Taskboard">
+    <style name="Field.Taskboard" parent="">
         <item name="android:background">?attr/tbFieldBackground</item>
         <item name="android:minHeight">48dp</item>
         <item name="android:paddingHorizontal">14dp</item>
