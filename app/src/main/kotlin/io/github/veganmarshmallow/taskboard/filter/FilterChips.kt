@@ -16,20 +16,29 @@ class FilterChips<T>(
     private val label: (T) -> String,
     private val onToggle: (T) -> Unit,
 ) {
+    private var shown: List<T>? = null
+
+    /** Rebuilds the chips only when [values] change; otherwise updates them in place, so a tap keeps TalkBack focus. */
     fun bind(values: List<T>, isPicked: (T) -> Boolean) {
         section.visibility = if (values.isEmpty()) View.GONE else View.VISIBLE
-        group.removeAllViews()
-        val inflater = LayoutInflater.from(group.context)
-        values.forEach { value ->
-            val chip = inflater.inflate(R.layout.filter_chip, group, false) as TextView
-            chip.text = label(value)
+        if (values != shown) {
+            group.removeAllViews()
+            val inflater = LayoutInflater.from(group.context)
+            values.forEach { value ->
+                val chip = inflater.inflate(R.layout.filter_chip, group, false) as TextView
+                chip.text = label(value)
+                chip.setOnClickListener { onToggle(value) }
+                group.addView(chip)
+            }
+            shown = values
+        }
+        values.forEachIndexed { i, value ->
+            val chip = group.getChildAt(i) as TextView
             chip.isSelected = isPicked(value)
             chip.contentDescription = group.context.getString(
                 if (chip.isSelected) R.string.filter_chip_on else R.string.filter_chip_off,
                 chip.text,
             )
-            chip.setOnClickListener { onToggle(value) }
-            group.addView(chip)
         }
     }
 }

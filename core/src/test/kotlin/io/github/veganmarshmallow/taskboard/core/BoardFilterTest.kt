@@ -178,4 +178,42 @@ class BoardFilterTest {
         assertNull(links.forRow(BoardRow.Empty(Section.TODO, filtered = true)))
         assertEquals(links.newIssue(), links.forRow(BoardRow.Empty(Section.TODO)))
     }
+
+    // Reviewer additions (#59 quality gate).
+
+    @Test fun aLoneHashOnTheWayToANumberHidesNothing() {
+        assertEquals(listOf(2, 3, 4, 5, 6, 7), shown(BoardFilter(text = "#")))
+        assertFalse(BoardFilter(text = " # ").isActive)
+        assertEquals(listOf(4), shown(BoardFilter(text = "# #4")))
+        assertEquals(emptyList<Int>(), shown(BoardFilter(text = "#999")))
+    }
+
+    @Test fun aBoardCachedBeforeTheFilterOffersNoRepoOrTypeAndHidesUnderOne() {
+        val old = sample.copy(sections = sample.sections.map { c -> c.copy(items = c.items.map { it.copy(repo = null, types = emptySet()) }) })
+        val options = FilterOptions.of(old)
+        assertTrue(options.repos.isEmpty() && options.types.isEmpty())
+        assertEquals(listOf(Priority.HIGH, Priority.NORMAL, Priority.LOW), options.priorities)
+        assertEquals(emptyList<Int>(), old.filtered(BoardFilter(repos = setOf(widget.fullName))).numbers())
+        assertEquals(listOf(3), old.filtered(BoardFilter(text = "cafe")).numbers())
+    }
+
+    @Test fun filteringKeepsEachTaskAsItWas() {
+        val filtered = sample.filtered(BoardFilter(types = setOf("bug")))
+        sample.sections.forEach { content ->
+            val kept = filtered.section(content.section).items
+            assertEquals(content.items.filter { it.number in kept.map { k -> k.number } }, kept)
+        }
+        assertEquals(Section.entries, filtered.sections.map { it.section })
+    }
+
+    @Test fun allDimensionsTogetherWithDiacriticsAndHebrew() {
+        val b = board(
+            task(20, TODO, Labels.type("feature"), PRIORITY_HIGH, title = "תפריט Café", repo = site),
+            task(21, TODO, Labels.type("feature"), title = "תפריט Café", repo = site),
+            task(22, TODO, Labels.type("bug"), PRIORITY_HIGH, title = "תפריט Café", repo = site),
+        )
+        val f = BoardFilter(repos = setOf("veganmarshmallow/site"), types = setOf("Feature"), priorities = setOf(Priority.HIGH), text = "CAFE תַּפְרִיט")
+        assertEquals(listOf(20), b.filtered(f).numbers())
+        assertEquals(4, f.activeCount)
+    }
 }

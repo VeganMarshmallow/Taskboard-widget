@@ -10,7 +10,8 @@ import java.util.Locale
  * finds "Café", Hebrew points are ignored too). Blank text matches everything.
  */
 class TextQuery(text: String) {
-    private val words: List<String> = fold(text.take(MAX_LENGTH)).split(WHITESPACE).filter { it.isNotEmpty() }
+    /** A lone `#` (typed on the way to `#12`) is no word: it would briefly hide every task. */
+    private val words: List<String> = fold(text.take(MAX_LENGTH)).split(WHITESPACE).filter { it.isNotEmpty() && it != "#" }
 
     val isEmpty: Boolean get() = words.isEmpty()
 
