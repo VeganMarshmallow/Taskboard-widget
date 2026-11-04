@@ -134,4 +134,13 @@ class MergeAllRunnerTest {
         assertEquals(MergeAllStop(MergeAllStop.Kind.ERROR, "internal error: IllegalStateException"), end.stop)
         assertNotNull(store.load()!!.end)
     }
+
+    /** #55 review: an anonymous exception is named after its superclass, never left blank. */
+    @Test fun anAnonymousBugIsNamedAfterItsSuperclass() {
+        github.add(mergeAllPr(31))
+        github.checkResult = { throw object : IllegalStateException("token") {} }
+        store.save(MergeAllState.start("run", planned(31), github.now))
+        val end = process().run().state!!.end as MergeAllEnd.Stopped
+        assertEquals(MergeAllStop(MergeAllStop.Kind.ERROR, "internal error: IllegalStateException"), end.stop)
+    }
 }

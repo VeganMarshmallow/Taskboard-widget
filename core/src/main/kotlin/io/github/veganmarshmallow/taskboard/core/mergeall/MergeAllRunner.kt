@@ -1,5 +1,6 @@
 package io.github.veganmarshmallow.taskboard.core.mergeall
 
+import io.github.veganmarshmallow.taskboard.core.work.crashError
 import io.github.veganmarshmallow.taskboard.core.work.nonFatal
 import java.time.Duration
 
@@ -27,8 +28,7 @@ class MergeAllRunner(
             val step = try {
                 machine.step(state, store.cancelRequested(state.runId))
             } catch (t: Throwable) {
-                val type = nonFatal(t).javaClass.simpleName
-                MergeAllMachine.Step(state.stopped(MergeAllStop(MergeAllStop.Kind.ERROR, "internal error: $type"), state.updatedAt))
+                MergeAllMachine.Step(state.stopped(MergeAllStops.of(crashError(nonFatal(t))), state.updatedAt))
             }
             state = step.state
             store.save(state)

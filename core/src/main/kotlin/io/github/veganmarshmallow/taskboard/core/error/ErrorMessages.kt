@@ -23,7 +23,8 @@ class ErrorMessages(private val formatTime: (Instant) -> String) {
         BoardError.Timeout -> "GitHub took too long to answer (slow network?)"
         is BoardError.Server -> "GitHub error (${error.status}), try again later"
         is BoardError.Unexpected -> "Unexpected response from GitHub (${error.detail})"
-        is BoardError.Internal -> "Something went wrong in the app (${error.type})"
+        is BoardError.Internal ->
+            if (error.type.isBlank()) "Something went wrong in the app" else "Something went wrong in the app (${error.type})"
     }
 
     fun widgetMessage(error: BoardError): String = message(error) + when {
