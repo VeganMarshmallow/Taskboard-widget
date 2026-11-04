@@ -60,3 +60,18 @@ internal fun GitHubRequests.mergePull(pr: PullRequest): HttpRequest {
     require(SHA.matches(pr.headSha)) { "not a commit SHA" }
     return withJson("PUT", "${repoPath(pr.repo)}/pulls/${pr.number}/merge", mapOf("merge_method" to "merge", "sha" to pr.headSha))
 }
+
+/**
+ * Merges the default branch into [pr]'s branch (#57, Merge all). Pinned with `expected_head_sha`:
+ * if the branch moved since it was read (the repo's update workflow got there first), GitHub answers 422.
+ */
+internal fun GitHubRequests.updateBranch(pr: PullRequest): HttpRequest {
+    require(SHA.matches(pr.headSha)) { "not a commit SHA" }
+    return withJson("PUT", "${repoPath(pr.repo)}/pulls/${pr.number}/update-branch", mapOf("expected_head_sha" to pr.headSha))
+}
+
+/** Points [pr] at [base] (#57: a stacked PR whose base PR was just merged moves to the default branch). */
+internal fun GitHubRequests.retarget(pr: PullRequest, base: String): HttpRequest {
+    require(GitHubNames.isBranch(base)) { "not a branch name" }
+    return withJson("PATCH", "${repoPath(pr.repo)}/pulls/${pr.number}", mapOf("base" to base))
+}

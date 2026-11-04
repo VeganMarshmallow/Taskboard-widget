@@ -81,9 +81,31 @@ sealed class BoardJob {
         override fun toExtras() = mapOf(KIND to KIND_SWEEP)
     }
 
+    /**
+     * Takes a saved Merge all run (#57) as far as it can, then schedules itself again after [delay]
+     * (waiting for checks) until the run ends. One job id, so a new one replaces a pending one.
+     * Persisted, so a run waiting for checks survives a reboot.
+     */
+    data class MergeAll(val delay: Duration = Duration.ZERO) : BoardJob() {
+        init {
+            require(!delay.isNegative) { "delay must not be negative" }
+        }
+
+        override val jobId get() = MERGE_ALL_ID
+        override val urgent get() = false
+        override val needsNetwork get() = true
+        override val minLatency: Duration get() = delay
+        override val persisted get() = true
+        override fun toExtras() = buildMap {
+            put(KIND, KIND_MERGE_ALL)
+            if (!delay.isZero) put(DELAY_MS, delay.toMillis().toString())
+        }
+    }
+
     companion object {
         const val REFRESH_ID = 1
         const val SWEEP_ID = 2
+        const val MERGE_ALL_ID = 3
         const val APPROVE_BASE_ID = 1_000_000
 
         /** See [runAnywayAfter]. */
@@ -99,19 +121,26 @@ sealed class BoardJob {
         private const val KIND_REFRESH = "refresh"
         private const val KIND_APPROVE = "approve"
         private const val KIND_SWEEP = "sweep"
+        private const val KIND_MERGE_ALL = "merge_all"
 
         /** Reads [toExtras]' output back. Null for anything unknown or malformed (e.g. a job from another app version). */
         fun fromExtras(get: (String) -> String?): BoardJob? = when (get(KIND)) {
             KIND_REFRESH -> refreshFromExtras(get)
             KIND_APPROVE -> get(ISSUE)?.toIntOrNull()?.takeIf { it in 1..MAX_ISSUE }?.let(::Approve)
             KIND_SWEEP -> Sweep
+            KIND_MERGE_ALL -> delayFromExtras(get)?.let(::MergeAll)
             else -> null
         }
 
         private fun refreshFromExtras(get: (String) -> String?): Refresh? {
             val trigger = RefreshTrigger.entries.firstOrNull { it.name == get(TRIGGER) } ?: return null
+            return delayFromExtras(get)?.let { Refresh(trigger, it) }
+        }
+
+        /** The optional delay; null when it is there but malformed. */
+        private fun delayFromExtras(get: (String) -> String?): Duration? {
             val delayMs = get(DELAY_MS)?.let { it.toLongOrNull()?.takeIf { ms -> ms >= 0 } ?: return null } ?: 0L
-            return Refresh(trigger, Duration.ofMillis(delayMs))
+            return Duration.ofMillis(delayMs)
         }
     }
 }

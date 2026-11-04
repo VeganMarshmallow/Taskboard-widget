@@ -21,6 +21,7 @@ class WidgetViews(private val context: Context) {
     private val messages = AppGraph.messages(context)
     private val tabs = TabViews(context)
     private val list = ListBinding(context)
+    private val mergeAll = MergeAllBar(context)
 
     /**
      * [selected] is the tab to show; [WidgetRenderer] reads it from TabStore for each widget.
@@ -40,6 +41,7 @@ class WidgetViews(private val context: Context) {
         tabs.bind(views, state.board, selected, widgetId)
         bindList(views, state, selected, widgetId, widthDp)
         bindError(views, state)
+        mergeAll.bind(views, state.board, selected)
         return views
     }
 

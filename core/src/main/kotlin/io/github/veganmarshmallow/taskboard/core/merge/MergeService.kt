@@ -1,6 +1,5 @@
 package io.github.veganmarshmallow.taskboard.core.merge
 
-import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.github.GitHubApi
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.model.Repo
@@ -21,7 +20,7 @@ class MergeService(
     private val finder = PrFinder(pulls, board)
     private val checker = MergeChecker(pulls, sleep)
 
-    fun prepare(issue: Int): MergeStep<PullRequest> = guarded {
+    fun prepare(issue: Int): MergeStep<PullRequest> = guardedStep {
         val preview = PreviewApi(api)
         when (val details = preview.fetchIssue(issue)) {
             is Outcome.Failure -> MergeStep.Stop(MergeProblem.Failed(details.error))
@@ -32,13 +31,7 @@ class MergeService(
         }
     }
 
-    fun merge(pr: PullRequest): MergeStep<PullRequest> = guarded {
+    fun merge(pr: PullRequest): MergeStep<PullRequest> = guardedStep {
         checker.recheck(pr).then { pulls.merge(pr) }.then { MergeStep.Ok(pr) }
-    }
-
-    private fun <T> guarded(block: () -> MergeStep<T>): MergeStep<T> = try {
-        block()
-    } catch (e: RuntimeException) {
-        MergeStep.Stop(MergeProblem.Failed(BoardError.Unexpected("internal error: ${e.javaClass.simpleName}")))
     }
 }
