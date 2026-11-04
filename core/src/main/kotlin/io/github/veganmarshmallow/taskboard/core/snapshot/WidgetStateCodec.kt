@@ -111,6 +111,7 @@ object WidgetStateCodec {
         BoardError.Timeout -> mapOf("k" to "Timeout")
         is BoardError.Server -> mapOf("k" to "Server", "status" to error.status.toLong())
         is BoardError.Unexpected -> mapOf("k" to "Unexpected", "detail" to error.detail)
+        is BoardError.Internal -> mapOf("k" to "Internal", "type" to error.type)
     }
 
     private fun errorFromMap(m: Map<*, *>): BoardError = when (m.string("k")) {
@@ -123,7 +124,15 @@ object WidgetStateCodec {
         "Unreachable" -> BoardError.Unreachable
         "Timeout" -> BoardError.Timeout
         "Server" -> BoardError.Server(m.long("status")!!.toInt())
-        "Unexpected" -> BoardError.Unexpected(m.string("detail") ?: "")
+        "Unexpected" -> unexpectedFromDetail(m.string("detail") ?: "")
+        "Internal" -> BoardError.Internal(m.string("type") ?: "")
         else -> throw IllegalArgumentException("unknown error kind")
     }
+
+    /** Before #55 a crash was stored as an Unexpected "internal error: <type>"; read it as the crash it was. */
+    private fun unexpectedFromDetail(detail: String): BoardError =
+        if (detail.startsWith(LEGACY_CRASH_PREFIX)) BoardError.Internal(detail.removePrefix(LEGACY_CRASH_PREFIX))
+        else BoardError.Unexpected(detail)
+
+    private const val LEGACY_CRASH_PREFIX = "internal error: "
 }

@@ -173,7 +173,7 @@ class ReplyServiceTest {
     @Test fun crashInTheHttpStackBecomesAFailure() {
         val http = FakeHttp().on({ true }) { throw IllegalStateException("boom") }
         val failed = service(http).send(7, ReplyAction.Post("x", unblock = false)) as ReplyResult.Failed
-        assertTrue(failed.error is BoardError.Unexpected)
+        assertEquals(BoardError.Internal("IllegalStateException"), failed.error)
     }
 
     @Test fun approveStillAddsOnlyReadyForClaude() {

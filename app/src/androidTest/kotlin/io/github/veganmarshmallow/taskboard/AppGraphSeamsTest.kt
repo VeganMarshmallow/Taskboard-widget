@@ -115,7 +115,7 @@ class AppGraphSeamsTest {
         val secret = "github_pat_TESTONLY_SECRET"
         val worker = PreviewWorker(context, approver = { _, _ -> throw IllegalStateException("token $secret") })
         val (result, onMain) = approveAndWait(worker)
-        val expected = BoardError.Unexpected("internal error: IllegalStateException")
+        val expected = BoardError.Internal("IllegalStateException")
         assertEquals(Outcome.Failure(expected), result)
         assertTrue("result delivered on the main thread", onMain)
 
@@ -151,7 +151,7 @@ class AppGraphSeamsTest {
         worker.load(7, onIssue = { result.set(it); done.countDown() }, onComments = {})
         assertTrue("load answered", done.await(10, TimeUnit.SECONDS))
         instrumentation.runOnMainSync { worker.close() }
-        assertEquals(Outcome.Failure(BoardError.Unexpected("internal error: SecurityException")), result.get())
+        assertEquals(Outcome.Failure(BoardError.Internal("SecurityException")), result.get())
     }
 
     private fun serveApprove(): FakeGitHubServer {

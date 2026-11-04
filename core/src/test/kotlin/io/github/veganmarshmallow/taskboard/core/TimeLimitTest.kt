@@ -60,7 +60,7 @@ class TimeLimitTest {
         assertEquals(Outcome.Failure(BoardError.Network), Timed.Done(Outcome.Failure(BoardError.Network)).toOutcome())
         assertEquals(Outcome.Failure(BoardError.Timeout), Timed.TimedOut.toOutcome<Unit>())
         assertEquals(
-            Outcome.Failure(BoardError.Unexpected("internal error: NoSuchMethodError")),
+            Outcome.Failure(BoardError.Internal("NoSuchMethodError")),
             Timed.Crashed(NoSuchMethodError()).toOutcome<Unit>(),
         )
     }

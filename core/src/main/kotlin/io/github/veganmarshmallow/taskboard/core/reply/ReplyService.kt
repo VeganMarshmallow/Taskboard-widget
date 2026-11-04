@@ -4,6 +4,7 @@ import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.github.GitHubApi
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.model.Labels
+import io.github.veganmarshmallow.taskboard.core.work.crashError
 
 /**
  * Answers Claude from the task preview (task #44), on the board repo [api] is configured with.
@@ -23,7 +24,7 @@ class ReplyService(private val api: GitHubApi) {
         }
     } catch (e: RuntimeException) {
         val step = if (action is ReplyAction.Unblock) ReplyStep.UNBLOCK else ReplyStep.COMMENT
-        ReplyResult.Failed(step, BoardError.Unexpected("internal error: ${e.javaClass.simpleName}"))
+        ReplyResult.Failed(step, crashError(e))
     }
 
     private fun post(issue: Int, action: ReplyAction.Post): ReplyResult {
