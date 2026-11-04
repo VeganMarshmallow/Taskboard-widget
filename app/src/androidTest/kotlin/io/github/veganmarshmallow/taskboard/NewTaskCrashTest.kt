@@ -91,6 +91,21 @@ class NewTaskCrashTest {
         assertEquals(2, calls.get())
     }
 
+    /** The interrupt flag [guarded] restores must not leak into, and break, the next send on that thread. */
+    @Test fun anInterruptedSendFailsAndTheNextSendStillRuns() {
+        val calls = AtomicInteger()
+        val controller = controller { if (calls.incrementAndGet() == 1) throw InterruptedException() else null }
+        assertEquals(Outcome.Failure(BoardError.Internal("InterruptedException")), sendAndWait(controller))
+        assertEquals(Outcome.Failure(BoardError.NoToken), sendAndWait(controller))
+        assertEquals(2, calls.get())
+    }
+
+    @Test fun aRuntimeExceptionDuringSendIsStillAFailure() {
+        val controller = controller { throw IllegalStateException("token github_pat_X") }
+        assertEquals(Outcome.Failure(BoardError.Internal("IllegalStateException")), sendAndWait(controller))
+        assertNull(store.marker)
+    }
+
     @Test fun anErrorDuringTheRecoveryCheckIsAFailedCheckThatKeepsTheMarker() {
         val marker = SubmitMarkerCodec.encode(SubmitMarker("Left behind", FakeBoards.NOW))
         store.marker = marker
