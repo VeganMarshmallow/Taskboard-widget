@@ -32,6 +32,19 @@ class TabLabelTest {
         assertEquals("Q3", label.at(TabLabel.nameRange(label, "3")))
     }
 
+    /** Review (#46): a count-first label whose name has the same digits keeps the leading count. */
+    @Test fun countFirstWithTheSameDigitsInTheName() {
+        val label = "3 Q3"
+        assertEquals(0..0, TabLabel.countRange(label, "3"))
+        assertEquals("Q3", label.at(TabLabel.nameRange(label, "3")))
+    }
+
+    @Test fun surroundingSpacesDoNotHideTheCount() {
+        val label = " Todo 3 "
+        assertEquals(6..6, TabLabel.countRange(label, "3"))
+        assertEquals("Todo", label.at(TabLabel.nameRange(label, "3")))
+    }
+
     @Test fun missingOrEmptyCount() {
         assertNull(TabLabel.countRange("Todo", "4"))
         assertNull(TabLabel.countRange("Todo 4", ""))

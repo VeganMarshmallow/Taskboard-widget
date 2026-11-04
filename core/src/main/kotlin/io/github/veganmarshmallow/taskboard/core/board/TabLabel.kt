@@ -7,12 +7,20 @@ package io.github.veganmarshmallow.taskboard.core.board
  */
 object TabLabel {
     /**
-     * The index range of [count] inside [label]: its last occurrence, since a name may itself
-     * contain digits ("Q3 3"). Null when the count is empty or missing from the label.
+     * The index range of [count] inside [label]. A name may itself contain the same digits ("Q3 3",
+     * "3 Q3"), so a count standing apart at either end of the (trimmed) label wins, the end first;
+     * otherwise its last occurrence. Null when the count is empty or missing from the label.
      */
     fun countRange(label: String, count: String): IntRange? {
         if (count.isEmpty()) return null
-        val start = label.lastIndexOf(count)
+        val whole = label.trimmedRange(0, label.length) ?: return null
+        val trimmed = label.substring(whole)
+        val start = when {
+            trimmed == count -> whole.first
+            trimmed.endsWith(count) && trimmed[trimmed.length - count.length - 1].isWhitespace() -> whole.last + 1 - count.length
+            trimmed.startsWith(count) && trimmed[count.length].isWhitespace() -> whole.first
+            else -> label.lastIndexOf(count)
+        }
         if (start < 0) return null
         return start until start + count.length
     }

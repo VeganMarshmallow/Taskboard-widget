@@ -1,11 +1,13 @@
 package io.github.veganmarshmallow.taskboard
 
 import android.content.Intent
+import android.graphics.Rect
 import android.text.Spanned
 import android.text.style.TypefaceSpan
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.RadioButton
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -69,6 +71,16 @@ class ThemeScreenshotTest {
             ThemeChoice.entries.filter { it != choice }.forEach {
                 assertTrue("$it not checked", !root.findViewById<RadioButton>(ThemeSection.buttonOf(it)).isChecked)
             }
+        }
+        // The switch sits below the token steps: a second shot scrolled to the token field, the
+        // buttons and the Appearance section, so the owner sees the switch itself (#46 review).
+        ScreenshotCapture.activity("46-1-$name-settings-appearance", activity) { root ->
+            val scroll = root.findViewById<ScrollView>(R.id.setup_scroll)
+            val token = root.findViewById<View>(R.id.token)
+            val at = Rect().also { token.getDrawingRect(it) }
+            scroll.offsetDescendantRectToMyCoords(token, at)
+            scroll.scrollTo(0, at.top - (48 * root.resources.displayMetrics.density).toInt())
+            assertTrue("theme switch on screen", root.findViewById<View>(R.id.theme_choice).getGlobalVisibleRect(Rect()))
         }
         instrumentation.runOnMainSync { activity.finish() }
     }
