@@ -12,6 +12,8 @@ import io.github.veganmarshmallow.taskboard.core.board.BoardRow
 import io.github.veganmarshmallow.taskboard.core.board.BoardRows
 import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.core.board.TabSelection
+import io.github.veganmarshmallow.taskboard.core.filter.BoardFilter
+import io.github.veganmarshmallow.taskboard.core.filter.filtered
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.widget.RowViews
 import io.github.veganmarshmallow.taskboard.widget.WidgetViews
@@ -29,6 +31,7 @@ class WidgetHost(private val context: Context) {
         widthDp: Int,
         heightDp: Int,
         tab: Section = TabSelection.default(state.board),
+        filter: BoardFilter = BoardFilter.NONE,
     ): Rendered {
         val density = context.resources.displayMetrics.density
         val frame = FrameLayout(context).apply {
@@ -38,10 +41,10 @@ class WidgetHost(private val context: Context) {
         }
         val pad = (16 * density).toInt()
         frame.setPadding(pad, pad, pad, pad)
-        val widget = WidgetViews(context).build(state, WIDGET_ID, tab, widthDp = widthDp).apply(context, frame)
+        val widget = WidgetViews(context).build(state, WIDGET_ID, tab, widthDp = widthDp, filter = filter).apply(context, frame)
         frame.addView(widget, FrameLayout.LayoutParams((widthDp * density).toInt(), (heightDp * density).toInt()))
 
-        replaceListWithRows(widget, state.board?.let { BoardRows.of(it, tab) }.orEmpty(), widthDp)
+        replaceListWithRows(widget, state.board?.filtered(filter)?.let { BoardRows.of(it, tab, filter.isActive) }.orEmpty(), widthDp)
 
         val w = ((widthDp + 32) * density).toInt()
         val h = ((heightDp + 32) * density).toInt()

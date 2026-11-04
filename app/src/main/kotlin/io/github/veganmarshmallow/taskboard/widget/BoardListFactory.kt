@@ -5,6 +5,8 @@ import android.widget.RemoteViews
 import android.widget.RemoteViewsService
 import io.github.veganmarshmallow.taskboard.core.board.BoardRow
 import io.github.veganmarshmallow.taskboard.core.board.BoardRows
+import io.github.veganmarshmallow.taskboard.core.filter.filtered
+import io.github.veganmarshmallow.taskboard.data.FilterStore
 import io.github.veganmarshmallow.taskboard.data.StateStore
 import io.github.veganmarshmallow.taskboard.data.TabStore
 
@@ -21,8 +23,9 @@ class BoardListFactory(private val context: Context, private val widgetId: Int) 
     override fun onCreate() = Unit
 
     override fun onDataSetChanged() {
-        val board = StateStore(context).load().board
-        rows = board?.let { BoardRows.of(it, TabStore(context).selected(widgetId, it)) }.orEmpty()
+        val filter = FilterStore(context).load()
+        val board = StateStore(context).load().board?.filtered(filter)
+        rows = board?.let { BoardRows.of(it, TabStore(context).selected(widgetId, it), filter.isActive) }.orEmpty()
         widthDp = WidgetSize.widthDp(context, widgetId)
     }
 

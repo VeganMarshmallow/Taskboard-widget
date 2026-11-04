@@ -57,6 +57,17 @@
             android:src="@drawable/update_dot"
             android:visibility="gone" />
 
+        <!-- #59: opens the filter sheet; the accent icon while a filter is on. -->
+        <ImageButton
+            android:id="@+id/filter"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@android:color/transparent"
+            android:contentDescription="@string/filter"
+            android:padding="7dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_filter" />
+
         <ImageButton
             android:id="@+id/new_task"
             android:layout_width="36dp"
@@ -79,6 +90,47 @@
     </LinearLayout>
 
     <include layout="@layout/widget_tabs" />
+
+    <!-- #59: shown while a filter is on, so it is never a mystery why tasks are missing. The text opens the
+         filter sheet; Clear turns the filter off. -->
+    <LinearLayout
+        android:id="@+id/filter_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/filter_bar_background"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/filter_bar_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:minHeight="32dp"
+            android:gravity="center_vertical|start"
+            android:paddingStart="10dp"
+            android:paddingEnd="4dp"
+            android:textColor="@color/widget_header_text"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/filter_bar_clear"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/filter_bar_clear_description"
+            android:gravity="center"
+            android:maxLines="1"
+            android:minHeight="32dp"
+            android:paddingHorizontal="10dp"
+            android:text="@string/filter_bar_clear"
+            android:textColor="@color/widget_accent"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/error"

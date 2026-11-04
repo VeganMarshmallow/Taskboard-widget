@@ -7,7 +7,9 @@ import android.widget.RemoteViews
 import io.github.veganmarshmallow.taskboard.R
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.core.work.SerialRender
+import io.github.veganmarshmallow.taskboard.core.filter.filtered
 import io.github.veganmarshmallow.taskboard.data.AppGraph
+import io.github.veganmarshmallow.taskboard.data.FilterStore
 import io.github.veganmarshmallow.taskboard.data.StateStore
 import io.github.veganmarshmallow.taskboard.data.TabStore
 
@@ -68,8 +70,12 @@ class WidgetRenderer(private val context: Context) {
         }
     }
 
-    private fun build(state: WidgetState, ids: IntArray, updating: Boolean): List<Pair<Int, RemoteViews>> =
-        ids.map { id -> id to views.build(state, id, tabs.selected(id, state.board), updating, WidgetSize.widthDp(context, id)) }
+    /** The filter (#59) is read here, inside the gate like the tab, so the last push shows the latest change. */
+    private fun build(state: WidgetState, ids: IntArray, updating: Boolean): List<Pair<Int, RemoteViews>> {
+        val filter = FilterStore(context).load()
+        val shown = state.board?.filtered(filter)
+        return ids.map { id -> id to views.build(state, id, tabs.selected(id, shown), updating, WidgetSize.widthDp(context, id), filter) }
+    }
 
     private companion object {
         /** One per process: refresh jobs, the sweep, the update dot and tab taps all draw through it. */

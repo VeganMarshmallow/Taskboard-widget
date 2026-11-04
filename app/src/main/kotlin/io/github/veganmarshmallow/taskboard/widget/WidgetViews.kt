@@ -5,9 +5,12 @@ import android.content.Context
 import android.view.View
 import android.widget.RemoteViews
 import io.github.veganmarshmallow.taskboard.R
+import io.github.veganmarshmallow.taskboard.core.board.Board
 import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.core.board.TabSelection
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
+import io.github.veganmarshmallow.taskboard.core.filter.BoardFilter
+import io.github.veganmarshmallow.taskboard.core.filter.filtered
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 
@@ -22,11 +25,14 @@ class WidgetViews(private val context: Context) {
     private val tabs = TabViews(context)
     private val list = ListBinding(context)
     private val mergeAll = MergeAllBar(context)
+    private val filterBar = FilterBar(context)
 
     /**
      * [selected] is the tab to show; [WidgetRenderer] reads it from TabStore for each widget.
      * [updating]: a refresh is running right now (never true for a dead one; see RefreshTracker).
      * [widthDp]: the widget's width (null when unknown), which picks the row layout (#49).
+     * [filter]: the board filter (#59). Tabs and rows show only matching tasks; Merge all still
+     * counts every ready PR, since a run merges them all whatever the filter shows.
      */
     fun build(
         state: WidgetState,
@@ -34,12 +40,15 @@ class WidgetViews(private val context: Context) {
         selected: Section = TabSelection.default(state.board),
         updating: Boolean = false,
         widthDp: Int? = null,
+        filter: BoardFilter = BoardFilter.NONE,
     ): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_board)
+        val shown = state.board?.filtered(filter)
         bindHeader(views, state)
         if (updating) views.setTextViewText(R.id.updated, context.getString(R.string.updating))
-        tabs.bind(views, state.board, selected, widgetId)
-        bindList(views, state, selected, widgetId, widthDp)
+        tabs.bind(views, shown, selected, widgetId)
+        filterBar.bind(views, filter)
+        bindList(views, shown, state, selected, widgetId, widthDp, filter.isActive)
         bindError(views, state)
         mergeAll.bind(views, state.board, selected)
         return views
@@ -67,8 +76,8 @@ class WidgetViews(private val context: Context) {
         const val ROOT = android.R.id.background
     }
 
-    private fun bindList(views: RemoteViews, state: WidgetState, selected: Section, widgetId: Int, widthDp: Int?) {
-        list.bind(views, state.board, selected, widgetId, widthDp)
+    private fun bindList(views: RemoteViews, shown: Board?, state: WidgetState, selected: Section, widgetId: Int, widthDp: Int?, filtered: Boolean) {
+        list.bind(views, shown, selected, widgetId, widthDp, filtered)
         views.setPendingIntentTemplate(R.id.board_list, WidgetIntents.rowTemplate(context))
         val hasBoard = state.board != null
         views.setViewVisibility(R.id.board_list, if (hasBoard) View.VISIBLE else View.GONE)

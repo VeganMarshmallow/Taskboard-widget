@@ -66,6 +66,8 @@ object WidgetStateCodec {
         "r" to item.needsYouReason?.name,
         "m" to item.canMerge,
         "lane" to item.mergeLane?.let { mapOf("next" to it.isNext, "wait" to it.wait?.name, "first" to it.firstTitle) },
+        "repo" to item.repo,
+        "ty" to item.types.sorted(),
     )
 
     private fun boardFromMap(map: Map<*, *>): Board {
@@ -87,6 +89,9 @@ object WidgetStateCodec {
         needsYouReason = m.string("r")?.let(NeedsYouReason::valueOf),
         canMerge = m["m"] == true, // absent in boards saved before #30: no Merge until the next refresh
         mergeLane = (m["lane"] as? Map<*, *>)?.let(::laneFromMap),
+        // Absent in boards saved before #59: no repo or type (a filter on them hides the task) until the next refresh.
+        repo = m.string("repo"),
+        types = m.list("ty").orEmpty().filterIsInstance<String>().toSet(),
     )
 
     /** Absent before #45, or a reason this version doesn't know: no lane until the next refresh. */
