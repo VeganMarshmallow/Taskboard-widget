@@ -14,7 +14,8 @@
     <string name="filter_priority_normal">Normal priority</string>
     <string name="filter_priority_low">Low priority</string>
     <string name="filter_text_quoted">“%1$s”</string>
-    <string name="filter_separator">, </string>
+    <!-- Quoted: resources drop a trailing space otherwise ("a,b"). -->
+    <string name="filter_separator">", "</string>
     <string name="filter_chip_on">%1$s, on</string>
     <string name="filter_chip_off">%1$s, off</string>
     <string name="filter_no_board">The board hasn\'t loaded yet: filters apply once it has.</string>
