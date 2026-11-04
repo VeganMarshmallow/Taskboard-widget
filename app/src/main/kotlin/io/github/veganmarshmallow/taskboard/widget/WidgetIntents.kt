@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.core.board.TabSelection
+import io.github.veganmarshmallow.taskboard.filter.FilterActivity
 import io.github.veganmarshmallow.taskboard.newtask.NewTaskActivity
 import io.github.veganmarshmallow.taskboard.setup.SetupActivity
 
@@ -18,6 +19,7 @@ object WidgetIntents {
     const val ACTION_NOOP = "io.github.veganmarshmallow.taskboard.NOOP"
     const val ACTION_MERGE_ALL_CANCEL = "io.github.veganmarshmallow.taskboard.MERGE_ALL_CANCEL"
     const val ACTION_MERGE_ALL_DISMISS = "io.github.veganmarshmallow.taskboard.MERGE_ALL_DISMISS"
+    const val ACTION_CLEAR_FILTER = "io.github.veganmarshmallow.taskboard.CLEAR_FILTER"
     const val EXTRA_ISSUE = "issue"
     const val EXTRA_TAB = "tab"
 
@@ -31,6 +33,8 @@ object WidgetIntents {
     private const val RC_MERGE_ALL = 15
     private const val RC_MERGE_ALL_CANCEL = 16
     private const val RC_MERGE_ALL_DISMISS = 17
+    private const val RC_FILTER = 18
+    private const val RC_FILTER_CLEAR = 19
     /** Tab taps use request codes from here up (one per tab); the intent data also names the widget, so no two collide. */
     private const val RC_TAB_BASE = 1000
 
@@ -106,6 +110,19 @@ object WidgetIntents {
 
     fun dismissMergeAll(context: Context): PendingIntent = PendingIntent.getBroadcast(
         context, RC_MERGE_ALL_DISMISS, Intent(context, WidgetActionReceiver::class.java).setAction(ACTION_MERGE_ALL_DISMISS), IMMUTABLE,
+    )
+
+    /** The filter button and the "Filtered" line (#59). NEW_TASK + CLEAR_TOP: one sheet at a time. */
+    fun filter(context: Context): PendingIntent = PendingIntent.getActivity(
+        context, RC_FILTER,
+        Intent(context, FilterActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        IMMUTABLE,
+    )
+
+    /** The "Filtered" line's Clear (#59). */
+    fun clearFilter(context: Context): PendingIntent = PendingIntent.getBroadcast(
+        context, RC_FILTER_CLEAR, Intent(context, WidgetActionReceiver::class.java).setAction(ACTION_CLEAR_FILTER), IMMUTABLE,
     )
 
     fun listService(context: Context, widgetId: Int): Intent =

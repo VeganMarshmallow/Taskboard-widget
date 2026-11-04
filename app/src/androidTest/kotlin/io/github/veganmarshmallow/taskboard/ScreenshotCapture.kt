@@ -7,6 +7,7 @@ import android.view.View
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.core.board.TabSelection
+import io.github.veganmarshmallow.taskboard.core.filter.BoardFilter
 import io.github.veganmarshmallow.taskboard.core.preview.PreviewScreen
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 
@@ -23,10 +24,11 @@ object ScreenshotCapture {
         heightDp: Int = 300,
         tab: Section = TabSelection.default(state.board),
         host: Context = context,
+        filter: BoardFilter = BoardFilter.NONE,
     ): View {
         lateinit var widget: View
         instrumentation.runOnMainSync {
-            val rendered = WidgetHost(host).render(state, widthDp, heightDp, tab)
+            val rendered = WidgetHost(host).render(state, widthDp, heightDp, tab, filter)
             widget = rendered.widget
             Screenshots.save(context, name, WidgetHost.toBitmap(rendered.root))
         }

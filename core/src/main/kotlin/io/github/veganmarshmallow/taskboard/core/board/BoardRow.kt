@@ -15,8 +15,11 @@ sealed class BoardRow {
         override val id: Long get() = -100L - section.ordinal
     }
 
-    /** The tab has nothing in it; the app shows a message chosen by [section]. */
-    data class Empty(val section: Section) : BoardRow() {
+    /**
+     * The tab has nothing in it; the app shows a message chosen by [section]. [filtered]: the tab
+     * is empty because the board filter (#59) hides its tasks, so the message says that instead.
+     */
+    data class Empty(val section: Section, val filtered: Boolean = false) : BoardRow() {
         override val id: Long get() = -200L - section.ordinal
     }
 }

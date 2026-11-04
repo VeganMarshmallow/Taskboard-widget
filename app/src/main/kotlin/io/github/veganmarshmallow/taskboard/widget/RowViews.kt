@@ -22,7 +22,7 @@ class RowViews(private val context: Context) {
     fun build(row: BoardRow, widthDp: Int? = null): RemoteViews = when (row) {
         is BoardRow.Item -> item(row.item, row.section, layoutFor(row.item, widthDp))
         is BoardRow.More -> note(moreText(row), row)
-        is BoardRow.Empty -> note(context.getString(EmptyText.of(row.section)), row)
+        is BoardRow.Empty -> note(context.getString(if (row.filtered) R.string.empty_filtered else EmptyText.of(row.section)), row)
     }
 
     private fun moreText(row: BoardRow.More): String {

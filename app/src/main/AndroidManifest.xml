@@ -60,6 +60,15 @@
             android:theme="@style/Theme.Taskboard.Preview"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- The board filter (#59): a bottom sheet over the home screen, like the preview, opened from the widget. -->
+        <activity
+            android:name=".filter.FilterActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Taskboard.Preview"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
+
         <!-- Exported only because the system must deliver APPWIDGET_UPDATE to it. -->
         <receiver
             android:name=".widget.BoardWidgetProvider"

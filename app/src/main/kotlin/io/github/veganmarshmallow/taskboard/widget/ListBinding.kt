@@ -24,21 +24,24 @@ import io.github.veganmarshmallow.taskboard.core.board.Section
 class ListBinding(private val context: Context) {
     private val rows = RowViews(context)
 
-    /** [widthDp]: the widget's width, for the row layout (#49); the older list service reads it itself. */
-    fun bind(views: RemoteViews, board: Board?, selected: Section, widgetId: Int, widthDp: Int? = null) {
+    /**
+     * [widthDp]: the widget's width, for the row layout (#49); the older list service reads it itself.
+     * [board] is already filtered (#59); [filtered] says a filter is on, so an empty tab says no task matches.
+     */
+    fun bind(views: RemoteViews, board: Board?, selected: Section, widgetId: Int, widthDp: Int? = null, filtered: Boolean = false) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            views.setRemoteAdapter(R.id.board_list, items(board, selected, widthDp))
+            views.setRemoteAdapter(R.id.board_list, items(board, selected, widthDp, filtered))
         } else {
             views.setRemoteAdapter(R.id.board_list, WidgetIntents.listService(context, widgetId))
         }
     }
 
     @TargetApi(Build.VERSION_CODES.S)
-    private fun items(board: Board?, selected: Section, widthDp: Int?): RemoteViews.RemoteCollectionItems {
+    private fun items(board: Board?, selected: Section, widthDp: Int?, filtered: Boolean): RemoteViews.RemoteCollectionItems {
         val builder = RemoteViews.RemoteCollectionItems.Builder()
             .setHasStableIds(true)
             .setViewTypeCount(RowViews.VIEW_TYPE_COUNT)
-        board?.let { BoardRows.of(it, selected) }.orEmpty().forEach { builder.addItem(it.id, rows.build(it, widthDp)) }
+        board?.let { BoardRows.of(it, selected, filtered) }.orEmpty().forEach { builder.addItem(it.id, rows.build(it, widthDp)) }
         return builder.build()
     }
 
