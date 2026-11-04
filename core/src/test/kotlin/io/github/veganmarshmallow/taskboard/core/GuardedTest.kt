@@ -46,7 +46,7 @@ class GuardedTest {
 
     @Test fun anonymousExceptionsStillGetADetail() {
         val r = guarded<Unit> { throw object : RuntimeException("x") {} }
-        assertTrue(r is Outcome.Failure && (r.error as BoardError.Internal).type.isNotEmpty())
+        assertEquals(BoardError.Internal("RuntimeException"), (r as Outcome.Failure).error) // named after its superclass
     }
 
     @Test fun fatalVmErrorsAreRethrown() {

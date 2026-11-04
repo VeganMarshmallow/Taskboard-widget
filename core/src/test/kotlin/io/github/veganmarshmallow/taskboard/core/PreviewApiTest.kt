@@ -205,7 +205,7 @@ class PreviewApiTest {
         listOf(0, -5, Int.MIN_VALUE).forEach { n ->
             val http = FakeHttp()
             val r = load(GitHubApi(http, TOKEN, FIXED_CLOCK), n)
-            assertTrue(r.issues.single().error() is BoardError.Unexpected)
+            assertTrue(r.issues.single().error() is BoardError.Internal) // rejected in the app, GitHub never asked (#55)
             assertTrue(http.requests.isEmpty())
         }
     }
