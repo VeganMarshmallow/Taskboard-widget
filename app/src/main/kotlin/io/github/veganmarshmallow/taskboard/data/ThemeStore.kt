@@ -7,7 +7,8 @@ import io.github.veganmarshmallow.taskboard.core.theme.ThemeChoice
 class ThemeStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
-    fun load(): ThemeChoice = ThemeChoice.decode(prefs.getString(KEY, null))
+    /** A value of another type under the key (a corrupt or hand-edited file) reads as the default too. */
+    fun load(): ThemeChoice = ThemeChoice.decode(runCatching { prefs.getString(KEY, null) }.getOrNull())
 
     /** Saved at once (commit), so the widget redraw that follows reads the new choice. */
     fun save(choice: ThemeChoice) {

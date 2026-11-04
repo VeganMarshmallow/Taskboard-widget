@@ -7,6 +7,7 @@ import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.veganmarshmallow.taskboard.TabTestViews.isHighlighted
+import io.github.veganmarshmallow.taskboard.TabTestViews.shownTab
 import io.github.veganmarshmallow.taskboard.core.board.BoardItem
 import io.github.veganmarshmallow.taskboard.core.board.BoardRow
 import io.github.veganmarshmallow.taskboard.core.board.BoardRows
@@ -15,6 +16,9 @@ import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.model.Priority
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
+import io.github.veganmarshmallow.taskboard.core.theme.ThemeChoice
+import io.github.veganmarshmallow.taskboard.data.ThemeStore
+import io.github.veganmarshmallow.taskboard.theme.WidgetPalette
 import io.github.veganmarshmallow.taskboard.widget.RowViews
 import io.github.veganmarshmallow.taskboard.widget.WidgetViews
 import org.junit.Assert.assertEquals
@@ -64,6 +68,42 @@ class WidgetViewsTest {
         val v = applyWidget(WidgetState.INITIAL)
         assertEquals(View.GONE, v.visibilityOf(R.id.error))
         assertEquals(context.getString(R.string.loading), v.text(R.id.board_empty))
+    }
+
+    /**
+     * #46 review: a launcher reapplies an update onto the views it shows when the layout is the same,
+     * so switching from ink back to calm must undo ink's card, serif title and tab colours.
+     */
+    @Test fun switchingBackToTheDefaultThemeUndoesTheOtherOneOnReappliedViews() {
+        val themes = ThemeStore(context)
+        val state = WidgetState(FakeBoards.realistic(), null, FakeBoards.NOW)
+        try {
+            themes.save(ThemeChoice.INK)
+            val widget = onMain { WidgetViews(context).build(state, 1, Section.TODO).apply(context, FrameLayout(context)) }
+            assertEquals(View.VISIBLE, widget.visibilityOf(R.id.title_serif))
+            themes.save(ThemeChoice.CALM)
+            onMain { WidgetViews(context).build(state, 1, Section.TODO).reapply(context, widget) }
+            assertEquals(View.VISIBLE, widget.visibilityOf(R.id.title))
+            assertEquals(View.GONE, widget.visibilityOf(R.id.title_serif))
+            val calm = WidgetPalette.CALM
+            assertEquals(context.getColor(calm.tabSelectedText), widget.shownTab(Section.TODO).currentTextColor)
+            assertEquals(context.getColor(calm.tabText), widget.shownTab(Section.DONE).currentTextColor)
+        } finally {
+            themes.save(ThemeChoice.DEFAULT)
+        }
+    }
+
+    /** #46 review: a value of the wrong type under the theme key (corrupt file) reads as the default, no crash. */
+    @Test fun aCorruptThemePreferenceReadsAsTheDefault() {
+        val prefs = context.getSharedPreferences("theme", android.content.Context.MODE_PRIVATE)
+        try {
+            prefs.edit().putInt("choice", 7).commit()
+            assertEquals(ThemeChoice.DEFAULT, ThemeStore(context).load())
+            prefs.edit().putString("choice", "no-such-theme").commit()
+            assertEquals(ThemeChoice.DEFAULT, ThemeStore(context).load())
+        } finally {
+            prefs.edit().clear().commit()
+        }
     }
 
     @Test fun boardStateShowsListAndLastUpdated() {

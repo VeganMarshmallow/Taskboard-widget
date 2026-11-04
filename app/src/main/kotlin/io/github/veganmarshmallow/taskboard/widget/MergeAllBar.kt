@@ -23,7 +23,7 @@ class MergeAllBar(private val context: Context) {
     private val text = MergeAllText(MergeDialogs(AppGraph.messages(context)))
 
     fun bind(views: RemoteViews, board: Board?, selected: Section, palette: WidgetPalette = WidgetPalette.CALM) {
-        if (!palette.isLayoutDefault) recolour(views, palette)
+        recolour(views, palette) // every theme: the launcher reapplies onto the shown views
         val store = AppGraph.mergeAllStore(context)
         val state = store.load()
         val cancelling = state != null && store.cancelRequested(state.runId)
@@ -48,7 +48,7 @@ class MergeAllBar(private val context: Context) {
         )
     }
 
-    /** Another theme's bar and button (#46); the layout carries the default look. */
+    /** The theme's bar and button (#46), set for the default too so switching back undoes another theme. */
     private fun recolour(views: RemoteViews, palette: WidgetPalette) {
         views.setInt(R.id.merge_all_bar, "setBackgroundResource", palette.mergeAllBackground)
         views.setInt(R.id.merge_all_button, "setBackgroundResource", palette.mergeBackground)

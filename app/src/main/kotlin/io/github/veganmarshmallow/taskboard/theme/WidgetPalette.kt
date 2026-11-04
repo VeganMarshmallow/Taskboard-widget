@@ -25,9 +25,6 @@ data class WidgetPalette(
     val mergeMutedText: Int,
     val mergeAllBackground: Int,
 ) {
-    /** The layouts' own look: the widget's outer views need no recolouring for it. */
-    val isLayoutDefault: Boolean get() = choice == ThemeChoice.CALM
-
     companion object {
         val CALM = WidgetPalette(
             choice = ThemeChoice.CALM,
