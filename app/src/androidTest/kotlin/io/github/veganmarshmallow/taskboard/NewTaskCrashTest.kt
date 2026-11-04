@@ -5,6 +5,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.github.GitHubApi
+import io.github.veganmarshmallow.taskboard.core.http.HttpClient
+import io.github.veganmarshmallow.taskboard.core.http.HttpResponse
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.task.NewIssue
 import io.github.veganmarshmallow.taskboard.core.task.NewTaskSession
@@ -15,6 +17,7 @@ import io.github.veganmarshmallow.taskboard.core.task.SubmitRecovery
 import io.github.veganmarshmallow.taskboard.core.task.TaskDraft
 import io.github.veganmarshmallow.taskboard.newtask.NewTaskController
 import io.github.veganmarshmallow.taskboard.newtask.NewTaskDeps
+import io.github.veganmarshmallow.taskboard.newtask.RepoSuggestionStore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -24,6 +27,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.time.Clock
 import java.time.ZoneOffset
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -132,5 +137,32 @@ class NewTaskCrashTest {
         instrumentation.runOnMainSync { result = controller.takeRecovery() }
         assertEquals(SubmitRecovery.Result.CheckFailed("Left behind", BoardError.NoToken), result)
         assertEquals(2, calls.get())
+    }
+
+    /** The suggestions thread had the same hole: an Error there loads nothing, and the next load still runs. */
+    @Test fun anErrorWhileLoadingSuggestionsIsSilentAndTheNextLoadStillRuns() {
+        val prefs = context.getSharedPreferences("repo_suggestions", Context.MODE_PRIVATE)
+        prefs.edit().clear().commit()
+        try {
+            val calls = AtomicInteger()
+            val http = HttpClient {
+                if (calls.incrementAndGet() == 1) throw NoSuchMethodError("x")
+                HttpResponse(200, body = """[{"number":3,"body":"### Repo\n\nVeganMarshmallow/Taskboard-widget\n"}]""")
+            }
+            val api = GitHubApi(http, "github_pat_X", Clock.fixed(FakeBoards.NOW, ZoneOffset.UTC))
+            val suggestions = RepoSuggestionStore(context, NewTaskDeps.standard { api })
+            val loads = AtomicInteger()
+            val loaded = CountDownLatch(1)
+            var fresh: List<String> = emptyList()
+            suggestions.refresh { loads.incrementAndGet() }
+            suggestions.refresh { fresh = it; loads.incrementAndGet(); loaded.countDown() }
+            assertTrue("the second load ran on the same thread", loaded.await(10, TimeUnit.SECONDS))
+            instrumentation.waitForIdleSync()
+            assertEquals("the crashed load reported nothing", 1, loads.get())
+            assertEquals(2, calls.get())
+            assertTrue(fresh.isNotEmpty())
+        } finally {
+            prefs.edit().clear().commit()
+        }
     }
 }

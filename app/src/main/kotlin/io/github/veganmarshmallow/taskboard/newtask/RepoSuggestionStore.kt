@@ -3,6 +3,7 @@ package io.github.veganmarshmallow.taskboard.newtask
 import android.content.Context
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.task.RepoSuggestions
+import io.github.veganmarshmallow.taskboard.core.work.guarded
 
 /**
  * Repo suggestions for the New task form. The last list is cached in app-private preferences so
@@ -20,7 +21,8 @@ class RepoSuggestionStore(context: Context, private val deps: NewTaskDeps) {
     fun refresh(onLoaded: (List<String>) -> Unit) {
         val api = deps.apiProvider(app) ?: return
         deps.suggestionsExecutor.execute {
-            val result = try { api.repoSuggestions() } catch (e: RuntimeException) { null }
+            // Any crash, an Error included ([guarded], task #56), is a silent failure: the thread survives.
+            val result = guarded { api.repoSuggestions() }
             val fresh = (result as? Outcome.Success)?.value ?: return@execute
             if (fresh == cached()) return@execute
             prefs.edit().putString(KEY, fresh.joinToString("\n")).apply()
