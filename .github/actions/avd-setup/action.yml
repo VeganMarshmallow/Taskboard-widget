@@ -1,0 +1,89 @@
+name: AVD setup
+description: >-
+  Java, Gradle, KVM and disk space for the emulator jobs, then the cached AVD snapshot for one API level
+  (#54). The AVD (with a booted snapshot) is cached per API level. Only main creates and saves it on a
+  cache miss: a cache saved on a branch is visible to that branch alone, and these are GBs of the repo's
+  10 GB cache quota. Needs actions/checkout first. The job runs its tests afterwards with
+  reactivecircus/android-emulator-runner and the same api-level / ram-size / emulator-boot-timeout.
+
+inputs:
+  api-level:
+    description: Android API level of the AVD
+    required: true
+  ram-size:
+    description: AVD RAM (e.g. 4096M); empty keeps the profile's default
+    required: false
+    default: ""
+  emulator-boot-timeout:
+    description: Seconds to wait for the boot that creates the snapshot (the runner's default is 600)
+    required: false
+    default: "600"
+  cache-key:
+    description: actions/cache key of the AVD snapshot; bump its version suffix to rebuild it
+    required: true
+
+outputs:
+  cache-hit:
+    description: "'true' when the AVD snapshot was restored from the cache"
+    value: ${{ steps.avd.outputs.cache-hit }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v5
+      with:
+        distribution: temurin
+        java-version: "17"
+
+    - uses: gradle/actions/setup-gradle@v5
+
+    # Hardware acceleration for the emulator (from the android-emulator-runner README).
+    - name: Enable KVM
+      shell: bash
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+
+    # The restored AVD cache (GBs) plus the system image sdkmanager installs overflow the runner's
+    # disk ("No space left on device"). Drop preinstalled toolchains this repo never uses.
+    - name: Free disk space
+      shell: bash
+      run: |
+        df -h /
+        sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+        df -h /
+
+    - name: Restore AVD snapshot
+      id: avd
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ~/.android/avd/*
+          ~/.android/adb*
+        key: ${{ inputs.cache-key }}
+
+    # From the android-emulator-runner README: boot once, save the snapshot, cache it.
+    - name: Create AVD snapshot (main only, on a cache miss)
+      if: steps.avd.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: ${{ inputs.api-level }}
+        arch: x86_64
+        target: google_apis
+        profile: pixel_5
+        force-avd-creation: false
+        disable-animations: false
+        emulator-boot-timeout: ${{ inputs.emulator-boot-timeout }}
+        ram-size: ${{ inputs.ram-size }}
+        emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+        script: echo "AVD snapshot created"
+
+    - name: Save AVD snapshot
+      if: steps.avd.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ~/.android/avd/*
+          ~/.android/adb*
+        key: ${{ inputs.cache-key }}
