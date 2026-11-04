@@ -52,13 +52,13 @@ class WorkflowRunsTest {
     }
 
     @Test fun anythingNotCompletedIsRunning() {
-        listOf("queued", "in_progress", "waiting", "requested", "pending", "unknown", "").forEach { status ->
+        listOf("queued", "in_progress", "requested", "pending", "unknown", "").forEach { status ->
             assertEquals(status, ChecksVerdict.Running(listOf("Lint")), verdict(run("CI"), run("Lint", null, status)))
         }
     }
 
     @Test fun everyBlockingConclusionFails() {
-        listOf("failure", "cancelled", "timed_out", "action_required", "stale", "startup_failure", "weird", null).forEach { c ->
+        listOf("failure", "cancelled", "timed_out", "stale", "startup_failure", "weird", null).forEach { c ->
             assertEquals("$c", ChecksVerdict.Failed(listOf("CI")), verdict(run("CI", c), run("Lint")))
         }
     }
@@ -153,6 +153,100 @@ class WorkflowRunsTest {
         )
         assertEquals(ChecksVerdict.Passed, verdict(*runs))
         assertEquals("a missing event is its own group", ChecksVerdict.Failed(listOf("CI")), verdict(run("CI", workflow = 1, number = 9), run("CI", "failure", workflow = 1, number = 2, event = null)))
+    }
+
+    // --- runs held for approval (#64: the auto-update's pull_request run, from GITHUB_TOKEN) ---
+
+    /** The held pull_request run as GitHub reports it: completed, `action_required`, titled with the PR title (no run-name). */
+    private fun held(number: Long = 329, workflow: Long = 1) =
+        run("build", "action_required", workflow = workflow, number = number, event = "pull_request", title = "Merge next (#45)")
+
+    private fun dispatched(conclusion: String? = "success", status: String = "completed", number: Long = 330, attempt: Long = 1) =
+        run("build", conclusion, status, workflow = 1, number = number, attempt = attempt, event = "workflow_dispatch", title = "build: claude/45-x")
+
+    private val awaiting = ChecksVerdict.AwaitingApproval(listOf("build"))
+
+    @Test fun aHeldRunNextToAGreenDispatchedBuildOfTheSameWorkflowPasses() {
+        // PR #45, head ea4b1ad: run 329 (pull_request, action_required) and run 330 (workflow_dispatch, success).
+        assertEquals(ChecksVerdict.Passed, verdict(held(), dispatched()))
+        assertEquals("order doesn't matter", ChecksVerdict.Passed, verdict(dispatched(), held()))
+    }
+
+    @Test fun aHeldRunAloneWaitsForApprovalAndIsNotFailed() {
+        assertEquals(awaiting, verdict(held()))
+        assertEquals("upper case", awaiting, verdict(run("build", "ACTION_REQUIRED", workflow = 1, event = "pull_request")))
+    }
+
+    @Test fun aWaitingStatusIsHeldForApprovalToo() {
+        val waiting = run("deploy", null, "waiting", workflow = 9, event = "pull_request")
+        assertEquals(ChecksVerdict.AwaitingApproval(listOf("deploy")), verdict(waiting))
+        assertEquals("superseded by a success of the same workflow", ChecksVerdict.Passed, verdict(waiting, run("deploy", workflow = 9, number = 2, event = "workflow_dispatch")))
+    }
+
+    @Test fun aHeldRunNextToAFailedBuildFails() {
+        assertEquals(ChecksVerdict.Failed(listOf("build")), verdict(held(), dispatched("failure")))
+    }
+
+    @Test fun aHeldRunNextToARunningBuildIsStillRunning() {
+        assertEquals(ChecksVerdict.Running(listOf("build")), verdict(held(), dispatched(null, "in_progress")))
+        assertEquals(ChecksVerdict.Running(listOf("build")), verdict(held(), dispatched(null, "queued")))
+    }
+
+    @Test fun aPartialSuccessDoesNotSupersedeAHeldRun() {
+        assertEquals(awaiting, verdict(held(), partial()))
+        assertEquals(awaiting, verdict(held(), partial(event = "workflow_dispatch", number = 330)))
+    }
+
+    @Test fun anotherWorkflowsSuccessDoesNotSupersedeAHeldRun() {
+        assertEquals(ChecksVerdict.AwaitingApproval(listOf("build")), verdict(held(workflow = 1), run("Lint", workflow = 2)))
+    }
+
+    @Test fun aSuccessOnAnotherCommitDoesNotSupersedeAHeldRun() {
+        assertEquals(awaiting, verdict(held(), run("build", workflow = 1, number = 330, event = "workflow_dispatch", sha = SHA_B)))
+    }
+
+    @Test fun skippedOrNeutralDoNotSupersedeAHeldRun() {
+        assertEquals(awaiting, verdict(held(), dispatched("skipped")))
+        assertEquals(awaiting, verdict(held(), dispatched("neutral")))
+    }
+
+    @Test fun aFailureOfAnotherWorkflowStillWinsOverASupersededHeldRun() {
+        assertEquals(ChecksVerdict.Failed(listOf("Lint")), verdict(held(), dispatched(), run("Lint", "failure", workflow = 2)))
+        assertEquals(ChecksVerdict.Running(listOf("Lint")), verdict(held(), dispatched(), run("Lint", null, "in_progress", workflow = 2)))
+    }
+
+    @Test fun aFailureWinsOverAnUnsupersededHeldRun() {
+        assertEquals(ChecksVerdict.Failed(listOf("Lint")), verdict(held(), run("Lint", "failure", workflow = 2)))
+        assertEquals("running wins too", ChecksVerdict.Running(listOf("Lint")), verdict(held(), run("Lint", null, "in_progress", workflow = 2)))
+    }
+
+    @Test fun reRunsCombineWithTheHeldRule() {
+        // The dispatched build failed, then its re-run passed: the newest attempt supersedes the held run.
+        assertEquals(ChecksVerdict.Passed, verdict(held(), dispatched("failure"), dispatched(attempt = 2)))
+        // It passed, then a re-run failed: the newest attempt counts, so it fails.
+        assertEquals(ChecksVerdict.Failed(listOf("build")), verdict(held(), dispatched(), dispatched("failure", attempt = 2)))
+        // The held run itself approved and re-run green later (newer attempt in its own event): a plain pass.
+        val approved = run("build", workflow = 1, number = 329, attempt = 2, event = "pull_request", title = "build: claude/45-x")
+        assertEquals(ChecksVerdict.Passed, verdict(held(), approved))
+    }
+
+    @Test fun aNewerHeldRunOfTheSameEventReplacesAnOlderGreenOne() {
+        // Per event, the newest run counts: the green pull_request run is replaced by the newer held one,
+        // so only another event's success can supersede it.
+        val oldGreen = full(number = 300)
+        assertEquals(awaiting, verdict(oldGreen, held(number = 329)))
+        assertEquals(ChecksVerdict.Passed, verdict(oldGreen, held(number = 329), dispatched()))
+    }
+
+    @Test fun aGreenPushRunThatIsFullSupersedesAHeldRun() {
+        // Any event counts, as long as the run was full (main-style full push run).
+        assertEquals(ChecksVerdict.Passed, verdict(held(), run("build", workflow = 1, number = 331, event = "push", title = "build: main")))
+    }
+
+    @Test fun twoHeldWorkflowsAreNamedOnce() {
+        val a = held(workflow = 1)
+        val b = run("build", "action_required", workflow = 2, event = "pull_request")
+        assertEquals(awaiting, verdict(a, b))
     }
 
     // --- partial runs (#52: plain pushes run only `build`; emulator tests run on the PR's pull_request run) ---

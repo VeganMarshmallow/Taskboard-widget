@@ -102,6 +102,7 @@ class MergeAllStateTest {
         )
         assertNull(text.result(run))
         MergeAllStop.Kind.entries.forEach { assertTrue(it.name, text.reason(MergeAllStop(it)).isNotBlank()) }
+        assertEquals("checks waiting for approval on GitHub (build)", text.reason(MergeAllStop(MergeAllStop.Kind.CHECKS_APPROVAL, "build")))
     }
 
     @Test fun theConfirmationListsThePlanInOrder() {

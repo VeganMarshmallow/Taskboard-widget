@@ -261,7 +261,22 @@ class MergeServiceTest {
         s.checks = runsJson(passed("CI"), wfRun("Emulator", null, "in_progress"), wfRun("Deploy", "skipped"))
         assertEquals(listOf("Emulator"), (s.prepare().problem() as MergeProblem.ChecksRunning).names)
         s.checks = runsJson(passed("CI"), wfRun("Approval", null, "waiting"), wfRun("Queued", null, "queued"))
-        assertEquals(listOf("Approval", "Queued"), (s.prepare().problem() as MergeProblem.ChecksRunning).names)
+        assertEquals("running wins over a run held for approval (#64)", listOf("Queued"), (s.prepare().problem() as MergeProblem.ChecksRunning).names)
+        s.checks = runsJson(passed("CI"), wfRun("Approval", null, "waiting"))
+        assertEquals(listOf("Approval"), (s.prepare().problem() as MergeProblem.ChecksAwaitingApproval).names)
+    }
+
+    @Test fun aHeldPullRequestRunIsSupersededByTheGreenDispatchedBuild() {
+        // #64, PR #45 at ea4b1ad: run 329 (pull_request, action_required) and run 330 (workflow_dispatch, success).
+        val s = Script()
+        s.checks = runsJson(
+            wfRun("build", "action_required", workflow = 5, number = 329, event = "pull_request"),
+            wfRun("build", workflow = 5, number = 330, event = "workflow_dispatch", title = "build: claude/45-x"),
+        )
+        assertEquals(12, s.prepare().pr().number)
+        s.checks = runsJson(wfRun("build", "action_required", workflow = 5, number = 329, event = "pull_request"))
+        assertEquals(listOf("build"), (s.prepare().problem() as MergeProblem.ChecksAwaitingApproval).names)
+        assertTrue("never merges", s.urls().none { it.startsWith("PUT") })
     }
 
     @Test fun aWorkflowThatRanForThePrButNotYetOnTheHeadIsStillRunning() {
@@ -285,7 +300,7 @@ class MergeServiceTest {
 
     @Test fun checksFailed() {
         val s = Script()
-        listOf("failure", "cancelled", "timed_out", "action_required").forEach { c ->
+        listOf("failure", "cancelled", "timed_out").forEach { c ->
             s.checks = runsJson(passed("CI"), wfRun("Emulator", c))
             assertEquals(c, listOf("Emulator"), (s.prepare().problem() as MergeProblem.ChecksFailed).names)
         }

@@ -39,6 +39,7 @@ class MergeLaneViews(private val context: Context) {
             MergeWait.STACKED -> R.string.merge_wait_stacked
             MergeWait.CHECKS_RUNNING -> R.string.merge_wait_checks_running
             MergeWait.CHECKS_FAILED -> R.string.merge_wait_checks_failed
+            MergeWait.CHECKS_APPROVAL -> R.string.merge_wait_checks_approval
             MergeWait.NO_CHECKS -> R.string.merge_wait_no_checks
             MergeWait.CONFLICT -> R.string.merge_wait_conflict
             MergeWait.CONFLICT_CLAUDE_FIXES -> R.string.merge_wait_conflict_claude

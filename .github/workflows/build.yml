@@ -12,6 +12,9 @@ name: build
 #   (core/merge/WorkflowRuns.kt): a workflow with only partial runs on the PR head isn't a pass, so it
 #   waits for the full pull_request run instead of being satisfied by the push run's `build`.
 #   Keep the run-name condition in sync with FULL_CI below.
+# - #64: when update-prs.yml updates a PR with GITHUB_TOKEN, GitHub holds this workflow's pull_request
+#   run for approval (no jobs run; a job `if:` can't prevent it). update-prs dispatches this workflow
+#   instead and deletes the held run; the Merge button also ignores a held run once a full run passed.
 run-name: >-
   ${{ format('build: {0}{1}', github.head_ref || github.ref_name,
   (!((github.event_name == 'push' && github.ref == 'refs/heads/main')
