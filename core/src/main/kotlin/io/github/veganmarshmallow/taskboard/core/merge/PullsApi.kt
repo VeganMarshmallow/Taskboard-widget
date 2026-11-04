@@ -100,6 +100,14 @@ class PullsApi(private val api: GitHubApi) {
         }
     }
 
+    /** Merges the default branch into [pr]'s branch (#57). GitHub does it in the background: the head changes shortly after. */
+    fun updateBranch(pr: PullRequest): MergeStep<Unit> =
+        read(pr.repo, { api.requests.updateBranch(pr) }, { MergeErrors.forUpdate(it, api.clock.instant(), pr) }) { }
+
+    /** Retargets [pr] onto [base] (#57); the PR as GitHub returns it. */
+    fun retarget(pr: PullRequest, base: String): MergeStep<PullRequest> =
+        read(pr.repo, { api.requests.retarget(pr, base) }) { PullJsonParser.parsePull(it.body, pr.repo) }
+
     private fun <T> read(repo: Repo, build: () -> HttpRequest, parse: (HttpResponse) -> T): MergeStep<T> =
         read(repo, build, { MergeErrors.forRead(it, api.clock.instant(), repo) }, parse)
 

@@ -16,6 +16,8 @@ object WidgetIntents {
     const val ACTION_APPROVE = "io.github.veganmarshmallow.taskboard.APPROVE"
     const val ACTION_SELECT_TAB = "io.github.veganmarshmallow.taskboard.SELECT_TAB"
     const val ACTION_NOOP = "io.github.veganmarshmallow.taskboard.NOOP"
+    const val ACTION_MERGE_ALL_CANCEL = "io.github.veganmarshmallow.taskboard.MERGE_ALL_CANCEL"
+    const val ACTION_MERGE_ALL_DISMISS = "io.github.veganmarshmallow.taskboard.MERGE_ALL_DISMISS"
     const val EXTRA_ISSUE = "issue"
     const val EXTRA_TAB = "tab"
 
@@ -26,6 +28,9 @@ object WidgetIntents {
     private const val RC_NEW_TASK = 5
     private const val RC_NOOP = 6
     private const val RC_UPDATES = 14
+    private const val RC_MERGE_ALL = 15
+    private const val RC_MERGE_ALL_CANCEL = 16
+    private const val RC_MERGE_ALL_DISMISS = 17
     /** Tab taps use request codes from here up (one per tab); the intent data also names the widget, so no two collide. */
     private const val RC_TAB_BASE = 1000
 
@@ -86,6 +91,21 @@ object WidgetIntents {
         context, RC_ROW_TEMPLATE,
         Intent(context, RowActionActivity::class.java),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
+    )
+
+    /** The Merge all line's button (#57): the plan and its confirmation, in [RowActionActivity]. */
+    fun mergeAll(context: Context): PendingIntent = PendingIntent.getActivity(
+        context, RC_MERGE_ALL,
+        RowAction.MergeAll.toFillIn().setClass(context, RowActionActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        IMMUTABLE,
+    )
+
+    fun cancelMergeAll(context: Context): PendingIntent = PendingIntent.getBroadcast(
+        context, RC_MERGE_ALL_CANCEL, Intent(context, WidgetActionReceiver::class.java).setAction(ACTION_MERGE_ALL_CANCEL), IMMUTABLE,
+    )
+
+    fun dismissMergeAll(context: Context): PendingIntent = PendingIntent.getBroadcast(
+        context, RC_MERGE_ALL_DISMISS, Intent(context, WidgetActionReceiver::class.java).setAction(ACTION_MERGE_ALL_DISMISS), IMMUTABLE,
     )
 
     fun listService(context: Context, widgetId: Int): Intent =

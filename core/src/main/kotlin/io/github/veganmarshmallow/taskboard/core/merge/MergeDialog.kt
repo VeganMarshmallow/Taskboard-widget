@@ -1,7 +1,7 @@
 package io.github.veganmarshmallow.taskboard.core.merge
 
 /** What a merge dialog button does. */
-enum class MergeButton { MERGE, CANCEL, CLOSE, OPEN_GITHUB, EDIT_TOKEN, SET_UP }
+enum class MergeButton { MERGE, MERGE_ALL, CANCEL, CLOSE, OPEN_GITHUB, EDIT_TOKEN, SET_UP }
 
 /**
  * Everything the merge dialog shows, as plain values (task #30). [lines] are shown in order under
