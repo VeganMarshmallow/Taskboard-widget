@@ -43,9 +43,9 @@ class WidgetViews(private val context: Context) {
         widthDp: Int? = null,
         filter: BoardFilter = BoardFilter.NONE,
     ): RemoteViews {
-        val views = RemoteViews(context.packageName, R.layout.widget_board)
-        val shown = state.board?.filtered(filter)
         val palette = WidgetPalette.current(context)
+        val views = RemoteViews(context.packageName, palette.layout)
+        val shown = state.board?.filtered(filter)
         bindTheme(views, palette)
         bindHeader(views, state)
         if (updating) views.setTextViewText(R.id.updated, context.getString(R.string.updating))
@@ -57,11 +57,9 @@ class WidgetViews(private val context: Context) {
         return views
     }
 
-    /**
-     * The theme's card and title (#46). Set for every theme, the default too: a launcher reapplies an
-     * update onto the views it already shows (same layout), so a look left out would keep the last one.
-     */
+    /** The theme's card and title (#46). The layout is the default look and each theme has its own layout id ([WidgetPalette.layout]), so only other themes add actions. */
     private fun bindTheme(views: RemoteViews, palette: WidgetPalette) {
+        if (palette.isLayoutDefault) return
         views.setInt(ROOT, "setBackgroundResource", palette.background)
         views.setViewVisibility(R.id.title, if (palette.serifTitle) View.GONE else View.VISIBLE)
         views.setViewVisibility(R.id.title_serif, if (palette.serifTitle) View.VISIBLE else View.GONE)

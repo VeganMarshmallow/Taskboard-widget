@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  #46: the ink theme's widget is the same layout under its own id. A launcher reapplies an update
+  onto the views it shows when the layout id matches, so without a new id a switch back to calm
+  would keep ink's card, title and tab colours (see WidgetPalette.layout).
+-->
+<resources>
+    <item name="widget_board_ink" type="layout">@layout/widget_board</item>
+</resources>

@@ -71,23 +71,25 @@ class WidgetViewsTest {
     }
 
     /**
-     * #46 review: a launcher reapplies an update onto the views it shows when the layout is the same,
-     * so switching from ink back to calm must undo ink's card, serif title and tab colours.
+     * #46 review: a launcher reapplies an update onto the views it shows when the layout id is the
+     * same, so each theme must have its own id (a switch back to calm re-inflates instead of keeping
+     * ink's card, serif title and tab colours). Each theme, freshly inflated, shows its own look.
      */
-    @Test fun switchingBackToTheDefaultThemeUndoesTheOtherOneOnReappliedViews() {
+    @Test fun eachThemeHasItsOwnWidgetLayoutIdAndLook() {
         val themes = ThemeStore(context)
         val state = WidgetState(FakeBoards.realistic(), null, FakeBoards.NOW)
         try {
-            themes.save(ThemeChoice.INK)
-            val widget = onMain { WidgetViews(context).build(state, 1, Section.TODO).apply(context, FrameLayout(context)) }
-            assertEquals(View.VISIBLE, widget.visibilityOf(R.id.title_serif))
-            themes.save(ThemeChoice.CALM)
-            onMain { WidgetViews(context).build(state, 1, Section.TODO).reapply(context, widget) }
-            assertEquals(View.VISIBLE, widget.visibilityOf(R.id.title))
-            assertEquals(View.GONE, widget.visibilityOf(R.id.title_serif))
-            val calm = WidgetPalette.CALM
-            assertEquals(context.getColor(calm.tabSelectedText), widget.shownTab(Section.TODO).currentTextColor)
-            assertEquals(context.getColor(calm.tabText), widget.shownTab(Section.DONE).currentTextColor)
+            val ids = ThemeChoice.entries.map { choice ->
+                themes.save(choice)
+                val remote = onMain { WidgetViews(context).build(state, 1, Section.TODO) }
+                val widget = onMain { remote.apply(context, FrameLayout(context)) }
+                val palette = WidgetPalette.of(choice)
+                assertEquals("$choice title", if (palette.serifTitle) View.GONE else View.VISIBLE, widget.visibilityOf(R.id.title))
+                assertEquals("$choice serif title", if (palette.serifTitle) View.VISIBLE else View.GONE, widget.visibilityOf(R.id.title_serif))
+                assertEquals("$choice tab", context.getColor(palette.tabSelectedText), widget.shownTab(Section.TODO).currentTextColor)
+                remote.layoutId
+            }
+            assertEquals(ids.size, ids.toSet().size)
         } finally {
             themes.save(ThemeChoice.DEFAULT)
         }

@@ -12,6 +12,12 @@ import io.github.veganmarshmallow.taskboard.core.theme.ThemeChoice
  */
 data class WidgetPalette(
     val choice: ThemeChoice,
+    /**
+     * The outer layout. Every non-default theme has its own id (an alias of `widget_board`): a
+     * launcher reapplies an update onto the views it shows when the layout id is the same, so a
+     * theme switch must change the id to start again from the layout's own (calm) look.
+     */
+    val layout: Int,
     val background: Int,
     val serifTitle: Boolean,
     val tabSelectedBackground: Int,
@@ -25,9 +31,13 @@ data class WidgetPalette(
     val mergeMutedText: Int,
     val mergeAllBackground: Int,
 ) {
+    /** The layouts' own look: the widget's outer views need no recolouring for it. */
+    val isLayoutDefault: Boolean get() = choice == ThemeChoice.CALM
+
     companion object {
         val CALM = WidgetPalette(
             choice = ThemeChoice.CALM,
+            layout = R.layout.widget_board,
             background = R.drawable.widget_background,
             serifTitle = false,
             tabSelectedBackground = R.drawable.tab_selected_background,
@@ -44,6 +54,7 @@ data class WidgetPalette(
 
         val INK = WidgetPalette(
             choice = ThemeChoice.INK,
+            layout = R.layout.widget_board_ink,
             background = R.drawable.widget_background_ink,
             serifTitle = true,
             tabSelectedBackground = R.drawable.tab_selected_background_ink,

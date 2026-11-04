@@ -13,7 +13,7 @@ import io.github.veganmarshmallow.taskboard.theme.WidgetPalette
  * Binds the five status tabs: label with count, highlight on [selected], and a tap that selects the tab.
  * The highlight shows the slot's highlighted label instead of recolouring one from code, so the
  * launcher keeps resolving the colours itself (they follow a light/dark switch; see widget_tabs.xml).
- * The theme (#46) sets the highlight drawable and the label colours, the default's too, so switching back undoes another theme.
+ * A theme other than the layout's own (#46) swaps the highlight drawable and the label colours.
  */
 class TabViews(private val context: Context) {
     private val colors = DayNightColor(context)
@@ -23,7 +23,7 @@ class TabViews(private val context: Context) {
             val ids = ids(section)
             val isSelected = section == selected
             val label = TabText.styledLabel(context, section, board?.count(section))
-            recolour(views, ids, palette) // every theme: the launcher reapplies onto the shown views
+            if (!palette.isLayoutDefault) recolour(views, ids, palette)
             views.setTextViewText(ids.label, label)
             views.setTextViewText(ids.selectedLabel, label)
             views.setViewVisibility(ids.label, if (isSelected) View.GONE else View.VISIBLE)
