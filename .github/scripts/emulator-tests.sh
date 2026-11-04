@@ -4,6 +4,10 @@
 # (connectedAndroidTest uninstalls the app when it finishes). PNGs land in ./screenshots/.
 set -uo pipefail
 pkg="io.github.veganmarshmallow.taskboard"
+. "$(dirname "$0")/emulator-lib.sh"
+
+# #58: no tests run (and so no results) if the system is not up; the workflow then retries once.
+wait_for_system 180 || exit 1
 
 ./gradlew :app:connectedDebugAndroidTest --console=plain 2>&1 | tee connected.log
 status=${PIPESTATUS[0]}

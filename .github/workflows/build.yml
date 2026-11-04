@@ -243,10 +243,15 @@ jobs:
             ~/.android/adb*
           key: ${{ env.AVD_KEY }}
 
+      # #58: about one run in three, system_server dies right after the snapshot loads, so the
+      # runner's own `adb shell input keyevent 82` fails (DeadSystemException, adb exit 1) before
+      # the script starts. A re-run always passed, so the step runs once more, but only when no test
+      # result exists yet: a real test failure is never retried.
       - name: Instrumented tests and screenshots
         id: emulator
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
-        with:
+        with: &emulator-tests
           api-level: 30
           arch: x86_64
           target: google_apis
@@ -255,6 +260,28 @@ jobs:
           disable-animations: true
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: .github/scripts/emulator-tests.sh
+
+      - name: Retry only if no test ran
+        id: retry
+        if: steps.emulator.outcome == 'failure'
+        run: |
+          . .github/scripts/emulator-lib.sh
+          if has_test_results app/build/outputs/androidTest-results/connected/debug; then
+            echo "retry=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning title=Emulator retried::the emulator or adb failed before any instrumented test result existed"
+            stop_emulator 30
+            echo "retry=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Instrumented tests and screenshots (retry)
+        if: steps.retry.outputs.retry == 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with: *emulator-tests
+
+      - name: Fail on instrumented test failure
+        if: steps.emulator.outcome == 'failure' && steps.retry.outputs.retry != 'true'
+        run: exit 1
 
       - name: Annotate instrumented test failure
         if: failure() && steps.emulator.outcome == 'failure'
