@@ -129,3 +129,19 @@ test('avd-setup creates and saves the snapshot on main only, on a cache miss', (
 test('changing avd-setup puts the recent-Android job in scope', () => {
   assert.ok(job('emulator-recent').includes('|^\\.github/actions/avd-setup/" changed.txt'));
 });
+
+test('avd-setup defaults match the emulator runner\'s, so API 30 creates the same snapshot as before', () => {
+  // The runner (reactivecircus/android-emulator-runner@v2) defaults emulator-boot-timeout to 600 and
+  // has no ram-size default (an unset input reads as ''), as its "with:" listing in the job logs shows.
+  const inputs = action.match(/^inputs:\n((?:  .*\n|\s*\n)+)/m)[1];
+  assert.match(inputs, /^  ram-size:\n(?:    .*\n)*?    default: ""$/m);
+  assert.match(inputs, /^  emulator-boot-timeout:\n(?:    .*\n)*?    default: "600"$/m);
+});
+
+test('the workflow no longer reads outputs of steps that moved into avd-setup', () => {
+  const ids = [...action.matchAll(/^      id: ([\w-]+)$/gm)].map(([, id]) => id);
+  assert.ok(ids.includes('avd'));
+  for (const id of ids) {
+    assert.ok(!yml.includes(`steps.${id}.`), `build.yml still references steps.${id}`);
+  }
+});
