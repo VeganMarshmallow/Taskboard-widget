@@ -27,7 +27,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textColor="@color/widget_text"
+                android:textColor="?attr/tbText"
                 android:textDirection="locale"
                 android:textSize="19sp"
                 android:textStyle="bold" />
@@ -39,7 +39,7 @@
                 android:layout_height="20dp"
                 android:layout_marginStart="12dp"
                 android:contentDescription="@string/loading"
-                android:indeterminateTint="@color/widget_muted"
+                android:indeterminateTint="?attr/tbMuted"
                 android:visibility="gone" />
         </LinearLayout>
 
@@ -60,7 +60,7 @@
 
             <Button
                 android:id="@+id/merge_secondary"
-                style="@android:style/Widget.Material.Button.Borderless.Colored"
+                style="?attr/tbButtonText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textAllCaps="false"
@@ -76,7 +76,7 @@
                 android:paddingHorizontal="20dp"
                 android:stateListAnimator="@null"
                 android:textAllCaps="false"
-                android:textColor="@color/widget_accent_text"
+                android:textColor="?attr/tbOnPrimary"
                 android:textSize="15sp"
                 android:textStyle="bold"
                 android:visibility="gone" />

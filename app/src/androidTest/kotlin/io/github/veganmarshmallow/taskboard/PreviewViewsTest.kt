@@ -51,14 +51,15 @@ class PreviewViewsTest {
     }
 
     @Test fun summaryIsLimitedToThreeLinesAndAShortClaudeCommentIsShownWhole() {
-        val v = bind(FakePreviews.hebrewInProgress())
+        // #46 folds notes to one line, so "short" now means a one-liner.
+        val v = bind(FakePreviews.hebrewInProgress().commentsLoaded(listOf(IssueComment(1, "🤖 התחלתי לעבוד.", null))))
         assertEquals(3, v.findViewById<TextView>(R.id.preview_summary).maxLines)
         assertEquals(Int.MAX_VALUE, v.findViewById<TextView>(R.id.preview_claude_text).maxLines)
         assertEquals(View.GONE, v.visibility(R.id.preview_claude_toggle))
         assertEquals(View.GONE, v.visibility(R.id.preview_claude_need))
     }
 
-    /** Task #43: a long comment starts at 4 lines with Show more; the toggle expands and collapses it. */
+    /** Task #43: a long comment starts at one line (#46) with Show more; the toggle expands and collapses it. */
     @Test fun longClaudeCommentCollapsesAndExpands() {
         lateinit var sheet: View
         lateinit var body: io.github.veganmarshmallow.taskboard.preview.CollapsibleText
@@ -67,7 +68,7 @@ class PreviewViewsTest {
             body = sheet.findViewById(R.id.preview_claude_body)
         }
         val text = sheet.findViewById<TextView>(R.id.preview_claude_text)
-        assertEquals(4, text.maxLines)
+        assertEquals(1, text.maxLines)
         assertEquals(View.VISIBLE, sheet.visibility(R.id.preview_claude_toggle))
         assertEquals(context.getString(R.string.preview_show_more), sheet.text(R.id.preview_claude_toggle))
         assertTrue(sheet.text(R.id.preview_claude_need_text).startsWith("add a DEPLOY_KEY secret"))

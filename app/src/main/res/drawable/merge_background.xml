@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The widget row's Merge button (task #30): GitHub's merge purple, the same as the In review chip. -->
+<!-- Widget (#46): plain colours only, launchers can't resolve theme attributes. Calm: Merge is the filled clay button. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="@color/status_review" />
-    <corners android:radius="14dp" />
+    <solid android:color="@color/widget_accent" />
+    <corners android:radius="16dp" />
 </shape>

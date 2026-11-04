@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- A Merge button that is not the PR to merge next (#45): a pale shade of the merge purple. -->
-    <color name="merge_muted_bg">#E9E3F5</color>
-    <color name="merge_muted_text">#5B21B6</color>
+    <!-- A Merge button that is not the PR to merge next (#45), and the Merge all bar: the tonal clay of theme A (#46). -->
+    <color name="merge_muted_bg">#FBE3D8</color>
+    <color name="merge_muted_text">#7A2A0E</color>
 </resources>

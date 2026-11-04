@@ -46,7 +46,7 @@ class UpdateScreenshotTest {
         instrumentation.runOnMainSync {
             val density = context.resources.displayMetrics.density
             // The app's theme, as in SetupActivity: without it the card renders in the platform's blue accent.
-            val themed = android.view.ContextThemeWrapper(context, R.style.Theme_Taskboard)
+            val themed = io.github.veganmarshmallow.taskboard.theme.AppTheme.wrap(context, R.style.Theme_Taskboard)
             val frame = FrameLayout(themed).apply { setBackgroundColor(android.graphics.Color.WHITE) }
             val pad = (16 * density).toInt()
             frame.setPadding(pad, 0, pad, pad)

@@ -22,6 +22,7 @@ import io.github.veganmarshmallow.taskboard.merge.MergeFlow
 import io.github.veganmarshmallow.taskboard.setup.SetupActivity
 import io.github.veganmarshmallow.taskboard.widget.ApproveDialog
 import io.github.veganmarshmallow.taskboard.widget.WidgetIntents
+import io.github.veganmarshmallow.taskboard.theme.AppTheme
 
 /**
  * Bottom-sheet preview of one task, opened by tapping a widget row. Shows the cached row at once,
@@ -38,6 +39,7 @@ class TaskPreviewActivity : Activity() {
         private set
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AppTheme.apply(this)
         super.onCreate(savedInstanceState)
         val number = intent?.getIntExtra(EXTRA_ISSUE, 0) ?: 0
         if (number <= 0) {

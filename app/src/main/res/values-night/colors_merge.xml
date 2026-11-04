@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="merge_muted_bg">#2E2838</color>
-    <color name="merge_muted_text">#C4B5FD</color>
+    <color name="merge_muted_bg">#4A2618</color>
+    <color name="merge_muted_text">#FFDCCB</color>
 </resources>

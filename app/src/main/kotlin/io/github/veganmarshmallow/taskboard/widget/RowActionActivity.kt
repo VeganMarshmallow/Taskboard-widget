@@ -8,6 +8,7 @@ import io.github.veganmarshmallow.taskboard.R
 import io.github.veganmarshmallow.taskboard.merge.MergeFlow
 import io.github.veganmarshmallow.taskboard.mergeall.MergeAllFlow
 import io.github.veganmarshmallow.taskboard.preview.TaskPreviewActivity
+import io.github.veganmarshmallow.taskboard.theme.AppTheme
 
 /**
  * Invisible trampoline for list-row taps. Collection rows can only share one PendingIntent template,
@@ -26,6 +27,7 @@ class RowActionActivity : Activity() {
         private set
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AppTheme.apply(this)
         super.onCreate(savedInstanceState)
         when (val action = RowAction.from(intent)) {
             is RowAction.Open -> open(action.url)

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The app's design tokens (#46). Each ThemeOverlay.Taskboard.* (values/themes_tokens.xml) sets all of them. -->
+<resources>
+    <attr name="tbSurface" format="color" />
+    <attr name="tbCard" format="color" />
+    <attr name="tbText" format="color" />
+    <attr name="tbMuted" format="color" />
+    <!-- Links, labels and the "waiting on you" signal. -->
+    <attr name="tbAccent" format="color" />
+    <!-- The main button's fill and its text. -->
+    <attr name="tbPrimary" format="color" />
+    <attr name="tbOnPrimary" format="color" />
+    <!-- The secondary button and chips: fill, outline, text. -->
+    <attr name="tbTonal" format="color" />
+    <attr name="tbOutline" format="color" />
+    <attr name="tbOnTonal" format="color" />
+    <attr name="tbDivider" format="color" />
+    <attr name="tbNeedBackground" format="color" />
+    <attr name="tbRadiusButton" format="dimension" />
+    <attr name="tbRadiusCard" format="dimension" />
+    <attr name="tbRadiusField" format="dimension" />
+    <attr name="tbTitleFont" format="string" />
+    <!-- Component styles. -->
+    <attr name="tbHeadline" format="reference" />
+    <attr name="tbSectionLabel" format="reference" />
+    <attr name="tbBody" format="reference" />
+    <attr name="tbCaption" format="reference" />
+    <attr name="tbButtonPrimary" format="reference" />
+    <attr name="tbButtonSecondary" format="reference" />
+    <attr name="tbButtonText" format="reference" />
+    <attr name="tbField" format="reference" />
+    <attr name="tbFieldBackground" format="reference" />
+    <attr name="tbStatusBackground" format="reference" />
+    <!-- Whether the task sheet's status chip is tinted with the status hue (calm) or outlined (ink). -->
+    <attr name="tbTintsStatus" format="boolean" />
+</resources>

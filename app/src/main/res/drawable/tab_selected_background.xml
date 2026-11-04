@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Widget (#46): plain colours only, launchers can't resolve theme attributes. Calm: the selected tab gets a tonal pill. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="@color/widget_accent" />
-    <corners android:radius="12dp" />
+    <solid android:color="@color/widget_tonal" />
+    <corners android:radius="14dp" />
 </shape>

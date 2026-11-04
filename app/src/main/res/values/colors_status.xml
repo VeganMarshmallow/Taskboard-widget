@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The task sheet's status chip in theme A (#46): a soft tint of the status hue behind normal text. -->
+<resources>
+    <color name="status_needs_you_container">#FBE3D8</color>
+    <color name="status_review_container">#ECE4FA</color>
+    <color name="status_progress_container">#E1E8FA</color>
+    <color name="status_blocked_container">#FBE0DC</color>
+    <color name="status_todo_container">#ECE8E4</color>
+    <color name="status_done_container">#DFF0E3</color>
+</resources>

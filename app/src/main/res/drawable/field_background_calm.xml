@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Calm's text field (#46): an outlined, rounded box; the outline turns accent while focused. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <solid android:color="?attr/tbSurface" />
+            <stroke android:width="2dp" android:color="?attr/tbPrimary" />
+            <corners android:radius="?attr/tbRadiusField" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="?attr/tbSurface" />
+            <stroke android:width="1dp" android:color="@color/widget_outline" />
+            <corners android:radius="?attr/tbRadiusField" />
+        </shape>
+    </item>
+</selector>

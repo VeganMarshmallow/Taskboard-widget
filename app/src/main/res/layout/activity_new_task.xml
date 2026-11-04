@@ -2,6 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="?attr/tbSurface"
     android:fillViewport="true"
     android:fitsSystemWindows="true">
 
@@ -12,10 +13,10 @@
         android:padding="24dp">
 
         <TextView
+            style="?attr/tbHeadline"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/task_new_title"
-            android:textAppearance="@android:style/TextAppearance.Material.Headline" />
+            android:text="@string/task_new_title" />
 
         <TextView
             style="@style/FormLabel"
@@ -23,6 +24,8 @@
 
         <EditText
             android:id="@+id/task_title"
+            style="?attr/tbField"
+            android:layout_marginTop="6dp"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="@string/task_title_hint"
@@ -37,6 +40,8 @@
 
         <EditText
             android:id="@+id/task_goal"
+            style="?attr/tbField"
+            android:layout_marginTop="6dp"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="top|start"
@@ -52,6 +57,8 @@
 
         <EditText
             android:id="@+id/task_done_when"
+            style="?attr/tbField"
+            android:layout_marginTop="6dp"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="top|start"
@@ -66,6 +73,8 @@
 
         <AutoCompleteTextView
             android:id="@+id/task_repo"
+            style="?attr/tbField"
+            android:layout_marginTop="6dp"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:completionThreshold="1"
@@ -101,7 +110,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:minHeight="48dp"
-                android:text="@string/priority_normal" />
+                android:text="@string/priority_normal"
+                android:textColor="?attr/tbText" />
 
             <RadioButton
                 android:id="@+id/priority_high"
@@ -109,7 +119,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
                 android:minHeight="48dp"
-                android:text="@string/priority_high" />
+                android:text="@string/priority_high"
+                android:textColor="?attr/tbText" />
 
             <RadioButton
                 android:id="@+id/priority_low"
@@ -117,7 +128,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
                 android:minHeight="48dp"
-                android:text="@string/priority_low" />
+                android:text="@string/priority_low"
+                android:textColor="?attr/tbText" />
         </RadioGroup>
 
         <CheckBox
@@ -126,14 +138,16 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:minHeight="48dp"
-            android:text="@string/task_approve" />
+            android:text="@string/task_approve"
+            android:textColor="?attr/tbText"
+            android:textSize="15sp" />
 
         <TextView
             android:id="@+id/task_status"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:textAppearance="@android:style/TextAppearance.Material.Body1"
+            style="?attr/tbBody"
             android:textColor="@color/error"
             android:visibility="gone" />
 
@@ -145,7 +159,7 @@
 
             <Button
                 android:id="@+id/task_cancel"
-                style="@android:style/Widget.Material.Button"
+                style="?attr/tbButtonSecondary"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -153,7 +167,7 @@
 
             <Button
                 android:id="@+id/task_submit"
-                style="@android:style/Widget.Material.Button.Colored"
+                style="?attr/tbButtonPrimary"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"

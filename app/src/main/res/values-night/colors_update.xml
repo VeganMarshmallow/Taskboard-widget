@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="update_card_bg">#2A2B30</color>
-    <color name="update_text">#ECECEE</color>
+    <color name="update_card_bg">#28211D</color>
+    <color name="update_text">#EEE8E3</color>
 </resources>

@@ -25,14 +25,15 @@
         <item name="android:paddingHorizontal">2dp</item>
         <item name="android:textColor">@color/widget_header_text</item>
         <item name="android:textSize">@dimen/tab_text</item>
-        <item name="android:textStyle">bold</item>
+        <!-- Regular weight: TabViews sets the name in medium, so the count never outweighs it (#46). -->
+        <item name="android:textStyle">normal</item>
         <item name="android:autoSizeTextType">uniform</item>
         <item name="android:autoSizeMinTextSize">@dimen/tab_text_min</item>
         <item name="android:autoSizeMaxTextSize">@dimen/tab_text</item>
         <item name="android:autoSizeStepGranularity">1dp</item>
     </style>
 
-    <!-- The selected tab's label: accent background. Hidden until the app shows it. -->
+    <!-- The selected tab's label: a tonal pill (calm) or an underline (ink, set by WidgetPalette). Hidden until the app shows it. -->
     <style name="WidgetTab.Selected">
         <item name="android:background">@drawable/tab_selected_background</item>
         <item name="android:textColor">@color/widget_accent_text</item>

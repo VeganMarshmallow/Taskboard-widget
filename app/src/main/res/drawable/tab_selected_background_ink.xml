@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget (#46), ink: the selected tab is underlined, not filled. Plain colours only. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:gravity="bottom" android:height="2dp" android:left="10dp" android:right="10dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/ink_text" />
+        </shape>
+    </item>
+</layer-list>

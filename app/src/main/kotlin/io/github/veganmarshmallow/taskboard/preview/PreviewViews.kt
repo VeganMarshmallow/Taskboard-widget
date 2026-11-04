@@ -1,6 +1,7 @@
 package io.github.veganmarshmallow.taskboard.preview
 
 import android.content.res.ColorStateList
+import android.util.TypedValue
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
@@ -10,6 +11,7 @@ import io.github.veganmarshmallow.taskboard.core.preview.PreviewError
 import io.github.veganmarshmallow.taskboard.core.preview.PreviewScreen
 import io.github.veganmarshmallow.taskboard.core.preview.PreviewStatus
 import io.github.veganmarshmallow.taskboard.core.preview.SummaryState
+import io.github.veganmarshmallow.taskboard.theme.AppTheme
 
 /**
  * Binds a [PreviewScreen] onto the inflated `activity_task_preview` layout. Pure view mapping (no
@@ -24,6 +26,7 @@ class PreviewViews(private val root: View, private val messages: ErrorMessages) 
     private val tags: FlowLayout = root.findViewById(R.id.preview_tags)
     private val summary: TextView = root.findViewById(R.id.preview_summary)
     private val claude = ClaudeCommentViews(root)
+    private val tintsStatus = TypedValue().let { context.theme.resolveAttribute(R.attr.tbTintsStatus, it, true) && it.data != 0 }
 
     /** The reply box (task #44); the activity wires its input through [ReplyViews.listen]. */
     val reply = ReplyViews(root, messages)
@@ -61,7 +64,7 @@ class PreviewViews(private val root: View, private val messages: ErrorMessages) 
         status.visibility = if (value == null) View.GONE else View.VISIBLE
         value ?: return
         status.text = value.text
-        status.backgroundTintList = ColorStateList.valueOf(context.getColor(PreviewStatusStyle.color(value)))
+        status.backgroundTintList = if (tintsStatus) ColorStateList.valueOf(context.getColor(PreviewStatusStyle.container(value))) else null
     }
 
     private fun bindSummary(state: SummaryState) {
@@ -91,6 +94,6 @@ class PreviewViews(private val root: View, private val messages: ErrorMessages) 
     private fun TextView.showText(value: String?, muted: Boolean? = null) {
         visibility = if (value == null) View.GONE else View.VISIBLE
         text = value.orEmpty()
-        muted?.let { setTextColor(context.getColor(if (it) R.color.widget_muted else R.color.widget_text)) }
+        muted?.let { setTextColor(AppTheme.color(context, if (it) R.attr.tbMuted else R.attr.tbText)) }
     }
 }

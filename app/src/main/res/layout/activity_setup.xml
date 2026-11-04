@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The app's main screen and settings (#46): GitHub connection, appearance, app updates. -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/setup_scroll"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="?attr/tbSurface"
     android:fillViewport="true"
     android:fitsSystemWindows="true">
 
@@ -10,51 +12,64 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:paddingHorizontal="24dp"
+        android:paddingTop="28dp"
+        android:paddingBottom="24dp">
 
         <TextView
+            style="?attr/tbHeadline"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/setup_title"
-            android:textAppearance="@android:style/TextAppearance.Material.Headline" />
+            android:text="@string/widget_title" />
+
+        <TextView
+            style="?attr/tbSectionLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/setup_title" />
 
         <TextView
             android:id="@+id/instructions"
+            style="?attr/tbBody"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:lineSpacingExtra="2dp"
+            android:layout_marginTop="8dp"
             android:text="@string/setup_instructions"
-            android:textAppearance="@android:style/TextAppearance.Material.Body1" />
+            android:textColor="?attr/tbMuted"
+            android:textSize="14sp" />
 
         <TextView
             android:id="@+id/merge_instructions"
+            style="?attr/tbBody"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:lineSpacingExtra="2dp"
             android:text="@string/setup_merge_instructions"
-            android:textAppearance="@android:style/TextAppearance.Material.Body1" />
+            android:textColor="?attr/tbMuted"
+            android:textSize="14sp" />
 
         <Button
             android:id="@+id/create_token"
-            style="@android:style/Widget.Material.Button.Borderless.Colored"
+            style="?attr/tbButtonText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:text="@string/create_token" />
 
         <TextView
+            style="?attr/tbCaption"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/token_label"
-            android:textAppearance="@android:style/TextAppearance.Material.Subhead" />
+            android:layout_marginTop="12dp"
+            android:text="@string/token_label" />
 
         <EditText
             android:id="@+id/token"
+            style="?attr/tbField"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
             android:fontFamily="monospace"
             android:hint="@string/token_hint"
             android:importantForAutofill="no"
@@ -64,21 +79,21 @@
 
         <TextView
             android:id="@+id/status"
+            style="?attr/tbBody"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:textAppearance="@android:style/TextAppearance.Material.Body1"
             android:visibility="gone" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="14dp"
             android:orientation="horizontal">
 
             <Button
                 android:id="@+id/test"
-                style="@android:style/Widget.Material.Button"
+                style="?attr/tbButtonSecondary"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -86,7 +101,7 @@
 
             <Button
                 android:id="@+id/save"
-                style="@android:style/Widget.Material.Button.Colored"
+                style="?attr/tbButtonPrimary"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
@@ -96,12 +111,56 @@
 
         <Button
             android:id="@+id/clear"
-            style="@android:style/Widget.Material.Button.Borderless"
+            style="?attr/tbButtonText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="@string/clear_token"
             android:visibility="gone" />
+
+        <View style="@style/SettingsDivider" />
+
+        <!-- #46: the theme switch. Bound by setup/ThemeSection.kt. -->
+        <LinearLayout
+            android:id="@+id/theme_section"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                style="?attr/tbSectionLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_appearance" />
+
+            <TextView
+                style="?attr/tbCaption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/settings_theme_note" />
+
+            <RadioGroup
+                android:id="@+id/theme_choice"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal">
+
+                <RadioButton
+                    android:id="@+id/theme_calm"
+                    style="@style/SettingsSegment"
+                    android:text="@string/theme_calm" />
+
+                <RadioButton
+                    android:id="@+id/theme_ink"
+                    style="@style/SettingsSegment"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/theme_ink" />
+            </RadioGroup>
+        </LinearLayout>
+
+        <View style="@style/SettingsDivider" />
 
         <include layout="@layout/section_update" />
     </LinearLayout>

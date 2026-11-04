@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings: the theme switch (#46). -->
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_theme_note">Changes the look of the app and the widget.</string>
+    <string name="theme_calm">Calm</string>
+    <string name="theme_ink">Ink and paper</string>
+</resources>

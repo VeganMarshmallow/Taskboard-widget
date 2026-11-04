@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Theme B, "ink and paper" (#46): ink on cool paper, one vermilion signal colour for what waits on you. -->
+<resources>
+    <color name="ink_bg">#F5F6F3</color>
+    <color name="ink_text">#16191A</color>
+    <color name="ink_muted">#5B6160</color>
+    <color name="ink_header_text">#3B403F</color>
+    <!-- Filled buttons are ink; their text is paper. -->
+    <color name="ink_primary">#16191A</color>
+    <color name="ink_on_primary">#F5F6F3</color>
+    <color name="ink_signal">#C9341C</color>
+    <color name="ink_outline">#16191A</color>
+    <color name="ink_divider">#DCDFDA</color>
+    <color name="ink_tab_bg">#E9EBE7</color>
+    <color name="ink_need_bg">#FBEEEA</color>
+    <color name="ink_card_bg">#ECEEEA</color>
+</resources>

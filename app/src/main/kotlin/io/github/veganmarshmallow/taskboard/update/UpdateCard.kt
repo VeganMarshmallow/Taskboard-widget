@@ -5,6 +5,7 @@ import android.widget.Button
 import android.widget.TextView
 import io.github.veganmarshmallow.taskboard.R
 import io.github.veganmarshmallow.taskboard.core.update.UpdatePresenter
+import io.github.veganmarshmallow.taskboard.theme.AppTheme
 
 /** Binds an [UpdatePresenter.Model] to the views of `section_update.xml`. No logic beyond mapping. */
 class UpdateCard(root: View) {
@@ -15,7 +16,7 @@ class UpdateCard(root: View) {
 
     fun bind(model: UpdatePresenter.Model) {
         status.text = model.status
-        status.setTextColor(context.getColor(if (model.isError) R.color.error else R.color.update_text))
+        status.setTextColor(if (model.isError) context.getColor(R.color.error) else AppTheme.color(context, R.attr.tbText))
         updateButton.visibility = if (model.showUpdate) View.VISIBLE else View.GONE
         updateButton.isEnabled = !model.busy
         checkButton.isEnabled = !model.busy

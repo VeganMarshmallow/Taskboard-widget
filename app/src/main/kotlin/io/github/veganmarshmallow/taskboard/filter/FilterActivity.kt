@@ -19,6 +19,7 @@ import io.github.veganmarshmallow.taskboard.core.filter.openCount
 import io.github.veganmarshmallow.taskboard.core.model.Priority
 import io.github.veganmarshmallow.taskboard.data.FilterStore
 import io.github.veganmarshmallow.taskboard.data.StateStore
+import io.github.veganmarshmallow.taskboard.theme.AppTheme
 
 /**
  * The filter sheet (#59), over the home screen like the task preview, opened from the widget's
@@ -40,6 +41,7 @@ class FilterActivity : Activity() {
     private var filter = BoardFilter.NONE
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AppTheme.apply(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_filter)
         window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)

@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The two looks (#46) as token overlays, added on top of each screen's base theme by AppTheme.
+  Light and dark come from the colour resources (values-night), so each look is defined once.
+-->
+<resources>
+    <style name="ThemeOverlay.Taskboard.Calm" parent="">
+        <item name="tbSurface">@color/widget_bg</item>
+        <item name="tbCard">@color/update_card_bg</item>
+        <item name="tbText">@color/widget_text</item>
+        <item name="tbMuted">@color/widget_muted</item>
+        <item name="tbAccent">@color/widget_accent</item>
+        <item name="tbPrimary">@color/widget_accent</item>
+        <item name="tbOnPrimary">@color/widget_on_accent</item>
+        <item name="tbTonal">@color/widget_tonal</item>
+        <item name="tbOutline">@color/widget_tonal</item>
+        <item name="tbOnTonal">@color/widget_accent_text</item>
+        <item name="tbDivider">@color/widget_divider</item>
+        <item name="tbNeedBackground">@color/claude_need_bg</item>
+        <item name="tbRadiusButton">22dp</item>
+        <item name="tbRadiusCard">28dp</item>
+        <item name="tbRadiusField">12dp</item>
+        <item name="tbTitleFont">sans-serif-medium</item>
+        <item name="tbHeadline">@style/Text.Taskboard.Headline</item>
+        <item name="tbSectionLabel">@style/Text.Taskboard.Section</item>
+        <item name="tbBody">@style/Text.Taskboard.Body</item>
+        <item name="tbCaption">@style/Text.Taskboard.Caption</item>
+        <item name="tbButtonPrimary">@style/Button.Taskboard.Primary</item>
+        <item name="tbButtonSecondary">@style/Button.Taskboard.Secondary</item>
+        <item name="tbButtonText">@style/Button.Taskboard.Text</item>
+        <item name="tbField">@style/Field.Taskboard</item>
+        <item name="tbFieldBackground">@drawable/field_background_calm</item>
+        <item name="tbStatusBackground">@drawable/preview_status_background</item>
+        <item name="tbTintsStatus">true</item>
+        <item name="android:colorAccent">@color/widget_accent</item>
+        <item name="android:colorPrimary">@color/widget_accent</item>
+        <item name="android:colorControlActivated">@color/widget_accent</item>
+        <item name="android:textColorPrimary">@color/widget_text</item>
+        <item name="android:textColorSecondary">@color/widget_muted</item>
+        <item name="android:textColorHint">@color/widget_muted</item>
+    </style>
+
+    <style name="ThemeOverlay.Taskboard.Ink" parent="">
+        <item name="tbSurface">@color/ink_bg</item>
+        <item name="tbCard">@color/ink_card_bg</item>
+        <item name="tbText">@color/ink_text</item>
+        <item name="tbMuted">@color/ink_muted</item>
+        <item name="tbAccent">@color/ink_signal</item>
+        <item name="tbPrimary">@color/ink_primary</item>
+        <item name="tbOnPrimary">@color/ink_on_primary</item>
+        <item name="tbTonal">@android:color/transparent</item>
+        <item name="tbOutline">@color/ink_outline</item>
+        <item name="tbOnTonal">@color/ink_text</item>
+        <item name="tbDivider">@color/ink_divider</item>
+        <item name="tbNeedBackground">@color/ink_need_bg</item>
+        <item name="tbRadiusButton">4dp</item>
+        <item name="tbRadiusCard">6dp</item>
+        <item name="tbRadiusField">0dp</item>
+        <item name="tbTitleFont">serif</item>
+        <item name="tbHeadline">@style/Text.Taskboard.Headline</item>
+        <item name="tbSectionLabel">@style/Text.Taskboard.Section.Ink</item>
+        <item name="tbBody">@style/Text.Taskboard.Body</item>
+        <item name="tbCaption">@style/Text.Taskboard.Caption</item>
+        <item name="tbButtonPrimary">@style/Button.Taskboard.Primary</item>
+        <item name="tbButtonSecondary">@style/Button.Taskboard.Secondary</item>
+        <item name="tbButtonText">@style/Button.Taskboard.Text.Ink</item>
+        <item name="tbField">@style/Field.Taskboard</item>
+        <item name="tbFieldBackground">@drawable/field_background_ink</item>
+        <item name="tbStatusBackground">@drawable/preview_status_background_ink</item>
+        <item name="tbTintsStatus">false</item>
+        <item name="android:colorAccent">@color/ink_primary</item>
+        <item name="android:colorPrimary">@color/ink_primary</item>
+        <item name="android:colorControlActivated">@color/ink_primary</item>
+        <item name="android:textColorPrimary">@color/ink_text</item>
+        <item name="android:textColorSecondary">@color/ink_muted</item>
+        <item name="android:textColorHint">@color/ink_muted</item>
+    </style>
+
+    <!-- Components. Colours, radii and fonts come from the tokens above, so one style serves both looks. -->
+    <style name="Text.Taskboard.Headline">
+        <item name="android:fontFamily">?attr/tbTitleFont</item>
+        <item name="android:textColor">?attr/tbText</item>
+        <item name="android:textSize">24sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="Text.Taskboard.Section">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColor">?attr/tbText</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+    <!-- Ink's section labels: small caps-style, spaced, like a printed form. -->
+    <style name="Text.Taskboard.Section.Ink">
+        <item name="android:textAllCaps">true</item>
+        <item name="android:letterSpacing">0.1</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+    <style name="Text.Taskboard.Body">
+        <item name="android:textColor">?attr/tbText</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:lineSpacingExtra">3dp</item>
+    </style>
+    <style name="Text.Taskboard.Caption">
+        <item name="android:textColor">?attr/tbMuted</item>
+        <item name="android:textSize">13sp</item>
+    </style>
+
+    <style name="Button.Taskboard" parent="@android:style/Widget.Material.Button">
+        <item name="android:minHeight">44dp</item>
+        <item name="android:minWidth">88dp</item>
+        <item name="android:paddingHorizontal">20dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+    <style name="Button.Taskboard.Primary">
+        <item name="android:background">@drawable/button_primary</item>
+        <item name="android:textColor">@color/button_primary_text</item>
+    </style>
+    <style name="Button.Taskboard.Secondary">
+        <item name="android:background">@drawable/button_secondary</item>
+        <item name="android:textColor">@color/button_secondary_text</item>
+    </style>
+    <style name="Button.Taskboard.Text" parent="@android:style/Widget.Material.Button.Borderless">
+        <item name="android:minHeight">40dp</item>
+        <item name="android:paddingHorizontal">4dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColor">?attr/tbAccent</item>
+    </style>
+    <!-- Ink keeps colour for what waits on you, so its text buttons are ink, not vermilion. -->
+    <style name="Button.Taskboard.Text.Ink">
+        <item name="android:textColor">?attr/tbText</item>
+    </style>
+
+    <style name="Field.Taskboard">
+        <item name="android:background">?attr/tbFieldBackground</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:paddingHorizontal">14dp</item>
+        <item name="android:paddingVertical">10dp</item>
+        <item name="android:textColor">?attr/tbText</item>
+        <item name="android:textColorHint">?attr/tbMuted</item>
+        <item name="android:textSize">15sp</item>
+    </style>
+</resources>

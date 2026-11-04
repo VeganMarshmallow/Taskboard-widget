@@ -7,6 +7,7 @@ import android.widget.TextView
 import io.github.veganmarshmallow.taskboard.R
 import io.github.veganmarshmallow.taskboard.core.merge.MergeButton
 import io.github.veganmarshmallow.taskboard.core.merge.MergeDialog
+import io.github.veganmarshmallow.taskboard.theme.AppTheme
 
 /**
  * Binds a [MergeDialog] onto the inflated `dialog_merge` layout. Pure view mapping plus button
@@ -26,9 +27,7 @@ class MergeDialogView(val root: View, private val onButton: (MergeButton) -> Uni
         bindLines(dialog)
         bindButton(primary, dialog.primary)
         bindButton(secondary, dialog.secondary)
-        val merges = dialog.primary == MergeButton.MERGE || dialog.primary == MergeButton.MERGE_ALL
-        primary.setBackgroundResource(if (merges) R.drawable.merge_button_background else R.drawable.preview_button_background)
-        primary.setTextColor(context.getColor(if (merges) R.color.status_text else R.color.widget_accent_text))
+        // #46: one accent. Merge and every other main action share the theme's filled button (dialog_merge.xml).
     }
 
     /** In a confirmation the first line is the PR title (prominent) and the second its repo and number (Merge all: its heading). */
@@ -41,7 +40,7 @@ class MergeDialogView(val root: View, private val onButton: (MergeButton) -> Uni
                 this.text = text
                 textDirection = View.TEXT_DIRECTION_FIRST_STRONG
                 textSize = if (lead) 16f else 14f
-                setTextColor(context.getColor(if (lead || refusalLead) R.color.widget_text else R.color.widget_muted))
+                setTextColor(AppTheme.color(context, if (lead || refusalLead) R.attr.tbText else R.attr.tbMuted))
                 if (lead) setTypeface(typeface, android.graphics.Typeface.BOLD)
                 setLineSpacing(2 * resources.displayMetrics.density, 1f)
                 setPadding(0, if (index == 0) 0 else (6 * resources.displayMetrics.density).toInt(), 0, 0)

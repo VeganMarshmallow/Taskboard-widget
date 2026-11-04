@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="status_needs_you_container">#4A2618</color>
+    <color name="status_review_container">#3A2E52</color>
+    <color name="status_progress_container">#23304F</color>
+    <color name="status_blocked_container">#4A1E17</color>
+    <color name="status_todo_container">#36302B</color>
+    <color name="status_done_container">#1E3A26</color>
+</resources>

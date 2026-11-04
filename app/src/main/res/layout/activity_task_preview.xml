@@ -31,19 +31,19 @@
                 android:id="@+id/preview_status"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="@drawable/preview_status_background"
+                android:background="?attr/tbStatusBackground"
+                android:fontFamily="sans-serif-medium"
                 android:paddingHorizontal="10dp"
                 android:paddingVertical="3dp"
-                android:textColor="@color/status_text"
-                android:textSize="12sp"
-                android:textStyle="bold" />
+                android:textColor="?attr/tbText"
+                android:textSize="12sp" />
 
             <TextView
                 android:id="@+id/preview_number"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:textColor="@color/widget_muted"
+                android:textColor="?attr/tbMuted"
                 android:textSize="13sp" />
 
             <Space
@@ -57,7 +57,7 @@
                 android:layout_width="18dp"
                 android:layout_height="18dp"
                 android:contentDescription="@string/loading"
-                android:indeterminateTint="@color/widget_muted"
+                android:indeterminateTint="?attr/tbMuted"
                 android:visibility="gone" />
         </LinearLayout>
 
@@ -68,9 +68,10 @@
             android:layout_marginTop="8dp"
             android:ellipsize="end"
             android:maxLines="4"
-            android:textColor="@color/widget_text"
+            android:textColor="?attr/tbText"
+            android:fontFamily="?attr/tbTitleFont"
             android:textDirection="firstStrong"
-            android:textSize="19sp"
+            android:textSize="21sp"
             android:textStyle="bold" />
 
         <io.github.veganmarshmallow.taskboard.preview.FlowLayout
@@ -88,11 +89,11 @@
             android:ellipsize="end"
             android:lineSpacingExtra="2dp"
             android:maxLines="3"
-            android:textColor="@color/widget_text"
+            android:textColor="?attr/tbText"
             android:textDirection="firstStrong"
             android:textSize="14sp" />
 
-        <!-- Claude's latest comment in full (task #43); the sheet scrolls when it is long. -->
+        <!-- Claude's latest comment (task #43): one line plus Show more (#46); the sheet scrolls when it is long. -->
         <LinearLayout
             android:id="@+id/preview_claude"
             android:layout_width="match_parent"
@@ -116,7 +117,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/preview_claude_need_label"
-                    android:textColor="@color/widget_accent"
+                    android:textColor="?attr/tbAccent"
                     android:textDirection="locale"
                     android:textSize="12sp"
                     android:textStyle="bold" />
@@ -128,7 +129,7 @@
                     android:layout_marginTop="2dp"
                     android:lineSpacingExtra="2dp"
                     android:textAlignment="viewStart"
-                    android:textColor="@color/widget_text"
+                    android:textColor="?attr/tbText"
                     android:textDirection="firstStrong"
                     android:textSize="14sp" />
             </LinearLayout>
@@ -145,13 +146,13 @@
                     android:ellipsize="end"
                     android:lineSpacingExtra="2dp"
                     android:textAlignment="viewStart"
-                    android:textColor="@color/widget_muted"
+                    android:textColor="?attr/tbMuted"
                     android:textDirection="firstStrong"
                     android:textSize="13sp" />
 
                 <Button
                     android:id="@+id/preview_claude_toggle"
-                    style="@android:style/Widget.Material.Button.Borderless.Colored"
+                    style="?attr/tbButtonText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:minHeight="36dp"
@@ -186,8 +187,8 @@
                 android:paddingVertical="8dp"
                 android:scrollbars="vertical"
                 android:textAlignment="textStart"
-                android:textColor="@color/widget_text"
-                android:textColorHint="@color/widget_muted"
+                android:textColor="?attr/tbText"
+                android:textColorHint="?attr/tbMuted"
                 android:textDirection="firstStrong"
                 android:textSize="14sp" />
 
@@ -196,10 +197,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:buttonTint="@color/widget_accent"
+                android:buttonTint="?attr/tbPrimary"
                 android:checked="true"
                 android:text="@string/reply_unblock"
-                android:textColor="@color/widget_text"
+                android:textColor="?attr/tbText"
                 android:textDirection="locale"
                 android:textSize="13sp"
                 android:visibility="gone" />
@@ -226,7 +227,7 @@
                 android:stateListAnimator="@null"
                 android:text="@string/reply_send"
                 android:textAllCaps="false"
-                android:textColor="@color/widget_accent_text"
+                android:textColor="?attr/tbOnPrimary"
                 android:textSize="14sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -272,7 +273,7 @@
             android:stateListAnimator="@null"
             android:text="@string/approve"
             android:textAllCaps="false"
-            android:textColor="@color/widget_accent_text"
+            android:textColor="?attr/tbOnPrimary"
             android:textSize="15sp"
             android:textStyle="bold"
             android:visibility="gone" />
@@ -286,7 +287,7 @@
             android:stateListAnimator="@null"
             android:text="@string/merge"
             android:textAllCaps="false"
-            android:textColor="@color/status_text"
+            android:textColor="?attr/tbOnPrimary"
             android:textSize="15sp"
             android:textStyle="bold"
             android:visibility="gone" />
@@ -300,7 +301,7 @@
 
             <Button
                 android:id="@+id/preview_retry"
-                style="@android:style/Widget.Material.Button.Borderless.Colored"
+                style="?attr/tbButtonText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/preview_retry"
@@ -314,7 +315,7 @@
 
             <Button
                 android:id="@+id/preview_open"
-                style="@android:style/Widget.Material.Button.Borderless.Colored"
+                style="?attr/tbButtonText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/preview_open_github"

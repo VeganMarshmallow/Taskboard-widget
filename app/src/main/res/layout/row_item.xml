@@ -14,8 +14,8 @@
         android:layout_height="wrap_content"
         android:layout_marginEnd="6dp"
         android:textColor="@color/widget_badge"
+        android:fontFamily="sans-serif-medium"
         android:textSize="12sp"
-        android:textStyle="bold"
         android:visibility="gone" />
 
     <TextView
@@ -41,8 +41,8 @@
         android:paddingVertical="2dp"
         android:text="@string/approve"
         android:textColor="@color/widget_accent_text"
+        android:fontFamily="sans-serif-medium"
         android:textSize="12sp"
-        android:textStyle="bold"
         android:visibility="gone" />
 
     <TextView
@@ -68,8 +68,8 @@
         android:paddingHorizontal="12dp"
         android:paddingVertical="2dp"
         android:text="@string/merge"
-        android:textColor="@color/status_text"
+        android:textColor="@color/widget_on_accent"
+        android:fontFamily="sans-serif-medium"
         android:textSize="12sp"
-        android:textStyle="bold"
         android:visibility="gone" />
 </LinearLayout>

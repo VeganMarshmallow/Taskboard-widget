@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- App-only (#46): the main action, one accent for Merge and everything else. -->
 <ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="#33FFFFFF">
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="@color/widget_accent" />
-            <corners android:radius="22dp" />
+            <solid android:color="?attr/tbPrimary" />
+            <corners android:radius="?attr/tbRadiusButton" />
         </shape>
     </item>
 </ripple>
