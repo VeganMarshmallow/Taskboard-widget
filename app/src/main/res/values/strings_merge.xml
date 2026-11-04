@@ -20,6 +20,14 @@
     <string name="merge_wait_updating">updating</string>
     <string name="merge_wait_no_pr">no PR</string>
     <string name="merge_wait_unknown">can\'t check</string>
+    <!-- #57: Merge all, on the widget's Merge all line, its dialog and its notification. -->
+    <string name="merge_all">Merge all</string>
+    <string name="merge_all_cancel">Cancel</string>
+    <string name="merge_all_dismiss">OK</string>
+    <string name="merge_all_channel">Merge all</string>
+    <string name="merge_all_done_title">Merge all finished</string>
+    <string name="merge_all_cancelled_title">Merge all cancelled</string>
+    <string name="merge_all_stopped_title">Merge all stopped</string>
     <string name="preview_merged">Merged. Claude closes the task on its next run</string>
     <string name="setup_merge_instructions"><b>To merge from the widget</b> (optional): the Merge button on tasks waiting for review merges Claude\'s PR from this phone. Edit the token and, for each project repo:\n\n1. Repository access: add the project repo (for example Taskboard-widget)\n2. Permissions → Repository: <b>Contents: Read and write</b>, <b>Pull requests: Read and write</b>, and <b>Actions: Read-only</b> (to see that CI passed)\n\n<b>This gives the phone write access to those repos\' code</b>: anyone with the token could push to them. Skip it if you only want to read the board and approve tasks.</string>
 </resources>

@@ -26,11 +26,12 @@ class MergeDialogView(val root: View, private val onButton: (MergeButton) -> Uni
         bindLines(dialog)
         bindButton(primary, dialog.primary)
         bindButton(secondary, dialog.secondary)
-        primary.setBackgroundResource(if (dialog.primary == MergeButton.MERGE) R.drawable.merge_button_background else R.drawable.preview_button_background)
-        primary.setTextColor(context.getColor(if (dialog.primary == MergeButton.MERGE) R.color.status_text else R.color.widget_accent_text))
+        val merges = dialog.primary == MergeButton.MERGE || dialog.primary == MergeButton.MERGE_ALL
+        primary.setBackgroundResource(if (merges) R.drawable.merge_button_background else R.drawable.preview_button_background)
+        primary.setTextColor(context.getColor(if (merges) R.color.status_text else R.color.widget_accent_text))
     }
 
-    /** In a confirmation the first line is the PR title (prominent) and the second its repo and number. */
+    /** In a confirmation the first line is the PR title (prominent) and the second its repo and number (Merge all: its heading). */
     private fun bindLines(dialog: MergeDialog) {
         lines.removeAllViews()
         dialog.lines.forEachIndexed { index, text ->
@@ -57,6 +58,7 @@ class MergeDialogView(val root: View, private val onButton: (MergeButton) -> Uni
 
     private fun label(which: MergeButton): Int = when (which) {
         MergeButton.MERGE -> R.string.merge
+        MergeButton.MERGE_ALL -> R.string.merge_all
         MergeButton.CANCEL -> R.string.merge_cancel
         MergeButton.CLOSE -> R.string.merge_close
         MergeButton.OPEN_GITHUB -> R.string.merge_open_github

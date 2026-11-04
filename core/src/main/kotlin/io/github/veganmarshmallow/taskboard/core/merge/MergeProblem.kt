@@ -63,3 +63,10 @@ sealed class MergeStep<out T> {
         is Stop -> this
     }
 }
+
+/** Runs [block], turning a bug's exception into a [MergeProblem.Failed] stop instead of a crash. */
+inline fun <T> guardedStep(block: () -> MergeStep<T>): MergeStep<T> = try {
+    block()
+} catch (e: RuntimeException) {
+    MergeStep.Stop(MergeProblem.Failed(BoardError.Unexpected("internal error: ${e.javaClass.simpleName}")))
+}

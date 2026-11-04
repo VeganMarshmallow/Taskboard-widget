@@ -6,6 +6,7 @@ import android.os.Looper
 import io.github.veganmarshmallow.taskboard.core.error.ErrorMessages
 import io.github.veganmarshmallow.taskboard.core.github.GitHubApi
 import io.github.veganmarshmallow.taskboard.core.http.HttpClient
+import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllStore
 import io.github.veganmarshmallow.taskboard.core.snapshot.ShownStateStore
 import io.github.veganmarshmallow.taskboard.core.update.UpdateController
 import io.github.veganmarshmallow.taskboard.core.update.UpdateFlow
@@ -69,6 +70,9 @@ object AppGraph {
 
     /** User-facing error text, with times in the device's zone and 12/24-hour setting. */
     fun messages(context: Context): ErrorMessages = ErrorMessages(TimeText(context)::format)
+
+    /** The Merge all run's store (#57). */
+    fun mergeAllStore(context: Context): MergeAllStore = MergeAllPrefs(context)
 
     /** Null when no token is saved. */
     fun apiOrNull(context: Context): GitHubApi? = TokenStore(context).get()?.let { api(context, it) }
