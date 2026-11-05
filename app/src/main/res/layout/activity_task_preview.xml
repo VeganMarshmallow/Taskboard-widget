@@ -155,7 +155,8 @@
                     style="?attr/tbButtonText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:minHeight="36dp"
+                    android:minHeight="32dp"
+                    android:minWidth="0dp"
                     android:paddingHorizontal="0dp"
                     android:text="@string/preview_show_more"
                     android:textAllCaps="false"
@@ -214,22 +215,6 @@
                 android:paddingVertical="8dp"
                 android:textSize="13sp"
                 android:visibility="gone" />
-
-            <Button
-                android:id="@+id/preview_reply_send"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:layout_gravity="end"
-                android:layout_marginTop="6dp"
-                android:background="@drawable/preview_button_background"
-                android:minWidth="96dp"
-                android:paddingHorizontal="20dp"
-                android:stateListAnimator="@null"
-                android:text="@string/reply_send"
-                android:textAllCaps="false"
-                android:textColor="?attr/tbOnPrimary"
-                android:textSize="14sp"
-                android:textStyle="bold" />
         </LinearLayout>
 
         <TextView
@@ -264,38 +249,16 @@
             android:textSize="13sp"
             android:visibility="gone" />
 
-        <Button
-            android:id="@+id/preview_approve"
-            android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginTop="16dp"
-            android:background="@drawable/preview_button_background"
-            android:stateListAnimator="@null"
-            android:text="@string/approve"
-            android:textAllCaps="false"
-            android:textColor="?attr/tbOnPrimary"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            android:visibility="gone" />
-
-        <Button
-            android:id="@+id/preview_merge"
-            android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginTop="16dp"
-            android:background="@drawable/merge_button_background"
-            android:stateListAnimator="@null"
-            android:text="@string/merge"
-            android:textAllCaps="false"
-            android:textColor="?attr/tbOnPrimary"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            android:visibility="gone" />
-
+        <!--
+          #46 round 2: every action on one line. Open on GitHub (a link) takes the room left and
+          ellipsizes before anything else would; Send is the reply's (tonal in calm, outlined in ink),
+          Approve and Merge are the task's main action (filled). Bound by PreviewViews and ReplyViews.
+        -->
         <LinearLayout
+            android:id="@+id/preview_actions"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="12dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -304,22 +267,42 @@
                 style="?attr/tbButtonText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:minWidth="0dp"
                 android:text="@string/preview_retry"
                 android:textAllCaps="false"
                 android:visibility="gone" />
 
-            <Space
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
-
             <Button
                 android:id="@+id/preview_open"
                 style="?attr/tbButtonText"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:gravity="center_vertical|start"
+                android:maxLines="1"
+                android:minWidth="0dp"
                 android:text="@string/preview_open_github"
                 android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/preview_reply_send"
+                style="@style/Button.Taskboard.Sheet.Secondary"
+                android:text="@string/reply_send"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/preview_approve"
+                style="@style/Button.Taskboard.Sheet.Primary"
+                android:text="@string/approve"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/preview_merge"
+                style="@style/Button.Taskboard.Sheet.Primary"
+                android:text="@string/merge"
+                android:visibility="gone" />
         </LinearLayout>
     </LinearLayout>
 </ScrollView>

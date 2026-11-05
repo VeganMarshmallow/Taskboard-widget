@@ -29,6 +29,8 @@ class ReplyViews(root: View, private val messages: ErrorMessages) {
 
     fun bind(screen: PreviewScreen) {
         container.visibility = if (screen.showReply) View.VISIBLE else View.GONE
+        // Send sits in the sheet's action row (#46 round 2), outside the box, so it follows the box itself.
+        send.visibility = container.visibility
         val form = screen.reply
         if (input.text.toString() != form.draft) {
             input.setText(form.draft)

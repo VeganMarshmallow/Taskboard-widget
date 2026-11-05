@@ -43,6 +43,7 @@ class SetupActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_setup)
         ThemeSection(this).bind()
+        TokenHelp(this).bind()
         tokenStore = TokenStore(this)
         tokenField = findViewById(R.id.token)
         status = findViewById(R.id.status)
