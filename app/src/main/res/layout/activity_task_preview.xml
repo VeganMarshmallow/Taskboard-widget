@@ -253,8 +253,9 @@
           #46 round 2: every action on one line. Open on GitHub (a link) takes the room left and
           ellipsizes before anything else would; Send is the reply's (tonal in calm, outlined in ink),
           Approve and Merge are the task's main action (filled). Bound by PreviewViews and ReplyViews.
+          If they can't all fit (narrow phone, largest font), ActionRow stacks them, one per line.
         -->
-        <LinearLayout
+        <io.github.veganmarshmallow.taskboard.preview.ActionRow
             android:id="@+id/preview_actions"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -303,6 +304,6 @@
                 style="@style/Button.Taskboard.Sheet.Primary"
                 android:text="@string/merge"
                 android:visibility="gone" />
-        </LinearLayout>
+        </io.github.veganmarshmallow.taskboard.preview.ActionRow>
     </LinearLayout>
 </ScrollView>

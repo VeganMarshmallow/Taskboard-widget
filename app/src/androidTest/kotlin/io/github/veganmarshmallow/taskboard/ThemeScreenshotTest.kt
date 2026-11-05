@@ -24,6 +24,7 @@ import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.core.theme.ThemeChoice
 import io.github.veganmarshmallow.taskboard.data.ThemeStore
 import io.github.veganmarshmallow.taskboard.data.TokenStore
+import io.github.veganmarshmallow.taskboard.preview.ActionRow
 import io.github.veganmarshmallow.taskboard.setup.SetupActivity
 import io.github.veganmarshmallow.taskboard.setup.ThemeSection
 import io.github.veganmarshmallow.taskboard.theme.WidgetPalette
@@ -175,9 +176,11 @@ class ThemeScreenshotTest {
                 assertTrue("$what shown", button.visibility == View.VISIBLE)
                 assertTrue("$what in the action row", button.parent === row)
                 assertEquals("$what: one line", 1, button.lineCount)
+                assertEquals("$what: label not cut short", 0, button.layout.getEllipsisCount(0))
                 assertTrue("$what: inside the row", button.right <= row.width)
+                assertTrue("$what: same line as Open", button.top < actions[0].bottom && actions[0].top < button.bottom)
             }
-            assertTrue("$shot: Open is not cut short", actions[0].layout.getEllipsisCount(0) == 0)
+            assertTrue("$shot: one line, not stacked", !(row as ActionRow).isStacked)
 
             val note = sheet.findViewById<TextView>(R.id.preview_claude_text)
             val toggle = sheet.findViewById<TextView>(R.id.preview_claude_toggle)
@@ -188,6 +191,34 @@ class ThemeScreenshotTest {
             assertTrue("$shot: Show more on the note's line", toggleTop < noteTop + note.height && noteTop < toggleTop + toggle.height)
             assertTrue("$shot: Show more after the note", toggle.left >= note.right)
         }
+    }
+
+    /**
+     * #46 round 2 edge cases: a 320dp phone. At the largest font Send, Merge and Open can't share a
+     * line, so the row stacks (one full-width button per line) rather than squeezing "Open on GitHub"
+     * to nothing or clipping Merge. Either way every label is whole. And a one-line note gets no toggle.
+     */
+    @Test fun sheetActionsOnANarrowPhone() = forEachTheme { _, name ->
+        listOf(1.0f, 2.0f).forEach { scale ->
+            val shot = "46-13-$name-sheet-actions-320dp-font-$scale"
+            val sheet = ScreenshotCapture.preview(
+                shot, FakePreviews.inReviewReadyToMerge(), widthDp = 320, heightDp = 640,
+                host = { PreviewHost(context, fontScale = scale) },
+            )
+            val row = sheet.findViewById<ActionRow>(R.id.preview_actions)
+            // Normal size: one line or stacked, whichever the theme's fonts allow (the shot shows which).
+            if (scale == 2.0f) assertTrue("$shot: stacked", row.isStacked)
+            listOf(R.id.preview_open, R.id.preview_reply_send, R.id.preview_merge).map { sheet.findViewById<Button>(it) }.forEach { button ->
+                val what = "$shot ${button.text}"
+                assertTrue("$what shown", button.visibility == View.VISIBLE)
+                assertEquals("$what: label not cut short", 0, button.layout.getEllipsisCount(0))
+                assertTrue("$what: inside the row", button.left >= 0 && button.right <= row.width && button.bottom <= row.height)
+            }
+        }
+        val short = ScreenshotCapture.preview(
+            "46-14-$name-note-one-line", FakePreviews.inReviewWithNote("✅ Ready to merge."), widthDp = 320, heightDp = 640,
+        )
+        assertTrue("one-line note: no Show more", !short.visible(R.id.preview_claude_toggle))
     }
 
     @Test fun claudeNoteFoldsToOneLine() = forEachTheme { choice, name ->
