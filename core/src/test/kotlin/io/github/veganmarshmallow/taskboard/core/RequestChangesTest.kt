@@ -188,6 +188,48 @@ class RequestChangesTest {
         assertEquals(ChangeRequestText.comment("Fix it", null), http.postedComment())
     }
 
+    @Test fun crashInThePrSearchStillPostsTheRequest() {
+        val http = github()
+        val result = ReplyService(GitHubApi(http, TOKEN, FIXED_CLOCK)) { throw IllegalStateException("parser bug") }
+            .send(7, ReplyAction.Post("Fix it", StatusMove.REQUEST_CHANGES))
+        assertEquals(ReplyResult.Sent(unblocked = false, changesRequested = true), result)
+        assertEquals(ChangeRequestText.comment("Fix it", null), http.postedComment())
+    }
+
+    @Test fun textThatExactlyFitsWithThePrLineIsPosted() {
+        val overhead = ChangeRequestText.comment("", thePr).length
+        val text = "a".repeat(ReplyText.MAX_LENGTH - overhead)
+        val http = github()
+        val result = service(http).send(7, ReplyAction.Post(text, StatusMove.REQUEST_CHANGES))
+        assertEquals(ReplyResult.Sent(unblocked = false, changesRequested = true), result)
+        assertEquals(ReplyText.MAX_LENGTH, http.postedComment().length)
+        val over = github()
+        val failed = service(over).send(7, ReplyAction.Post(text + "a", StatusMove.REQUEST_CHANGES)) as ReplyResult.Failed
+        assertEquals(ReplyStep.COMMENT, failed.step)
+        assertTrue("nothing posted", over.requests.isEmpty())
+    }
+
+    @Test fun inReviewLabelAlreadyGoneCountsAsDone() {
+        val http = github({ r: HttpRequest -> r.method == "DELETE" && r.url == removeInReview } to 404)
+        assertEquals(
+            ReplyResult.Sent(unblocked = false, changesRequested = true),
+            service(http).send(7, ReplyAction.Move(StatusMove.REQUEST_CHANGES)),
+        )
+    }
+
+    @Test fun requestChangesNeverTouchesTheBlockedLabels() {
+        val http = github()
+        service(http).send(7, ReplyAction.Post("Fix it", StatusMove.REQUEST_CHANGES))
+        assertTrue(http.calls().none { it.contains("needs-owner") || it.contains("blocked") })
+    }
+
+    @Test fun retryWithBlankDraftMovesOnlyAndRetryNeverLooksUpThePr() {
+        val http = github()
+        service(http).send(7, ReplyAction.Move(StatusMove.REQUEST_CHANGES))
+        assertTrue(lookups.isEmpty())
+        assertTrue(http.calls().none { it.startsWith("POST $commentUrl") })
+    }
+
     // --- the form ---
 
     @Test fun checkedAndOfferedSendsTheRequest() {
@@ -280,6 +322,28 @@ class RequestChangesTest {
             assertFalse(labels.toList().toString(), PreviewScreen.initial(7, null).issueLoaded(details(*labels)).offerRequestChanges)
         }
         assertFalse(PreviewScreen.initial(7, null).offerRequestChanges)
+    }
+
+    @Test fun inReviewTaskThatAlsoNeedsTheOwnerOffersOnlyUnblock() {
+        val screen = PreviewScreen.initial(7, null).issueLoaded(details(Labels.IN_REVIEW, Labels.NEEDS_OWNER))
+        assertTrue(screen.offerUnblock)
+        assertFalse(screen.offerRequestChanges)
+        val action = screen.reply.edit("x").requestChangesChecked(true).unblockChecked(false)
+            .start(screen.offerUnblock, screen.offerRequestChanges)!!.action
+        assertEquals("a hidden Request changes box is never applied", ReplyAction.Post("x", null), action)
+    }
+
+    @Test fun owedUnblockHidesRequestChangesEvenInReview() {
+        val screen = PreviewScreen.initial(7, null).issueLoaded(details(Labels.IN_REVIEW))
+            .withReply(ReplyForm(pendingMove = StatusMove.UNBLOCK))
+        assertTrue(screen.offerUnblock)
+        assertFalse(screen.offerRequestChanges)
+    }
+
+    @Test fun whitespaceOnlyDraftCannotBeSentAsARequest() {
+        val form = ReplyForm().edit(" \n\t ").requestChangesChecked(true)
+        assertFalse(form.canSend)
+        assertNull(form.start(false, true))
     }
 
     @Test fun justMergedHidesIt() {

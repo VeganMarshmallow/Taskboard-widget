@@ -10,6 +10,7 @@ import io.github.veganmarshmallow.taskboard.core.preview.TaskPreview
 import io.github.veganmarshmallow.taskboard.core.reply.ReplyForm
 import io.github.veganmarshmallow.taskboard.core.reply.ReplyResult
 import io.github.veganmarshmallow.taskboard.core.reply.ReplyStep
+import io.github.veganmarshmallow.taskboard.core.reply.StatusMove
 
 /** Realistic preview states for instrumented tests and screenshots. */
 object FakePreviews {
@@ -47,6 +48,21 @@ object FakePreviews {
             ReplyForm(draft = "כן, ECharts. ה־heatmap חשוב יותר.")
                 .finished(ReplyResult.Failed(ReplyStep.COMMENT, BoardError.Network)),
         )
+
+    /** #30 with its PR waiting for review, and a change request typed (task #65). */
+    fun inReviewWithReply(requestChanges: Boolean): PreviewScreen = inReviewLoaded()
+        .withReply(ReplyForm(draft = "The merge confirmation should name the branch too.").requestChangesChecked(requestChanges))
+
+    /** The change request was posted but moving the labels failed: Send retries only the move (task #65). */
+    fun requestChangesLabelsFailed(): PreviewScreen = inReviewLoaded()
+        .withReply(
+            ReplyForm(draft = "x", requestChanges = true)
+                .finished(ReplyResult.Failed(ReplyStep.REQUEST_CHANGES, BoardError.Server(502))),
+        )
+
+    fun inReviewLoaded(): PreviewScreen = PreviewScreen.initial(30, null)
+        .issueLoaded(details(30, "Widget: merge Claude's PRs from the widget", "### What should be done\nLet the owner merge Claude's PRs from the widget, without opening GitHub.\n\n### Repo\nVeganMarshmallow/Taskboard-widget", Labels.IN_REVIEW, "type: feature", Labels.READY_FOR_CLAUDE))
+        .commentsLoaded(listOf(IssueComment(1, "✅ PR ready: https://github.com/VeganMarshmallow/Taskboard-widget/pull/12", null)))
 
     fun todoLoaded(): PreviewScreen = PreviewScreen.initial(11, null)
         .issueLoaded(details(11, "Widget: task preview with summary and approve", TODO_BODY, Labels.TODO, "type: feature"))

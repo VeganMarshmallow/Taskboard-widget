@@ -47,7 +47,14 @@ class ReplyService(
 
     private fun commentBody(issue: Int, action: ReplyAction.Post): String {
         val text = ReplyText.clean(action.text)
-        return if (action.move == StatusMove.REQUEST_CHANGES) ChangeRequestText.comment(text, findPr(issue)) else text
+        return if (action.move == StatusMove.REQUEST_CHANGES) ChangeRequestText.comment(text, prOrNull(issue)) else text
+    }
+
+    /** The PR to name, or null: a bug in the search must not stop the owner's request from posting. */
+    private fun prOrNull(issue: Int): PullRequest? = try {
+        findPr(issue)
+    } catch (e: RuntimeException) {
+        null
     }
 
     private fun move(issue: Int, move: StatusMove): ReplyResult {

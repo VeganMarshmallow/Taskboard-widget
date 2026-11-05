@@ -168,6 +168,29 @@ class PreviewScreenshotTest {
         assertTrue("empty reply can't be sent", !v.findViewById<android.widget.Button>(R.id.preview_reply_send).isEnabled)
     }
 
+    @Test fun requestChangesOfferedUncheckedForInReviewTask() {
+        val v = capture("65-1-preview-request-changes-unchecked", FakePreviews.inReviewWithReply(requestChanges = false), heightDp = 640)
+        assertTrue(v.visible(R.id.preview_reply_request_changes))
+        assertTrue(!v.visible(R.id.preview_reply_unblock))
+        assertTrue(!v.findViewById<android.widget.CheckBox>(R.id.preview_reply_request_changes).isChecked)
+        assertEquals(context.getString(R.string.reply_send), v.text(R.id.preview_reply_send))
+    }
+
+    @Test fun requestChangesChecked() {
+        val v = capture("65-2-preview-request-changes-checked", FakePreviews.inReviewWithReply(requestChanges = true), heightDp = 640)
+        assertTrue(v.findViewById<android.widget.CheckBox>(R.id.preview_reply_request_changes).isChecked)
+        assertTrue(v.findViewById<android.widget.Button>(R.id.preview_reply_send).isEnabled)
+        assertEquals(context.getString(R.string.reply_send_request_changes), v.text(R.id.preview_reply_send))
+    }
+
+    @Test fun requestChangesLabelFailureOffersRetry() {
+        val v = capture("65-3-preview-request-changes-retry", FakePreviews.requestChangesLabelsFailed(), heightDp = 640)
+        assertEquals(context.getString(R.string.reply_retry_request_changes), v.text(R.id.preview_reply_send))
+        assertTrue(v.findViewById<android.widget.Button>(R.id.preview_reply_send).isEnabled)
+        assertTrue(v.text(R.id.preview_reply_message).startsWith("Changes posted, but the task is still in review"))
+        assertTrue("the send-back retry hides the choice", !v.visible(R.id.preview_reply_request_changes))
+    }
+
     private fun nightConfig() = android.content.res.Configuration(context.resources.configuration).apply {
         uiMode = (uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK.inv()) or android.content.res.Configuration.UI_MODE_NIGHT_YES
     }
