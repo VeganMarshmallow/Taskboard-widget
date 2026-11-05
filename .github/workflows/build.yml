@@ -42,6 +42,9 @@ env:
   # The branch and commit being built. A pull_request run checks out the PR head (not GitHub's merge
   # commit), so it tests the same code as the push run and its preview release can point at that commit.
   BRANCH: ${{ github.head_ref || github.ref_name }}
+  # Release signing key (#27). Not in the repo; empty on forks, where nothing is published.
+  SIGNING_KEYSTORE_B64: ${{ secrets.SIGNING_KEYSTORE_B64 }}
+  SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
   HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 # A new push cancels the older run of the same branch (or PR) and event. Push and pull_request runs
@@ -93,6 +96,13 @@ jobs:
         if: always() && steps.test.outcome != 'skipped'
         run: .github/scripts/test-summary.sh core/build/test-results/test
 
+      - name: Decode release signing key
+        if: env.SIGNING_KEYSTORE_B64 != ''
+        run: |
+          set -euo pipefail
+          printf '%s' "$SIGNING_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "SIGNING_STORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
       - name: Assemble release APK
         id: assemble
         run: |
@@ -139,8 +149,9 @@ jobs:
       - name: Publish APK to release
         id: publish
         # A forked PR's token can't write releases (and its branch name could collide with ours).
+        # Only APKs signed with the release key are published, so updates always install over the app.
         if: >-
-          env.FULL_CI == 'true' && (github.event_name != 'pull_request'
+          env.FULL_CI == 'true' && env.SIGNING_KEYSTORE_B64 != '' && (github.event_name != 'pull_request'
           || github.event.pull_request.head.repo.full_name == github.repository)
         env:
           GH_TOKEN: ${{ github.token }}
