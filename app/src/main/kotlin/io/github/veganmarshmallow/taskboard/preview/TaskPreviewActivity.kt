@@ -16,6 +16,7 @@ import io.github.veganmarshmallow.taskboard.core.preview.PreviewScreen
 import io.github.veganmarshmallow.taskboard.core.preview.TaskPreview
 import io.github.veganmarshmallow.taskboard.core.reply.ReplyForm
 import io.github.veganmarshmallow.taskboard.core.reply.ReplyResult
+import io.github.veganmarshmallow.taskboard.core.reply.StatusMove
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.StateStore
 import io.github.veganmarshmallow.taskboard.merge.MergeFlow
@@ -54,7 +55,12 @@ class TaskPreviewActivity : Activity() {
         findViewById<View>(R.id.preview_approve).setOnClickListener { confirmApprove() }
         findViewById<View>(R.id.preview_merge).setOnClickListener { startMerge() }
         findViewById<View>(R.id.preview_retry).setOnClickListener { onRetry() }
-        views.reply.listen(onEdit = ::onReplyEdited, onUnblock = { update(screen.withReply(screen.reply.unblockChecked(it))) }, onSend = ::sendReply)
+        views.reply.listen(
+            onEdit = ::onReplyEdited,
+            onUnblock = { update(screen.withReply(screen.reply.unblockChecked(it))) },
+            onRequestChanges = { update(screen.withReply(screen.reply.requestChangesChecked(it))) },
+            onSend = ::sendReply,
+        )
         ReplyDrafts.listen(number, onReplyFinished)
 
         val cached = TaskPreview.fromBoard(StateStore(this).load().board, number)
@@ -75,7 +81,8 @@ class TaskPreviewActivity : Activity() {
             outState.putBoolean(STATE_MERGED, screen.justMerged)
             outState.putString(STATE_REPLY_DRAFT, screen.reply.draft)
             outState.putBoolean(STATE_REPLY_UNBLOCK, screen.reply.unblock)
-            outState.putBoolean(STATE_REPLY_PENDING_UNBLOCK, screen.reply.pendingUnblock)
+            outState.putBoolean(STATE_REPLY_REQUEST_CHANGES, screen.reply.requestChanges)
+            outState.putString(STATE_REPLY_PENDING_MOVE, screen.reply.pendingMove?.name)
         }
     }
 
@@ -135,7 +142,8 @@ class TaskPreviewActivity : Activity() {
         else ReplyForm(
             draft = saved.getString(STATE_REPLY_DRAFT).orEmpty(),
             unblock = saved.getBoolean(STATE_REPLY_UNBLOCK, true),
-            pendingUnblock = saved.getBoolean(STATE_REPLY_PENDING_UNBLOCK),
+            requestChanges = saved.getBoolean(STATE_REPLY_REQUEST_CHANGES),
+            pendingMove = StatusMove.entries.firstOrNull { it.name == saved.getString(STATE_REPLY_PENDING_MOVE) },
         )
 
     private fun onReplyEdited(text: String) {
@@ -148,7 +156,7 @@ class TaskPreviewActivity : Activity() {
      * for this issue ([ReplyDrafts]), so a double tap or a reopened sheet posts once.
      */
     private fun sendReply() {
-        val start = screen.reply.start(screen.offerUnblock) ?: return
+        val start = screen.reply.start(screen.offerUnblock, screen.offerRequestChanges) ?: return
         update(screen.withReply(start.form))
         worker.reply(screen.number, start.action)
     }
@@ -188,7 +196,8 @@ class TaskPreviewActivity : Activity() {
         private const val STATE_MERGED = "merged"
         private const val STATE_REPLY_DRAFT = "reply_draft"
         private const val STATE_REPLY_UNBLOCK = "reply_unblock"
-        private const val STATE_REPLY_PENDING_UNBLOCK = "reply_pending_unblock"
+        private const val STATE_REPLY_REQUEST_CHANGES = "reply_request_changes"
+        private const val STATE_REPLY_PENDING_MOVE = "reply_pending_move"
 
         fun intent(context: Context, issue: Int): Intent =
             Intent(context, TaskPreviewActivity::class.java)

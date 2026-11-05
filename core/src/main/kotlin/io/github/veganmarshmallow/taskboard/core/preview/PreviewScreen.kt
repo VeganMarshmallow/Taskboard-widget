@@ -2,6 +2,7 @@ package io.github.veganmarshmallow.taskboard.core.preview
 
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.reply.ReplyForm
+import io.github.veganmarshmallow.taskboard.core.reply.StatusMove
 
 /**
  * Everything the preview activity renders, as an immutable value with pure transitions. The
@@ -31,7 +32,15 @@ data class PreviewScreen(
         get() = task != null && task.status != PreviewStatus.DONE && task.status != PreviewStatus.CLOSED
 
     /** The "unblock the task" checkbox: the task waits on the owner, or an earlier unblock still has to be retried. */
-    val offerUnblock: Boolean get() = task?.needsOwner == true || reply.pendingUnblock
+    val offerUnblock: Boolean get() = task?.needsOwner == true || reply.pendingMove == StatusMove.UNBLOCK
+
+    /**
+     * The "Request changes" checkbox (task #65): the task's PR waits for review (and was not just
+     * merged here), or an earlier send-back still has to be retried. Never shown with [offerUnblock].
+     */
+    val offerRequestChanges: Boolean
+        get() = !offerUnblock &&
+            ((task?.status == PreviewStatus.IN_REVIEW && !justMerged) || reply.pendingMove == StatusMove.REQUEST_CHANGES)
 
     fun withReply(form: ReplyForm) = copy(reply = form)
 
