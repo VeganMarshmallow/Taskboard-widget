@@ -1,13 +1,15 @@
-import java.util.Properties
-
 plugins {
     id("com.android.application")
     kotlin("android")
 }
 
-// Signing config is committed on purpose (private repo, personal app): every CI build must be
-// signed with the same key so new APKs install over old ones. See the PR for the tradeoff.
-val signing = Properties().apply { file("signing.properties").inputStream().use(::load) }
+// The release key is never in the repo (#27). CI decodes it from the SIGNING_KEYSTORE_B64 secret
+// into a temp file and passes its path and password through the environment. Every published build
+// must be signed with this same key so new APKs install over old ones. Without it (a fork, or a
+// local build), release falls back to the debug key, and CI doesn't publish that APK.
+val signingStoreFile = System.getenv("SIGNING_STORE_FILE")?.takeIf { it.isNotBlank() }
+val signingStorePassword = System.getenv("SIGNING_STORE_PASSWORD")?.takeIf { it.isNotBlank() }
+val hasReleaseKey = signingStoreFile != null && signingStorePassword != null && file(signingStoreFile).isFile
 
 // CI passes -PversionCode=<github.run_number> so each build installs as an update.
 val ciVersionCode = (findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
@@ -26,21 +28,20 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            storeFile = file(signing.getProperty("storeFile"))
-            storePassword = signing.getProperty("storePassword")
-            keyAlias = signing.getProperty("keyAlias")
-            keyPassword = signing.getProperty("keyPassword")
+        if (hasReleaseKey) {
+            create("release") {
+                storeFile = file(signingStoreFile!!)
+                storePassword = signingStorePassword
+                keyAlias = System.getenv("SIGNING_KEY_ALIAS")?.takeIf { it.isNotBlank() } ?: "taskboard"
+                keyPassword = signingStorePassword
+            }
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("release")
-        }
-        debug {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName(if (hasReleaseKey) "release" else "debug")
         }
     }
 
