@@ -26,7 +26,8 @@ function isHeldUpdateRun(run, sha) {
 
 /**
  * Looks up to [polls] times (GitHub registers the run within seconds of the update) and deletes the
- * held runs of [workflow] on [sha]. Returns how many it deleted. Never throws: a failure is logged.
+ * held runs of [workflow] on [sha]. Returns how many it deleted. Never throws: a failure is logged,
+ * and a failed delete doesn't stop the remaining ones.
  */
 async function dropHeldRuns({ github, owner, repo, workflow, sha, wait, polls = 3, pollMs = 5000, log = console.log }) {
   try {
@@ -37,13 +38,25 @@ async function dropHeldRuns({ github, owner, repo, workflow, sha, wait, polls = 
       });
       const held = (data.workflow_runs || []).filter((run) => isHeldUpdateRun(run, sha));
       if (held.length === 0) continue;
-      for (const run of held) await github.rest.actions.deleteWorkflowRun({ owner, repo, run_id: run.id });
-      return held.length;
+      let deleted = 0;
+      for (const run of held) {
+        try {
+          await github.rest.actions.deleteWorkflowRun({ owner, repo, run_id: run.id });
+          deleted++;
+        } catch (error) {
+          logFailure(log, `run ${run.id}`, sha, error); // one failed delete doesn't stop the others
+        }
+      }
+      return deleted;
     }
   } catch (error) {
-    log(`couldn't drop the held run on ${sha.slice(0, 7)}: ${error.status || ''} ${error.message}`);
+    logFailure(log, 'the held run', sha, error);
   }
   return 0;
+}
+
+function logFailure(log, what, sha, error) {
+  log(`couldn't drop ${what} on ${sha.slice(0, 7)}: ${error.status || ''} ${error.message}`);
 }
 
 module.exports = { dropHeldRuns, isHeldUpdateRun, BOT };

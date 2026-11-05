@@ -249,6 +249,26 @@ class WorkflowRunsTest {
         assertEquals(awaiting, verdict(a, b))
     }
 
+    @Test fun aWorkflowNotStartedYetIsStillRunningNextToAHeldRun() {
+        // The dispatched build isn't registered yet: wait for it rather than call the held run final.
+        assertEquals(ChecksVerdict.Running(listOf("build (not started)")), WorkflowRuns.verdict(listOf(held()), SHA_A, listOf("build (not started)")))
+    }
+
+    @Test fun aHeldRunWinsOverThePartialOnlyRule() {
+        // Held pull_request run plus the green partial push run of the same workflow: approval is the blocker.
+        assertEquals(awaiting, verdict(partial(), held()))
+        // A PR titled "... [partial]" makes the held run look partial; it is still held, and a full success still supersedes it.
+        val heldPartialTitle = run("build", "action_required", workflow = 1, number = 329, event = "pull_request", title = "Tidy [partial]")
+        assertEquals(awaiting, verdict(heldPartialTitle))
+        assertEquals(ChecksVerdict.Passed, verdict(heldPartialTitle, dispatched()))
+    }
+
+    @Test fun aHeldRunWithoutAWorkflowIdIsSupersededByName() {
+        val heldByName = run("build", "action_required", workflow = null, event = "pull_request")
+        assertEquals(ChecksVerdict.Passed, verdict(heldByName, run("build", workflow = null, number = 2, event = "workflow_dispatch")))
+        assertEquals(awaiting, verdict(heldByName, run("Lint", workflow = null, number = 2, event = "workflow_dispatch")))
+    }
+
     // --- partial runs (#52: plain pushes run only `build`; emulator tests run on the PR's pull_request run) ---
 
     @Test fun aGreenPartialPushRunAloneIsNotAPass() {

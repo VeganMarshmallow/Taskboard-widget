@@ -10,7 +10,7 @@ function run(over = {}) {
   return { id: 329, head_sha: SHA, event: 'pull_request', conclusion: 'action_required', status: 'completed', triggering_actor: { login: BOT }, actor: { login: BOT }, ...over };
 }
 
-/** [pages]: what each list call returns, in order (the last repeats). [failList]/[failDelete]: errors to throw. */
+/** [pages]: what each list call returns, in order (the last repeats). [failList]/[failDelete]: errors to throw (failDelete may be a run_id => error function). */
 function fake({ pages = [[]], failList = null, failDelete = null } = {}) {
   const calls = [];
   let i = 0;
@@ -22,7 +22,11 @@ function fake({ pages = [[]], failList = null, failDelete = null } = {}) {
           if (failList) throw failList;
           return { data: { workflow_runs: pages[Math.min(i++, pages.length - 1)] } };
         },
-        deleteWorkflowRun: async (args) => { calls.push(['delete', args.run_id]); if (failDelete) throw failDelete; },
+        deleteWorkflowRun: async (args) => {
+          calls.push(['delete', args.run_id]);
+          const error = typeof failDelete === 'function' ? failDelete(args.run_id) : failDelete;
+          if (error) throw error;
+        },
       },
     },
   };
@@ -84,4 +88,19 @@ test('API errors are logged, never thrown: the Merge check still ignores the hel
   const del = fake({ pages: [[run()]], failDelete: forbidden });
   assert.strictEqual(await del.drop(), 0);
   assert.strictEqual(del.logs.length, 1);
+});
+
+test('one failed delete does not stop the others, and only real deletions are counted', async () => {
+  const gone = Object.assign(new Error('Not Found'), { status: 404 });
+  const f = fake({ pages: [[run({ id: 1 }), run({ id: 2 }), run({ id: 3 })]], failDelete: (id) => (id === 2 ? gone : null) });
+  assert.strictEqual(await f.drop(), 2);
+  assert.deepStrictEqual(f.calls.filter((c) => c[0] === 'delete'), [['delete', 1], ['delete', 2], ['delete', 3]]);
+  assert.deepStrictEqual(f.logs, ["couldn't drop run 2 on ea4b1ad: 404 Not Found"]);
+  assert.strictEqual(f.calls.filter((c) => c[0] === 'list').length, 1, 'no further looks once held runs were found');
+});
+
+test('runs on the new head from other workflows or events never reach a delete, even if GitHub ignored a filter', async () => {
+  const f = fake({ pages: [[run({ id: 1, event: 'push' }), run({ id: 2, conclusion: 'failure' }), run({ id: 3, head_sha: 'b'.repeat(40) }), run({ id: 4, triggering_actor: { login: 'claude-bot' }, actor: { login: BOT } })]] });
+  assert.strictEqual(await f.drop(1), 0);
+  assert.ok(!f.calls.some((c) => c[0] === 'delete'), JSON.stringify(f.calls));
 });
