@@ -6,3 +6,8 @@ local.properties
 .kotlin/
 captures/
 build.log
+
+# Signing keys never go in the repo (#27); CI reads them from secrets.
+*.jks
+*.keystore
+signing.properties

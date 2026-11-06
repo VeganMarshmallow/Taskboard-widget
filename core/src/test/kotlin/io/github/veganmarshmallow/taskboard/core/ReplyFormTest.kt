@@ -12,6 +12,7 @@ import io.github.veganmarshmallow.taskboard.core.reply.ReplyForm
 import io.github.veganmarshmallow.taskboard.core.reply.ReplyResult
 import io.github.veganmarshmallow.taskboard.core.reply.ReplyStep
 import io.github.veganmarshmallow.taskboard.core.reply.ReplyText
+import io.github.veganmarshmallow.taskboard.core.reply.StatusMove
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -81,12 +82,12 @@ class ReplyFormTest {
     @Test fun unblockFailureRetriesOnlyTheLabels() {
         val failed = ReplyForm().edit("yes").start(true)!!.form.finished(failedUnblock)
         assertEquals("", failed.draft)
-        assertTrue(failed.pendingUnblock)
-        assertTrue(failed.retriesUnblock)
+        assertEquals(StatusMove.UNBLOCK, failed.pendingMove)
+        assertTrue(failed.retriesLabels)
         assertTrue(failed.canSend)
         assertEquals(ReplyAction.Unblock, failed.start(offerUnblock = false)!!.action)
         val done = failed.start(false)!!.form.finished(ReplyResult.Sent(unblocked = true))
-        assertFalse(done.pendingUnblock)
+        assertNull(done.pendingMove)
     }
 
     @Test fun aNewReplyAfterAFailedUnblockStillUnblocks() {
@@ -130,7 +131,7 @@ class ReplyFormTest {
 
     @Test fun pendingUnblockKeepsTheCheckboxAfterLabelsChanged() {
         val screen = PreviewScreen.initial(7, null).issueLoaded(details(Labels.TODO))
-            .withReply(ReplyForm(pendingUnblock = true))
+            .withReply(ReplyForm(pendingMove = StatusMove.UNBLOCK))
         assertNotNull(screen.task)
         assertTrue(screen.offerUnblock)
     }

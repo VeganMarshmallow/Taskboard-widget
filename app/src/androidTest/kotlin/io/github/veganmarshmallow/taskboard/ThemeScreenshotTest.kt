@@ -1,10 +1,13 @@
 package io.github.veganmarshmallow.taskboard
 
 import android.content.Intent
+import android.graphics.Color
 import android.graphics.Rect
+import android.graphics.drawable.GradientDrawable
 import android.text.Spanned
 import android.text.style.TypefaceSpan
 import android.view.View
+import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.ScrollView
@@ -14,12 +17,14 @@ import androidx.test.platform.app.InstrumentationRegistry
 import io.github.veganmarshmallow.taskboard.TabTestViews.assertTabsFit
 import io.github.veganmarshmallow.taskboard.TabTestViews.configured
 import io.github.veganmarshmallow.taskboard.TabTestViews.shownTab
+import io.github.veganmarshmallow.taskboard.TabTestViews.topIn
 import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.core.preview.NoteFold
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.core.theme.ThemeChoice
 import io.github.veganmarshmallow.taskboard.data.ThemeStore
 import io.github.veganmarshmallow.taskboard.data.TokenStore
+import io.github.veganmarshmallow.taskboard.preview.ActionRow
 import io.github.veganmarshmallow.taskboard.setup.SetupActivity
 import io.github.veganmarshmallow.taskboard.setup.ThemeSection
 import io.github.veganmarshmallow.taskboard.theme.WidgetPalette
@@ -71,9 +76,15 @@ class ThemeScreenshotTest {
             ThemeChoice.entries.filter { it != choice }.forEach {
                 assertTrue("$it not checked", !root.findViewById<RadioButton>(ThemeSection.buttonOf(it)).isChecked)
             }
+            // #46 round 2: a clean screen. The token steps are folded; every button label is one line.
+            assertTrue("token steps folded", !root.visible(R.id.token_help))
+            assertTrue("setup steps link", root.visible(R.id.token_help_toggle))
+            listOf(R.id.test, R.id.save, R.id.create_token, R.id.token_help_toggle, R.id.update_check).forEach {
+                assertEquals("${root.resources.getResourceEntryName(it)}: one line", 1, root.findViewById<Button>(it).lineCount)
+            }
         }
-        // The switch sits below the token steps: a second shot scrolled to the token field, the
-        // buttons and the Appearance section, so the owner sees the switch itself (#46 review).
+        // A second shot scrolled to the token field, the buttons, the Appearance section and the
+        // update card, so the owner sees the switch itself (#46 review).
         ScreenshotCapture.activity("46-1-$name-settings-appearance", activity) { root ->
             val scroll = root.findViewById<ScrollView>(R.id.setup_scroll)
             val token = root.findViewById<View>(R.id.token)
@@ -120,6 +131,94 @@ class ThemeScreenshotTest {
             assertTrue("$section: the count is outside the name", text.substring(nameEnd).trim().isNotEmpty())
         }
         assertEquals("Todo 2", narrow.shownTab(Section.TODO).text.toString())
+    }
+
+    /**
+     * #46 round 2, the owner's tab point: unselected tabs are pills too, a shade off the widget's
+     * background (not bare text, not outlines), and the selected one is clearly another colour.
+     */
+    @Test fun unselectedTabsArePills() = forEachTheme { _, name ->
+        listOf(false to "46-9-$name-tab-pills", true to "46-10-$name-tab-pills-dark").forEach { (night, shot) ->
+            val host = configured(context, night = night)
+            val widget = ScreenshotCapture.widget(shot, realistic, heightDp = 160, tab = Section.TODO, host = host)
+            val selected = fill(widget.shownTab(Section.TODO))
+            Section.entries.filter { it != Section.TODO }.forEach { section ->
+                val pill = fill(widget.shownTab(section))
+                assertTrue("$shot $section: has a fill", Color.alpha(pill) > 0)
+                assertTrue("$shot $section: differs from the selected tab", pill != selected)
+            }
+        }
+    }
+
+    /** The solid fill of a tab's pill. */
+    private fun fill(tab: TextView): Int {
+        val shape = tab.background as? GradientDrawable
+        assertNotNull("${tab.text}: a pill background", shape)
+        val color = shape!!.color
+        assertNotNull("${tab.text}: a solid fill", color)
+        return color!!.defaultColor
+    }
+
+    /**
+     * #46 round 2, the owner's sheet point: Send, Merge and Open on GitHub on one line, and "Show more"
+     * at the end of the note's own line ("Ready to merge…  Show more"). Light and dark.
+     */
+    @Test fun sheetActionsOnOneLine() = forEachTheme { _, name ->
+        listOf(false to "46-11-$name-sheet-actions", true to "46-12-$name-sheet-actions-dark").forEach { (night, shot) ->
+            val sheet = ScreenshotCapture.preview(
+                shot, FakePreviews.inReviewReadyToMerge(), widthDp = 380, heightDp = 560,
+                host = { PreviewHost(context, night = night) },
+            )
+            val row = sheet.findViewById<View>(R.id.preview_actions)
+            val actions = listOf(R.id.preview_open, R.id.preview_reply_send, R.id.preview_merge).map { sheet.findViewById<Button>(it) }
+            actions.forEach { button ->
+                val what = "$shot ${button.text}"
+                assertTrue("$what shown", button.visibility == View.VISIBLE)
+                assertTrue("$what in the action row", button.parent === row)
+                assertEquals("$what: one line", 1, button.lineCount)
+                assertEquals("$what: label not cut short", 0, button.layout.getEllipsisCount(0))
+                assertTrue("$what: inside the row", button.right <= row.width)
+                assertTrue("$what: same line as Open", button.top < actions[0].bottom && actions[0].top < button.bottom)
+            }
+            assertTrue("$shot: one line, not stacked", !(row as ActionRow).isStacked)
+
+            val note = sheet.findViewById<TextView>(R.id.preview_claude_text)
+            val toggle = sheet.findViewById<TextView>(R.id.preview_claude_toggle)
+            assertEquals(context.getString(R.string.preview_show_more), toggle.text.toString())
+            assertEquals(NoteFold.COLLAPSED_LINES, note.maxLines)
+            val noteTop = note.topIn(sheet)
+            val toggleTop = toggle.topIn(sheet)
+            assertTrue("$shot: Show more on the note's line", toggleTop < noteTop + note.height && noteTop < toggleTop + toggle.height)
+            assertTrue("$shot: Show more after the note", toggle.left >= note.right)
+        }
+    }
+
+    /**
+     * #46 round 2 edge cases: a 320dp phone. At the largest font Send, Merge and Open can't share a
+     * line, so the row stacks (one full-width button per line) rather than squeezing "Open on GitHub"
+     * to nothing or clipping Merge. Either way every label is whole. And a one-line note gets no toggle.
+     */
+    @Test fun sheetActionsOnANarrowPhone() = forEachTheme { _, name ->
+        listOf(1.0f, 2.0f).forEach { scale ->
+            val shot = "46-13-$name-sheet-actions-320dp-font-$scale"
+            val sheet = ScreenshotCapture.preview(
+                shot, FakePreviews.inReviewReadyToMerge(), widthDp = 320, heightDp = 640,
+                host = { PreviewHost(context, fontScale = scale) },
+            )
+            val row = sheet.findViewById<ActionRow>(R.id.preview_actions)
+            // Normal size: one line or stacked, whichever the theme's fonts allow (the shot shows which).
+            if (scale == 2.0f) assertTrue("$shot: stacked", row.isStacked)
+            listOf(R.id.preview_open, R.id.preview_reply_send, R.id.preview_merge).map { sheet.findViewById<Button>(it) }.forEach { button ->
+                val what = "$shot ${button.text}"
+                assertTrue("$what shown", button.visibility == View.VISIBLE)
+                assertEquals("$what: label not cut short", 0, button.layout.getEllipsisCount(0))
+                assertTrue("$what: inside the row", button.left >= 0 && button.right <= row.width && button.bottom <= row.height)
+            }
+        }
+        val short = ScreenshotCapture.preview(
+            "46-14-$name-note-one-line", FakePreviews.inReviewWithNote("✅ Ready to merge."), widthDp = 320, heightDp = 640,
+        )
+        assertTrue("one-line note: no Show more", !short.visible(R.id.preview_claude_toggle))
     }
 
     @Test fun claudeNoteFoldsToOneLine() = forEachTheme { choice, name ->

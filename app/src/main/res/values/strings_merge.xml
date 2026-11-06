@@ -14,6 +14,8 @@
     <string name="merge_wait_stacked">stacked</string>
     <string name="merge_wait_checks_running">checks running</string>
     <string name="merge_wait_checks_failed">checks failed</string>
+    <!-- #64: a CI run GitHub holds for approval, with no passing build of the same commit. -->
+    <string name="merge_wait_checks_approval">checks need approval</string>
     <string name="merge_wait_no_checks">no checks yet</string>
     <string name="merge_wait_conflict">conflict</string>
     <string name="merge_wait_conflict_claude">conflict: Claude will fix</string>

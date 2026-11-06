@@ -91,6 +91,8 @@ class UpdateScreenshotTest {
         val v = card("14-2-update-available", FakeUpdates.available(), Activity.Idle)
         assertEquals("Update available (v0.1.57): tap Update to download it in your browser", v.text(R.id.update_status))
         assertTrue(v.visible(R.id.update_install))
+        // #46 round 2: "Check for updates" stays on one line next to (now: under) Update.
+        assertEquals(1, v.findViewById<TextView>(R.id.update_check).lineCount)
         assertTrue(v.findViewById<View>(R.id.update_install).isEnabled)
     }
 

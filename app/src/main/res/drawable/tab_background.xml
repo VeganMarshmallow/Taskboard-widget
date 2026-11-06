@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Widget (#46): plain colours only, launchers can't resolve theme attributes. Unselected tabs have no fill in either look. -->
+<!-- Widget (#46 round 2): plain colours only, launchers can't resolve theme attributes. Calm: every tab is a soft pill a shade off the background; the selected one is clay. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="@android:color/transparent" />
+    <solid android:color="@color/widget_tab_bg" />
     <corners android:radius="14dp" />
 </shape>

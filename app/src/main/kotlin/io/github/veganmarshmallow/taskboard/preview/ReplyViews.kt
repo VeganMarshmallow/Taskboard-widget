@@ -14,50 +14,64 @@ import io.github.veganmarshmallow.taskboard.core.reply.ReplyForm
 import io.github.veganmarshmallow.taskboard.core.reply.ReplyResult
 import io.github.veganmarshmallow.taskboard.core.reply.ReplyStep
 import io.github.veganmarshmallow.taskboard.core.reply.ReplyText
+import io.github.veganmarshmallow.taskboard.core.reply.StatusMove
 
 /**
  * The preview's reply box (task #44): text, the "unblock the task" checkbox for tasks waiting on
- * the owner, the result line and Send. [bind] only maps state to views; [listen] wires the input.
+ * the owner, the "Request changes" checkbox for tasks in review (task #65), the result line and Send. [bind] only maps state to views; [listen] wires the input.
  */
 class ReplyViews(root: View, private val messages: ErrorMessages) {
     private val context = root.context
     private val container: View = root.findViewById(R.id.preview_reply)
     private val input: EditText = root.findViewById(R.id.preview_reply_input)
     private val unblock: CheckBox = root.findViewById(R.id.preview_reply_unblock)
+    private val requestChanges: CheckBox = root.findViewById(R.id.preview_reply_request_changes)
     private val message: TextView = root.findViewById(R.id.preview_reply_message)
     private val send: Button = root.findViewById(R.id.preview_reply_send)
 
     fun bind(screen: PreviewScreen) {
         container.visibility = if (screen.showReply) View.VISIBLE else View.GONE
+        // Send sits in the sheet's action row (#46 round 2), outside the box, so it follows the box itself.
+        send.visibility = container.visibility
         val form = screen.reply
         if (input.text.toString() != form.draft) {
             input.setText(form.draft)
             input.setSelection(input.length())
         }
         input.isEnabled = !form.sending
-        unblock.visibility = if (screen.offerUnblock && !form.retriesUnblock) View.VISIBLE else View.GONE
-        if (unblock.isChecked != form.unblock) unblock.isChecked = form.unblock
-        unblock.isEnabled = !form.sending
+        bindChoice(unblock, screen.offerUnblock && !form.retriesLabels, form.unblock, form.sending)
+        val asksChanges = screen.offerRequestChanges && !form.retriesLabels
+        bindChoice(requestChanges, asksChanges, form.requestChanges, form.sending)
         bindMessage(form)
         send.isEnabled = form.canSend
         send.alpha = if (form.canSend || form.sending) 1f else DISABLED_ALPHA
         send.setText(
             when {
                 form.sending -> R.string.reply_sending
-                form.retriesUnblock -> R.string.reply_retry_unblock
+                form.retriesLabels && form.pendingMove == StatusMove.REQUEST_CHANGES -> R.string.reply_retry_request_changes
+                form.retriesLabels -> R.string.reply_retry_unblock
+                asksChanges && form.requestChanges -> R.string.reply_send_request_changes
                 else -> R.string.reply_send
             },
         )
     }
 
-    fun listen(onEdit: (String) -> Unit, onUnblock: (Boolean) -> Unit, onSend: () -> Unit) {
+    fun listen(onEdit: (String) -> Unit, onUnblock: (Boolean) -> Unit, onRequestChanges: (Boolean) -> Unit, onSend: () -> Unit) {
         input.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
             override fun afterTextChanged(s: Editable?) = onEdit(s?.toString().orEmpty())
         })
         unblock.setOnCheckedChangeListener { _, checked -> onUnblock(checked) }
+        requestChanges.setOnCheckedChangeListener { _, checked -> onRequestChanges(checked) }
         send.setOnClickListener { onSend() }
+    }
+
+    /** One of the reply's checkboxes: shown when offered, mirroring the form, locked while sending. */
+    private fun bindChoice(box: CheckBox, offered: Boolean, checked: Boolean, sending: Boolean) {
+        box.visibility = if (offered) View.VISIBLE else View.GONE
+        if (box.isChecked != checked) box.isChecked = checked
+        box.isEnabled = !sending
     }
 
     private fun bindMessage(form: ReplyForm) {
@@ -66,10 +80,7 @@ class ReplyViews(root: View, private val messages: ErrorMessages) {
         when {
             form.tooLong -> showMessage(context.getString(R.string.reply_too_long, ReplyText.MAX_LENGTH), error = true)
             failure != null -> showMessage(failureText(failure), error = true)
-            sent != null -> showMessage(
-                context.getString(if (sent.unblocked) R.string.reply_sent_unblocked else R.string.reply_sent),
-                error = false,
-            )
+            sent != null -> showMessage(context.getString(sentText(sent)), error = false)
             else -> message.visibility = View.GONE
         }
     }
@@ -80,7 +91,14 @@ class ReplyViews(root: View, private val messages: ErrorMessages) {
             ReplyStep.COMMENT -> context.getString(R.string.reply_failed, reason) +
                 if (failure.mayHavePosted) " " + context.getString(R.string.reply_may_have_posted) else ""
             ReplyStep.UNBLOCK -> context.getString(R.string.reply_unblock_failed, reason)
+            ReplyStep.REQUEST_CHANGES -> context.getString(R.string.reply_request_changes_failed, reason)
         }
+    }
+
+    private fun sentText(sent: ReplyResult.Sent): Int = when {
+        sent.changesRequested -> R.string.reply_sent_changes_requested
+        sent.unblocked -> R.string.reply_sent_unblocked
+        else -> R.string.reply_sent
     }
 
     /** Error messages may or may not end in a full stop; the reply's text adds a sentence after them. */

@@ -38,6 +38,9 @@ sealed class MergeProblem {
     data class ChecksRunning(override val pr: PullRequest, val names: List<String>) : MergeProblem()
     data class ChecksFailed(override val pr: PullRequest, val names: List<String>) : MergeProblem()
 
+    /** GitHub holds [names] for approval and no passing run of those workflows replaces them (#64). */
+    data class ChecksAwaitingApproval(override val pr: PullRequest, val names: List<String>) : MergeProblem()
+
     /** No workflow run passed: none reported, or the newest of each were all neutral/skipped. */
     data class NoChecks(override val pr: PullRequest) : MergeProblem()
 
