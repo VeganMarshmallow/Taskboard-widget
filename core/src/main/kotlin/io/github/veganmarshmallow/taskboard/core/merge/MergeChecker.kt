@@ -94,6 +94,7 @@ class MergeChecker(
             ChecksVerdict.Passed -> MergeStep.Ok(CheckedPr(pr, WorkflowRuns.latest(runs, pr.headSha)))
             is ChecksVerdict.Running -> MergeStep.Stop(MergeProblem.ChecksRunning(pr, verdict.names))
             is ChecksVerdict.Failed -> MergeStep.Stop(MergeProblem.ChecksFailed(pr, verdict.names))
+            is ChecksVerdict.AwaitingApproval -> MergeStep.Stop(MergeProblem.ChecksAwaitingApproval(pr, verdict.names))
             ChecksVerdict.None, ChecksVerdict.NothingPassed -> MergeStep.Stop(MergeProblem.NoChecks(pr))
         }
     }

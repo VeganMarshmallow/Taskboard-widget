@@ -14,8 +14,14 @@
 //    A ready PR gets the full run (emulator tests, preview release); a draft only the quick
 //    `build` job (input full=false, #52): drafts can't be merged, and its ready_for_review event
 //    starts the full run later.
+// 4. Then delete the PR's `pull_request` run GitHub holds for approval on the new head (#64,
+//    held-runs.js): GitHub registers it because of the update but never runs it (it came from
+//    GITHUB_TOKEN), and the dispatched build tests the same commit. So each update leaves exactly
+//    one real CI run, and no "approval required" run sits on the PR.
 // Nothing here pushes to the default branch, so this workflow can't trigger itself.
 'use strict';
+
+const { dropHeldRuns } = require('./held-runs.js');
 
 const PREFIX = 'claude/';
 const LABEL = 'needs-rebase';
@@ -48,6 +54,7 @@ async function updatePrs({
   log = console.log,
   wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   headPolls = 12,
+  heldPolls = 3,
   pollMs = 5000,
 }) {
   const fullName = `${owner}/${repo}`;
@@ -125,7 +132,9 @@ async function updatePrs({
     await clearLabel(n, labels);
     const full = !pr.draft;
     await dispatch(pr.head.ref, full);
-    log(`#${n}: updated with ${main}${head ? ` (now ${head.slice(0, 7)})` : ' (head not moved yet)'}; ${workflow} dispatched (${full ? 'full' : 'build only, draft'})`);
+    const dropped = head ? await dropHeldRuns({ github, owner, repo, workflow, sha: head, wait, polls: heldPolls, pollMs, log }) : 0;
+    log(`#${n}: updated with ${main}${head ? ` (now ${head.slice(0, 7)})` : ' (head not moved yet)'}; ${workflow} dispatched (${full ? 'full' : 'build only, draft'})` +
+      (dropped ? `; deleted ${dropped} held pull_request run(s)` : ''));
     return { number: n, action: head ? 'updated' : 'update-pending' };
   }
 

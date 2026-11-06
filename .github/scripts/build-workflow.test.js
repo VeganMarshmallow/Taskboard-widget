@@ -145,3 +145,9 @@ test('the workflow no longer reads outputs of steps that moved into avd-setup', 
     assert.ok(!yml.includes(`steps.${id}.`), `build.yml still references steps.${id}`);
   }
 });
+
+test('update-prs keeps the Actions write permission it needs to dispatch builds and drop held runs (#64)', () => {
+  const update = fs.readFileSync(path.join(__dirname, '..', 'workflows', 'update-prs.yml'), 'utf8');
+  assert.match(update, /^\s+actions: write\b/m);
+  assert.match(update, /sparse-checkout: \.github\/scripts/, 'held-runs.js must be checked out next to update-prs.js');
+});

@@ -64,6 +64,7 @@ class MergeAllText(private val dialogs: MergeDialogs, private val board: Repo = 
             Kind.CONFLICT -> with("has conflicts")
             Kind.CHECKS_FAILED -> with("checks failed")
             Kind.CHECKS_TIMEOUT -> with("checks still running after ${MergeAllMachine.CHECKS_TIMEOUT.toMinutes()} min")
+            Kind.CHECKS_APPROVAL -> with("checks waiting for approval on GitHub")
             Kind.NO_CHECKS -> "no checks passed"
             Kind.PR_CHANGED -> "the PR got new commits"
             Kind.PR_CLOSED -> "the PR was closed"

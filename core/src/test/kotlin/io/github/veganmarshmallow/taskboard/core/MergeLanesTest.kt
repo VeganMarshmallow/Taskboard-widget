@@ -136,6 +136,21 @@ class MergeLanesTest {
         assertEquals(MergeLane.NEXT, s.lanes()[30])
     }
 
+    @Test fun aHeldPullRequestRunNextToAGreenDispatchedBuildIsNext() {
+        // #64: after the auto-update, the head has the dispatched build (green) and a pull_request run held for approval.
+        val held = wfRun("build", "action_required", workflow = 7, number = 329, sha = shaD, event = "pull_request", title = "Merge next (#45)")
+        val dispatched = wfRun("build", workflow = 7, number = 330, sha = shaD, event = "workflow_dispatch", title = "build: claude/45-x") +
+            ("updated_at" to "2026-10-30T11:00:00Z")
+        val s = Script(listOf(task(30)), listOf(pullJson(12, body = closes(30), sha = shaD)), mapOf(shaD to runsJson(held, dispatched)), mapOf(shaD to 0L))
+        assertEquals(MergeLane.NEXT, s.lanes()[30])
+    }
+
+    @Test fun aHeldRunAloneWaitsForApprovalNotFailed() {
+        val held = wfRun("build", "action_required", workflow = 7, sha = shaD, event = "pull_request")
+        val s = Script(listOf(task(30)), listOf(pullJson(12, body = closes(30), sha = shaD)), mapOf(shaD to runsJson(held)), mapOf(shaD to 0L))
+        assertEquals(MergeLane(false, MergeWait.CHECKS_APPROVAL, null), s.lanes()[30])
+    }
+
     @Test fun noRepoNoPrAndCompareFailure() {
         val s = Script(
             listOf(task(30, body = "no repo here"), task(29), task(28)),
