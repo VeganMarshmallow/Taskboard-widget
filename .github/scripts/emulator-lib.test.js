@@ -88,10 +88,67 @@ test('wait_for_system fails when boot_completed is 1 but system_server is dead',
 test('build.yml retries the emulator step only when no test result exists', () => {
   const yml = fs.readFileSync(path.join(__dirname, '..', 'workflows', 'build.yml'), 'utf8');
   assert.match(yml, /id: emulator\n\s+continue-on-error: true\n/);
-  assert.match(yml, /if has_test_results app\/build\/outputs\/androidTest-results\/connected\/debug; then\n\s+echo "retry=false"/);
-  assert.match(yml, /if: steps\.retry\.outputs\.retry == 'true'\n\s+uses: reactivecircus\/android-emulator-runner@v2\n\s+with: \*emulator-tests/);
-  // With continue-on-error, a real failure must still fail the job.
-  assert.match(yml, /if: steps\.emulator\.outcome == 'failure' && steps\.retry\.outputs\.retry != 'true'\n\s+run: exit 1/);
+  assert.match(yml, /if \[ "\$\(emulator_verdict failure app\/build\/outputs\/androidTest-results\/connected\/debug 1\)" = retry \]; then\n/);
+  assert.match(yml, /id: emulator_retry\n\s+if: steps\.retry\.outputs\.retry == 'true'\n\s+continue-on-error: true\n\s+uses: reactivecircus\/android-emulator-runner@v2\n\s+with: \*emulator-tests/);
+  // With continue-on-error on both tries, the verdict step must still fail the job.
+  assert.match(yml, /- name: Instrumented test verdict\n\s+if: steps\.emulator\.outcome == 'failure'\n/);
+  assert.match(yml, /\[ "\$RETRIED" = true \] \|\| exit 1\n/);
+  assert.match(yml, /emulator_verdict "\$RETRY_OUTCOME" app\/build\/outputs\/androidTest-results\/connected\/debug 2\)" = pass/);
+  assert.match(yml, /::warning title=Emulator retried::emulator failed to start; retried once and passed/);
+});
+
+test('build.yml: the retry cold-boots, the first try loads the snapshot', () => {
+  const yml = fs.readFileSync(path.join(__dirname, '..', 'workflows', 'build.yml'), 'utf8');
+  assert.match(yml, /emulator-options: -no-snapshot-save .* \$\{\{ steps\.retry\.outputs\.cold_boot \}\}\n/);
+  assert.match(yml, /echo "cold_boot=-no-snapshot-load" >> "\$GITHUB_OUTPUT"/);
+});
+
+// #80: the retry decision.
+function verdict(outcome, results, attempt) {
+  const dir = sandbox();
+  fs.mkdirSync(path.join(dir, 'res'));
+  if (results) fs.writeFileSync(path.join(dir, 'res', 'TEST-one.xml'), '');
+  const r = run(`emulator_verdict ${outcome} res ${attempt}`, dir);
+  assert.strictEqual(r.status, 0, r.stderr);
+  return r.stdout.trim();
+}
+
+test('emulator_verdict: a passing attempt passes, first try or retry', () => {
+  assert.strictEqual(verdict('success', true, 1), 'pass');
+  assert.strictEqual(verdict('success', true, 2), 'pass');
+});
+
+test('emulator_verdict: no test result after a failed first try retries', () => {
+  assert.strictEqual(verdict('failure', false, 1), 'retry');
+});
+
+test('emulator_verdict: a failure with test results is never retried', () => {
+  assert.strictEqual(verdict('failure', true, 1), 'fail');
+  assert.strictEqual(verdict('failure', true, 2), 'fail');
+});
+
+test('emulator_verdict: a second failure fails, with or without results (one retry at most)', () => {
+  assert.strictEqual(verdict('failure', false, 2), 'fail');
+  assert.strictEqual(verdict('failure', false, 3), 'fail');
+});
+
+test('emulator_verdict: a retry that was skipped or cancelled fails', () => {
+  assert.strictEqual(verdict('skipped', false, 2), 'fail');
+  assert.strictEqual(verdict('cancelled', false, 2), 'fail');
+  assert.strictEqual(verdict("''", false, 2), 'fail');
+});
+
+test('emulator_verdict: a missing results dir counts as no results', () => {
+  const dir = sandbox();
+  assert.strictEqual(run('emulator_verdict failure nope 1', dir).stdout.trim(), 'retry');
+});
+
+test('restart_adb kills and restarts the adb server, and never fails', () => {
+  const dir = sandbox();
+  fs.writeFileSync(path.join(dir, 'adb'), `#!/usr/bin/env bash\necho "$*" >> "${dir}/adb.log"; exit 1\n`, { mode: 0o755 });
+  const r = run('restart_adb', dir);
+  assert.strictEqual(r.status, 0, r.stderr);
+  assert.strictEqual(fs.readFileSync(path.join(dir, 'adb.log'), 'utf8'), 'kill-server\nstart-server\n');
 });
 
 // Fakes for stop_emulator: pgrep sees qemu until FAKE_QEMU_FILE is gone; adb emu kill removes it
@@ -134,9 +191,9 @@ test('stop_emulator: fine with no emulator and no AVD dir at all', () => {
   assert.strictEqual(r.status, 0, r.stdout + r.stderr);
 });
 
-test('build.yml: the retry stops the failed emulator first, and step ids are unique per job', () => {
+test('build.yml: the retry stops the failed emulator and restarts adb first, and step ids are unique per job', () => {
   const yml = fs.readFileSync(path.join(__dirname, '..', 'workflows', 'build.yml'), 'utf8');
-  assert.match(yml, /stop_emulator 30\n\s+echo "retry=true"/);
+  assert.match(yml, /stop_emulator 30\n\s+restart_adb\n\s+echo "retry=true"/);
   for (const job of yml.split(/\n  [\w-]+:\n/)) {
     const ids = [...job.matchAll(/^\s+id: (\S+)$/gm)].map((m) => m[1]);
     assert.deepStrictEqual(ids, [...new Set(ids)], `duplicate step id in: ${ids}`);

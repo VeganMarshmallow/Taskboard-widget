@@ -37,3 +37,20 @@ stop_emulator() {
   done
   rm -rf "${ANDROID_AVD_HOME:-$HOME/.android/avd}"/*.avd/*.lock
 }
+
+# Restarts adb's server (#80), so a retry does not inherit a connection to the emulator that died.
+restart_adb() {
+  timeout 10 adb kill-server > /dev/null 2>&1 || true
+  timeout 30 adb start-server > /dev/null 2>&1 || true
+}
+
+# What to do after an emulator attempt (#80). Usage: emulator_verdict <outcome> <results-dir> <attempt>
+# Prints `pass` (the attempt succeeded), `retry` (it failed before any instrumented test result
+# existed, and this was the first attempt) or `fail` (a test result exists, so a test or the
+# screenshot run really failed, or the retry failed too). At most one retry per job.
+emulator_verdict() {
+  if [ "$1" = success ]; then echo pass
+  elif has_test_results "$2"; then echo fail
+  elif [ "${3:-1}" -lt 2 ]; then echo retry
+  else echo fail; fi
+}
