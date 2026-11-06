@@ -5,7 +5,7 @@ import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.task.SubmitMarker
 import io.github.veganmarshmallow.taskboard.core.task.SubmitRecovery
-import io.github.veganmarshmallow.taskboard.core.work.crashError
+import io.github.veganmarshmallow.taskboard.core.work.guarded
 
 /**
  * Runs [SubmitRecovery] for a leftover [SubmitMarker] on the send thread and hands the result to
@@ -23,18 +23,30 @@ class RecoveryCheck(private val deps: NewTaskDeps) {
         if (checking != null) return
         checking = marker
         deps.sendExecutor.execute {
-            val result = try {
-                SubmitRecovery.check(marker, deps.clock.instant()) { since ->
-                    deps.apiProvider(app)?.issuesUpdatedSince(since) ?: Outcome.Failure(BoardError.NoToken)
-                }
-            } catch (e: RuntimeException) {
-                SubmitRecovery.Result.CheckFailed(marker.title, crashError(e))
-            }
+            val result = check(app, marker)
             deps.mainThread.execute {
                 checking = null
                 unshown = result
                 done(result)
             }
+        }
+    }
+
+    /**
+     * Any crash, an Error included ([guarded], task #56), is a failed check: the marker stays, so the
+     * form says it couldn't tell and checks again next time, and the send thread survives.
+     */
+    private fun check(app: Context, marker: SubmitMarker): SubmitRecovery.Result {
+        val outcome = guarded {
+            Outcome.Success(
+                SubmitRecovery.check(marker, deps.clock.instant()) { since ->
+                    deps.apiProvider(app)?.issuesUpdatedSince(since) ?: Outcome.Failure(BoardError.NoToken)
+                },
+            )
+        }
+        return when (outcome) {
+            is Outcome.Success -> outcome.value
+            is Outcome.Failure -> SubmitRecovery.Result.CheckFailed(marker.title, outcome.error)
         }
     }
 
