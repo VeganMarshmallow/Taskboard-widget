@@ -9,6 +9,7 @@ import io.github.veganmarshmallow.taskboard.core.board.MergeLane
 import io.github.veganmarshmallow.taskboard.core.board.MergeWait
 import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.core.board.withMergeLanes
+import io.github.veganmarshmallow.taskboard.core.http.HttpClient
 import io.github.veganmarshmallow.taskboard.core.merge.PullRef
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllEnd
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllMachine
@@ -32,6 +33,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.CountDownLatch
 
 /**
  * Merge all (#57) on a device: a 3-PR run against a fake GitHub over real HTTP (PUT update-branch,
@@ -133,18 +135,37 @@ class MergeAllTest {
         assertNull(MergeAllJob(context).run())
     }
 
+    /**
+     * A stale run is resumed by any refresh (ensureScheduled), so a job may pick this run up while
+     * the test looks at it. Every GitHub call is held until the end, as on a stuck network: a job
+     * that resumes the run stays inside its step and saves nothing, so the line shows what the
+     * owner saw. Reset then clears the run, and the held step drops its result once released.
+     */
     @Test fun aStalledRunSaysResumingAndResetClearsAStuckOne() {
-        val stale = MergeAllState.start("run-78", PLAN, Instant.now().minus(Duration.ofMinutes(10))).copy(phase = MergeAllPhase.WAIT)
-        store.save(stale)
-        assertLine("Merging 1 of 3… resuming", "Cancel", line(widgetState(), Section.TODO, "78-2-resuming"))
+        val s = serve()
+        val held = CountDownLatch(1)
+        TestOverrides.httpClient = {
+            val real = s.client()
+            HttpClient { request -> held.await(); real.execute(request) }
+        }
+        try {
+            val stale = MergeAllState.start("run-78", PLAN, Instant.now().minus(Duration.ofMinutes(10))).copy(phase = MergeAllPhase.WAIT)
+            store.save(stale)
+            assertLine("Merging 1 of 3… resuming", "Cancel", line(widgetState(), Section.TODO, "78-2-resuming"))
 
-        store.save(stale.copy(phase = MergeAllPhase.MERGE, updatedAt = Instant.now()))
-        store.requestCancel("run-78")
-        assertLine("Merging 1 of 3… merging · stopping after this step", "Reset", line(widgetState(), Section.TODO, "78-3-reset"))
+            store.save(stale.copy(phase = MergeAllPhase.MERGE, updatedAt = Instant.now()))
+            store.requestCancel("run-78")
+            assertLine("Merging 1 of 3… merging · stopping after this step", "Reset", line(widgetState(), Section.TODO, "78-3-reset"))
 
-        MergeAllJob.reset(context)
+            MergeAllJob.reset(context)
+            assertNull(store.load())
+            assertNull("the line goes away", line(widgetState(), Section.TODO))
+        } finally {
+            held.countDown()
+        }
+        Thread.sleep(500) // a released step must not bring the run back
         assertNull(store.load())
-        assertNull("the line goes away", line(widgetState(), Section.TODO))
+        assertTrue("nothing was written to GitHub", s.received.none { it.method != "GET" })
     }
 
     /** A fake GitHub ([FakeRepo]) over real HTTP, and a token. */
