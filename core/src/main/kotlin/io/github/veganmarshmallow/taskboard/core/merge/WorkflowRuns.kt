@@ -29,6 +29,17 @@ data class WorkflowRun(
      * its commit message, and "Fix [partial] sync" there must not hold the merge forever.
      */
     val partial: Boolean get() = displayTitle?.trimEnd()?.endsWith(WorkflowRuns.PARTIAL_MARK, ignoreCase = true) == true
+
+    /**
+     * GitHub is holding the run for someone's approval (#64): concluded `action_required` (it never
+     * started: no jobs ran), or status `waiting` (an environment's reviewers).
+     */
+    val awaitingApproval: Boolean
+        get() = conclusion.equals("action_required", ignoreCase = true) || status.equals("waiting", ignoreCase = true)
+
+    /** Completed with `success` and ran its whole workflow: enough to stand in for a held run of that workflow (#64). */
+    val passedFully: Boolean
+        get() = status.equals("completed", ignoreCase = true) && conclusion.equals("success", ignoreCase = true) && !partial
 }
 
 /** What the workflow runs on a PR's head commit say about merging. */
@@ -36,6 +47,9 @@ sealed class ChecksVerdict {
     data object Passed : ChecksVerdict()
     data class Running(val names: List<String>) : ChecksVerdict()
     data class Failed(val names: List<String>) : ChecksVerdict()
+
+    /** A run GitHub holds for approval, with no full success of its workflow on the commit to replace it (#64). */
+    data class AwaitingApproval(val names: List<String>) : ChecksVerdict()
 
     /** No workflow run on the commit (CI not started yet, or the repo has none). */
     data object None : ChecksVerdict()
@@ -57,11 +71,16 @@ sealed class ChecksVerdict {
  * tests the merge result, next to `push`) is judged on its own: a green push run can't hide it.
  *
  * The rule ([verdict]), on the kept runs:
- * - A run whose status is not `completed` (queued, in_progress, waiting, requested, pending, or
- *   anything unknown) is still running: "Checks still running".
+ * - Held for approval (#64): a run concluded `action_required` or with status `waiting`. When the
+ *   same workflow has a full successful run on the commit from any event, it is superseded and
+ *   ignored: the auto-update workflow's `pull_request` run is held (it came from GITHUB_TOKEN) while
+ *   the build it dispatches tests the same commit. A partial success doesn't supersede it. Without
+ *   such a success it is "Checks waiting for approval" (after failures and running runs): not failed.
+ * - A run whose status is not `completed` (queued, in_progress, requested, pending, or anything
+ *   unknown) is still running: "Checks still running".
  * - Completed with `success` passes. `neutral` and `skipped` neither pass nor block, but at least
  *   one kept run must have succeeded.
- * - Any other conclusion (`failure`, `cancelled`, `timed_out`, `action_required`, `stale`,
+ * - Any other conclusion (`failure`, `cancelled`, `timed_out`, `stale`,
  *   `startup_failure`, unknown, or missing) fails: "Checks failed".
  * - A failure wins over running runs: the PR can't be merged as it is either way, and "failed" is
  *   the more useful thing to say.
@@ -99,18 +118,27 @@ object WorkflowRuns {
      * They count as still running, after failures and before the [PARTIAL_MARK] rule.
      */
     fun verdict(runs: List<WorkflowRun>, sha: String, notStarted: List<String> = emptyList()): ChecksVerdict {
-        val kept = latest(runs, sha)
-        if (kept.isEmpty()) return ChecksVerdict.None
-        val (completed, running) = kept.partition { it.status.equals("completed", ignoreCase = true) }
+        val newest = latest(runs, sha)
+        if (newest.isEmpty()) return ChecksVerdict.None
+        val kept = withoutSuperseded(newest)
+        val (held, judged) = kept.partition { it.awaitingApproval }
+        val (completed, running) = judged.partition { it.status.equals("completed", ignoreCase = true) }
         val failed = completed.filter { run -> run.conclusion?.lowercase().let { it != "success" && it !in NOT_BLOCKING } }
         val partialOnly = kept.groupBy(::workflowKey).values.filter { group -> group.all { it.partial } }
         return when {
             failed.isNotEmpty() -> ChecksVerdict.Failed(failed.map { it.name }.distinct())
             running.isNotEmpty() || notStarted.isNotEmpty() -> ChecksVerdict.Running((running.map { it.name } + notStarted).distinct())
+            held.isNotEmpty() -> ChecksVerdict.AwaitingApproval(held.map { it.name }.distinct())
             partialOnly.isNotEmpty() -> ChecksVerdict.Running(partialOnly.map { "${it.first().name} (full run)" }.distinct())
             completed.none { it.conclusion.equals("success", ignoreCase = true) } -> ChecksVerdict.NothingPassed
             else -> ChecksVerdict.Passed
         }
+    }
+
+    /** Drops held runs ([WorkflowRun.awaitingApproval]) whose workflow passed fully on the commit from any event (#64). */
+    private fun withoutSuperseded(kept: List<WorkflowRun>): List<WorkflowRun> {
+        val passed = kept.filter { it.passedFully }.map(::workflowKey).toSet()
+        return kept.filterNot { it.awaitingApproval && workflowKey(it) in passed }
     }
 
     private fun workflowKey(run: WorkflowRun): String = run.workflowId?.let { "id:$it" } ?: "name:${run.name}"

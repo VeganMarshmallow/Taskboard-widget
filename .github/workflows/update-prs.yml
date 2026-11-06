@@ -2,6 +2,14 @@ name: update-prs
 
 # #45: after every merge to main, bring Claude's open PRs up to date and re-run their CI, so the
 # widget can highlight the next one to merge. Logic and its tests: .github/scripts/update-prs*.js.
+#
+# #64, one CI run per update: the update goes through GITHUB_TOKEN, so GitHub starts no workflow for
+# it; the script dispatches build.yml on the branch instead. GitHub does still register the PR's
+# `pull_request` run for the new head, but holds it for approval (actor github-actions[bot]):
+# `action_required`, no jobs. That gate is run-level, so build.yml can't skip it with a job `if:`, and
+# a normal run would need a PAT or App token (a stored secret). So the script deletes that empty held
+# run (held-runs.js; only the bot's, only on the head it just made), and the widget's Merge check
+# ignores a held run once the same workflow passed on that commit. Real pushes are untouched.
 on:
   push:
     branches: [main]
@@ -10,7 +18,7 @@ permissions:
   contents: write
   pull-requests: write
   issues: write # labels and comments on PRs go through the Issues API
-  actions: write
+  actions: write # dispatch build.yml, and delete the held duplicate pull_request run (#64)
 
 concurrency:
   group: update-prs

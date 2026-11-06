@@ -56,6 +56,7 @@ class MergeReadiness(private val pulls: PullsApi) {
             is MergeProblem.Stacked -> MergeWait.STACKED
             is MergeProblem.ChecksRunning -> MergeWait.CHECKS_RUNNING
             is MergeProblem.ChecksFailed -> MergeWait.CHECKS_FAILED
+            is MergeProblem.ChecksAwaitingApproval -> MergeWait.CHECKS_APPROVAL
             is MergeProblem.NoChecks -> MergeWait.NO_CHECKS
             is MergeProblem.Conflicts -> MergeWait.CONFLICT
             is MergeProblem.MergeabilityUnknown, is MergeProblem.HeadChanged -> MergeWait.UPDATING
