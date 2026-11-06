@@ -8,6 +8,7 @@ import io.github.veganmarshmallow.taskboard.core.merge.MergeDialogs
 import io.github.veganmarshmallow.taskboard.core.merge.MergeProblem
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllStop.Kind
 import io.github.veganmarshmallow.taskboard.core.model.Repo
+import java.time.Instant
 
 /** Every word Merge all shows (#57): its dialogs, the widget's progress line, and the notification. */
 class MergeAllText(private val dialogs: MergeDialogs, private val board: Repo = Repo.BOARD) {
@@ -35,9 +36,17 @@ class MergeAllText(private val dialogs: MergeDialogs, private val board: Repo = 
     fun planFailed(problem: MergeProblem): MergeDialog =
         dialogs.refusal(problem, 0).copy(title = "Couldn't check the PRs", link = board.issuesUrl())
 
-    /** "Merging 2 of 5… waiting for checks". */
-    fun progress(state: MergeAllState, cancelling: Boolean): String {
-        val line = "Merging ${state.index + 1} of ${state.plan.size}… ${step(state.phase)}"
+    /**
+     * "Merging 2 of 5… waiting for checks". [stale]: no poll for a while, the next refresh resumes it
+     * (#78); a run whose last poll found no network says so rather than "waiting for checks".
+     */
+    fun progress(state: MergeAllState, cancelling: Boolean, stale: Boolean = false): String {
+        val now = when {
+            stale -> "resuming"
+            state.offline -> "waiting for network"
+            else -> step(state.phase)
+        }
+        val line = "Merging ${state.index + 1} of ${state.plan.size}… $now"
         return if (cancelling) "$line · stopping after this step" else line
     }
 
@@ -91,15 +100,18 @@ class MergeAllText(private val dialogs: MergeDialogs, private val board: Repo = 
 
 /** The widget's Merge all line (#57) and its one button. */
 data class MergeAllBanner(val text: String, val button: Button?) {
-    enum class Button { MERGE_ALL, CANCEL, DISMISS }
+    /** RESET: the escape hatch once Cancel was tapped but the run hasn't stopped yet (#78). */
+    enum class Button { MERGE_ALL, CANCEL, DISMISS, RESET }
 
     companion object {
         /**
          * A run that is going on or has ended shows on every tab; the offer only on Needs you.
-         * [cancelling]: Cancel was tapped and the run stops after its current step.
+         * [cancelling]: Cancel was tapped and the run stops after its current step; Reset clears it
+         * if that step never finishes. [now] tells a stalled run ([MergeAllHealth.stale]).
          */
-        fun of(state: MergeAllState?, cancelling: Boolean, board: Board?, onNeedsYou: Boolean, text: MergeAllText): MergeAllBanner? = when {
-            state != null && state.running -> MergeAllBanner(text.progress(state, cancelling), Button.CANCEL.takeUnless { cancelling })
+        fun of(state: MergeAllState?, cancelling: Boolean, board: Board?, onNeedsYou: Boolean, text: MergeAllText, now: Instant): MergeAllBanner? = when {
+            state != null && state.running ->
+                MergeAllBanner(text.progress(state, cancelling, MergeAllHealth.stale(state, now)), if (cancelling) Button.RESET else Button.CANCEL)
             state != null -> MergeAllBanner(text.result(state)!!, Button.DISMISS)
             onNeedsYou && MergeAllOffer.shows(board) -> MergeAllBanner(text.offer(MergeAllOffer.count(board)), Button.MERGE_ALL)
             else -> null

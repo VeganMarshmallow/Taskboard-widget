@@ -34,7 +34,7 @@ sealed class BoardJob {
      * this long even if the network constraint is still unmet, so a tap always ends in the board
      * or an error. Null: no deadline. Android does not allow deadlines on expedited jobs.
      */
-    val runAnywayAfter: Duration? get() = if (urgent) URGENT_DEADLINE else null
+    open val runAnywayAfter: Duration? get() = if (urgent) URGENT_DEADLINE else null
 
     abstract fun toExtras(): Map<String, String>
 
@@ -85,6 +85,10 @@ sealed class BoardJob {
      * Takes a saved Merge all run (#57) as far as it can, then schedules itself again after [delay]
      * (waiting for checks) until the run ends. One job id, so a new one replaces a pending one.
      * Persisted, so a run waiting for checks survives a reboot.
+     *
+     * It also runs [DEADLINE_SLACK] after [delay] without a network (#78): a network constraint
+     * Android never meets (the app's data blocked) must not stall the run, or its Cancel. The job
+     * then finds no network, says "waiting for network" and polls again.
      */
     data class MergeAll(val delay: Duration = Duration.ZERO) : BoardJob() {
         init {
@@ -96,9 +100,15 @@ sealed class BoardJob {
         override val needsNetwork get() = true
         override val minLatency: Duration get() = delay
         override val persisted get() = true
+        override val runAnywayAfter: Duration get() = delay.plus(DEADLINE_SLACK)
         override fun toExtras() = buildMap {
             put(KIND, KIND_MERGE_ALL)
             if (!delay.isZero) put(DELAY_MS, delay.toMillis().toString())
+        }
+
+        companion object {
+            /** How long past its delay a Merge all job waits for a network before running anyway. */
+            val DEADLINE_SLACK: Duration = Duration.ofSeconds(30)
         }
     }
 

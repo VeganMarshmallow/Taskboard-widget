@@ -18,4 +18,7 @@ internal object TestOverrides {
 
     /** A New task controller with fake dependencies (`NewTaskRule`). */
     @Volatile var newTask: NewTaskController? = null
+
+    /** Whether the device is online, for Merge all's jobs (#78); null: ask Android. */
+    @Volatile var online: (() -> Boolean)? = null
 }

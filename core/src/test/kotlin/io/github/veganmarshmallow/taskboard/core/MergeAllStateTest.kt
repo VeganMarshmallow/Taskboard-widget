@@ -122,15 +122,15 @@ class MergeAllStateTest {
     ).withMergeLanes(mapOf(30 to MergeLane.NEXT, 31 to MergeLane(false, MergeWait.QUEUED, "A")))
 
     @Test fun theLineOffersMergeAllOnNeedsYouOnly() {
-        assertEquals(MergeAllBanner("2 PRs ready to merge", MergeAllBanner.Button.MERGE_ALL), MergeAllBanner.of(null, false, board, true, text))
-        assertNull(MergeAllBanner.of(null, false, board, onNeedsYou = false, text = text))
+        assertEquals(MergeAllBanner("2 PRs ready to merge", MergeAllBanner.Button.MERGE_ALL), MergeAllBanner.of(null, false, board, true, text, now))
+        assertNull(MergeAllBanner.of(null, false, board, onNeedsYou = false, text = text, now = now))
     }
 
     @Test fun aRunShowsOnEveryTabWithCancelThenOk() {
-        assertEquals(MergeAllBanner("Merging 1 of 3… updating", MergeAllBanner.Button.CANCEL), MergeAllBanner.of(run, false, board, false, text))
-        assertEquals(MergeAllBanner.Button.CANCEL, MergeAllBanner.of(run, false, null, true, text)!!.button)
-        assertNull("Cancel was tapped: no second Cancel", MergeAllBanner.of(run, true, board, true, text)!!.button)
-        val done = MergeAllBanner.of(run.copy(end = MergeAllEnd.Done), false, board, true, text)
+        assertEquals(MergeAllBanner("Merging 1 of 3… updating", MergeAllBanner.Button.CANCEL), MergeAllBanner.of(run, false, board, false, text, now))
+        assertEquals(MergeAllBanner.Button.CANCEL, MergeAllBanner.of(run, false, null, true, text, now)!!.button)
+        assertEquals("Cancel was tapped: Reset instead of a second Cancel", MergeAllBanner.Button.RESET, MergeAllBanner.of(run, true, board, true, text, now)!!.button)
+        val done = MergeAllBanner.of(run.copy(end = MergeAllEnd.Done), false, board, true, text, now)
         assertEquals(MergeAllBanner("Merged all 3 PRs", MergeAllBanner.Button.DISMISS), done)
     }
 }

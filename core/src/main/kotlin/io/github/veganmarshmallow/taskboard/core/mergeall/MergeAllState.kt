@@ -45,7 +45,9 @@ data class MergedPr(val ref: PullRef, val headRef: String)
  * - [oldHead]: the head before `update-branch` (WAIT waits until the head is no longer it).
  * - [checkedHead]: the head the checks are judged on and the merge is pinned to.
  * - [waitSince]: when the current PR started waiting; the wait is bounded from there.
+ * - [offline]: the last poll found no network, so it waits for one rather than for checks (#78).
  * - [end]: null while the run goes on.
+ * - [updatedAt]: the last step (poll); a run not polled for long has stalled ([MergeAllHealth]).
  */
 data class MergeAllState(
     val runId: String,
@@ -56,6 +58,7 @@ data class MergeAllState(
     val oldHead: String? = null,
     val checkedHead: String? = null,
     val waitSince: Instant? = null,
+    val offline: Boolean = false,
     val end: MergeAllEnd? = null,
     val updatedAt: Instant,
 ) {

@@ -11,6 +11,7 @@ import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.core.board.withMergeLanes
 import io.github.veganmarshmallow.taskboard.core.merge.PullRef
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllEnd
+import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllMachine
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllPhase
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllState
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllStop
@@ -29,12 +30,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.time.Duration
 import java.time.Instant
 
 /**
  * Merge all (#57) on a device: a 3-PR run against a fake GitHub over real HTTP (PUT update-branch,
  * PATCH retarget, PUT merge pinned to the updated head), job after job as JobScheduler would run
- * them, and the widget's Merge all line in each state. Also the PR screenshots.
+ * them, and the widget's Merge all line in each state. Also the PR screenshots. #78: offline polls
+ * (connectivity toggled through [TestOverrides.online]), an immediate Cancel, a stale run, and Reset.
  */
 @Screenshot
 @RunWith(AndroidJUnit4::class)
@@ -49,6 +52,7 @@ class MergeAllTest {
         server = null
         context.getSystemService(JobScheduler::class.java).cancelAll()
         TestOverrides.httpClient = null
+        TestOverrides.online = null
         TokenStore(context).clear()
         StateStore(context).save(WidgetState.INITIAL)
         store.clear()
@@ -97,11 +101,66 @@ class MergeAllTest {
         assertLine("Merging 2 of 3… waiting for checks", "Cancel", line(state, Section.TODO, "57-2-merge-all-progress"))
 
         store.requestCancel("run-57")
-        assertLine("Merging 2 of 3… waiting for checks · stopping after this step", null, line(state, Section.NEEDS_YOU))
+        assertLine("Merging 2 of 3… waiting for checks · stopping after this step", "Reset", line(state, Section.NEEDS_YOU))
 
         store.save(running.copy(end = MergeAllEnd.Stopped(1, MergeAllStop(MergeAllStop.Kind.CHECKS_FAILED, "build"))))
         assertLine("Stopped at Taskboard-widget #34: checks failed (build). Merged 0 of 3", "OK", line(state, Section.NEEDS_YOU, "57-3-merge-all-stopped"))
     }
+
+    @Test fun offlineTheRunWaitsForNetworkThenMergesOnceBack() {
+        val s = serve()
+        var online = false
+        TestOverrides.online = { online }
+        store.save(MergeAllState.start("run-78", PLAN, Instant.now()))
+
+        assertEquals(MergeAllMachine.POLL, MergeAllJob(context).run())
+        assertTrue("offline: no call to GitHub", s.received.isEmpty())
+        assertTrue(store.load()!!.offline)
+        assertLine("Merging 1 of 3… waiting for network", "Cancel", line(widgetState(), Section.TODO, "78-1-waiting-for-network"))
+
+        online = true
+        var jobs = 0
+        while (MergeAllJob(context).run() != null) assertTrue("ends within 20 jobs", ++jobs < 20)
+        assertEquals(MergeAllEnd.Done, store.load()!!.end)
+        assertEquals(listOf(31, 34, 32), store.load()!!.merged.map { it.ref.number })
+    }
+
+    @Test fun cancelDuringAnOfflineWaitEndsTheRunAtOnce() {
+        val s = serve()
+        TestOverrides.online = { false }
+        store.save(MergeAllState.start("run-78", PLAN, Instant.now()))
+        MergeAllJob(context).run()
+
+        MergeAllJob.cancel(context)
+        assertEquals("no job needed", MergeAllEnd.Cancelled, store.load()!!.end)
+        assertTrue(s.received.none { it.method != "GET" })
+        assertEquals(null, MergeAllJob(context).run())
+    }
+
+    @Test fun aStalledRunSaysResumingAndResetClearsAStuckOne() {
+        val stale = MergeAllState.start("run-78", PLAN, Instant.now().minus(Duration.ofMinutes(10))).copy(phase = MergeAllPhase.WAIT)
+        store.save(stale)
+        assertLine("Merging 1 of 3… resuming", "Cancel", line(widgetState(), Section.TODO, "78-2-resuming"))
+
+        store.save(stale.copy(phase = MergeAllPhase.MERGE, updatedAt = Instant.now()))
+        store.requestCancel("run-78")
+        assertLine("Merging 1 of 3… merging · stopping after this step", "Reset", line(widgetState(), Section.TODO, "78-3-reset"))
+
+        MergeAllJob.reset(context)
+        assertNull(store.load())
+        assertNull("the line goes away", line(widgetState(), Section.TODO))
+    }
+
+    private fun serve(): FakeGitHubServer {
+        val repo = FakeRepo()
+        val s = FakeGitHubServer(repo::route)
+        server = s
+        TestOverrides.httpClient = s::client
+        TokenStore(context).save("github_pat_TESTONLY")
+        return s
+    }
+
+    private fun widgetState(): WidgetState = FakeMerges.boardState()
 
     @Test fun theMergeAllTapReachesTheTrampoline() {
         assertEquals(RowAction.MergeAll, RowAction.from(RowAction.MergeAll.toFillIn()))

@@ -19,6 +19,7 @@ object WidgetIntents {
     const val ACTION_NOOP = "io.github.veganmarshmallow.taskboard.NOOP"
     const val ACTION_MERGE_ALL_CANCEL = "io.github.veganmarshmallow.taskboard.MERGE_ALL_CANCEL"
     const val ACTION_MERGE_ALL_DISMISS = "io.github.veganmarshmallow.taskboard.MERGE_ALL_DISMISS"
+    const val ACTION_MERGE_ALL_RESET = "io.github.veganmarshmallow.taskboard.MERGE_ALL_RESET"
     const val ACTION_CLEAR_FILTER = "io.github.veganmarshmallow.taskboard.CLEAR_FILTER"
     const val EXTRA_ISSUE = "issue"
     const val EXTRA_TAB = "tab"
@@ -35,6 +36,7 @@ object WidgetIntents {
     private const val RC_MERGE_ALL_DISMISS = 17
     private const val RC_FILTER = 18
     private const val RC_FILTER_CLEAR = 19
+    private const val RC_MERGE_ALL_RESET = 20
     /** Tab taps use request codes from here up (one per tab); the intent data also names the widget, so no two collide. */
     private const val RC_TAB_BASE = 1000
 
@@ -110,6 +112,10 @@ object WidgetIntents {
 
     fun dismissMergeAll(context: Context): PendingIntent = PendingIntent.getBroadcast(
         context, RC_MERGE_ALL_DISMISS, Intent(context, WidgetActionReceiver::class.java).setAction(ACTION_MERGE_ALL_DISMISS), IMMUTABLE,
+    )
+
+    fun resetMergeAll(context: Context): PendingIntent = PendingIntent.getBroadcast(
+        context, RC_MERGE_ALL_RESET, Intent(context, WidgetActionReceiver::class.java).setAction(ACTION_MERGE_ALL_RESET), IMMUTABLE,
     )
 
     /** The filter button and the "Filtered" line (#59). NEW_TASK + CLEAR_TOP: one sheet at a time. */

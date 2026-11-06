@@ -9,4 +9,5 @@ internal object TestOverrides {
     val httpClient: (() -> HttpClient)? = null
     val retryBackoff: RetryBackoff? = null
     val newTask: NewTaskController? = null
+    val online: (() -> Boolean)? = null
 }
