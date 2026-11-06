@@ -66,7 +66,7 @@ class ReplyMemoryTest {
         memory.remember(8, sending("posted"))
         memory.finished(8, ReplyResult.Failed(ReplyStep.UNBLOCK, BoardError.Server(502)))
         assertEquals("", memory.form(8).draft)
-        assertTrue("the label retry is still owed", memory.form(8).retriesUnblock)
+        assertTrue("the label retry is still owed", memory.form(8).retriesLabels)
     }
 
     @Test fun stoppingTheCurrentListenerSilencesIt() {
