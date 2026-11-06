@@ -206,6 +206,19 @@
                 android:textSize="13sp"
                 android:visibility="gone" />
 
+            <!-- Send an in-review task back to work on its PR (task #65). -->
+            <CheckBox
+                android:id="@+id/preview_reply_request_changes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:buttonTint="@color/widget_accent"
+                android:text="@string/reply_request_changes"
+                android:textColor="@color/widget_text"
+                android:textDirection="locale"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
             <TextView
                 android:id="@+id/preview_reply_message"
                 android:layout_width="match_parent"

@@ -11,5 +11,11 @@
     <string name="reply_failed">Reply not sent: %1$s</string>
     <string name="reply_may_have_posted">It may have reached GitHub: check the issue before sending again.</string>
     <string name="reply_unblock_failed">Reply posted, but the task is still blocked: %1$s Tap Retry unblock.</string>
+    <!-- Request changes on an in-review task (task #65). -->
+    <string name="reply_request_changes">Request changes: send it back to work on its PR</string>
+    <string name="reply_send_request_changes">Request changes</string>
+    <string name="reply_retry_request_changes">Retry send back</string>
+    <string name="reply_sent_changes_requested">Changes requested. The task is back in Todo: the next run continues on its PR</string>
+    <string name="reply_request_changes_failed">Changes posted, but the task is still in review: %1$s Tap Retry send back.</string>
     <string name="reply_too_long">Too long: GitHub takes at most %1$d characters</string>
 </resources>
