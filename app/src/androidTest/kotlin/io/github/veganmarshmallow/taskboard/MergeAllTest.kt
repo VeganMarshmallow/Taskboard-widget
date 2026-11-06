@@ -59,11 +59,7 @@ class MergeAllTest {
     }
 
     @Test fun mergesThreePrsInOrder() {
-        val repo = FakeRepo()
-        val s = FakeGitHubServer(repo::route)
-        server = s
-        TestOverrides.httpClient = s::client
-        TokenStore(context).save("github_pat_TESTONLY")
+        val s = serve()
         store.save(MergeAllState.start("run-57", PLAN, Instant.now()))
 
         var jobs = 0
@@ -134,7 +130,7 @@ class MergeAllTest {
         MergeAllJob.cancel(context)
         assertEquals("no job needed", MergeAllEnd.Cancelled, store.load()!!.end)
         assertTrue(s.received.none { it.method != "GET" })
-        assertEquals(null, MergeAllJob(context).run())
+        assertNull(MergeAllJob(context).run())
     }
 
     @Test fun aStalledRunSaysResumingAndResetClearsAStuckOne() {
@@ -151,6 +147,7 @@ class MergeAllTest {
         assertNull("the line goes away", line(widgetState(), Section.TODO))
     }
 
+    /** A fake GitHub ([FakeRepo]) over real HTTP, and a token. */
     private fun serve(): FakeGitHubServer {
         val repo = FakeRepo()
         val s = FakeGitHubServer(repo::route)

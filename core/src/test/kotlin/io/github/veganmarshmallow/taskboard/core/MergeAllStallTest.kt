@@ -225,5 +225,113 @@ class MergeAllStallTest {
         assertEquals(MergeAllMachine.POLL.plus(BoardJob.MergeAll.DEADLINE_SLACK), poll.runAnywayAfter)
         assertTrue("a missed deadline is stale", poll.runAnywayAfter < MergeAllHealth.STALE_AFTER)
     }
-}
 
+    // --- reviewer's edge cases ---
+
+    @Test fun offlineAtTheStartCallsNothing() {
+        github.add(mergeAllPr(31))
+        store.save(running())
+        online = false
+        assertEquals(MergeAllMachine.POLL, process().run().next)
+        val saved = store.load()!!
+        assertTrue(github.calls.isEmpty())
+        assertEquals(MergeAllPhase.PREPARE, saved.phase)
+        assertTrue(saved.offline)
+        assertEquals("Merging 1 of 1… waiting for network", text.progress(saved, cancelling = false))
+    }
+
+    @Test fun cancelThenResetForgetsTheRun() {
+        waitingRun()
+        val control = MergeAllControl(store) { github.now }
+        assertNull("a step is running: cancel waits", control.cancel(idle = false))
+        assertTrue(store.cancelRequested("run"))
+        assertEquals(MergeAllBanner.Button.RESET, MergeAllBanner.of(store.load(), true, null, true, text, github.now)!!.button)
+        control.reset()
+        assertNull(store.load())
+        assertEquals(MergeAllRunner.Result(null, null), process().run())
+        assertNull(MergeAllBanner.of(store.load(), false, null, false, text, github.now))
+    }
+
+    @Test fun aRunReplacedWhileAStepRanIsNotOverwritten() {
+        waitingRun()
+        github.checkResult = { pr ->
+            store.save(MergeAllState.start("other", planned(31), github.now))
+            MergeStep.Stop(MergeProblem.ChecksRunning(pr, listOf("build")))
+        }
+        github.advance(MergeAllMachine.POLL)
+        val result = process().run()
+        assertNull(result.next)
+        assertEquals("other", store.load()!!.runId)
+        assertEquals(MergeAllPhase.PREPARE, store.load()!!.phase)
+    }
+
+    @Test fun aClockGoingBackwardsIsNeitherStaleNorATimeout() {
+        val state = waitingRun()
+        val earlier = state.updatedAt.minus(Duration.ofHours(2))
+        assertFalse(MergeAllHealth.stale(state, earlier))
+        assertEquals(state, MergeAllHealth.resumed(state, earlier))
+        github.advance(Duration.ofHours(-2))
+        assertEquals(MergeAllMachine.POLL, process().run().next)
+        assertTrue(store.load()!!.running)
+    }
+
+    @Test fun aRunResumedTwiceInARowShiftsItsWaitOnce() {
+        waitingRun()
+        github.advance(Duration.ofHours(3))
+        process().run()
+        val once = store.load()!!.waitSince
+        github.advance(MergeAllMachine.POLL)
+        process().run()
+        assertEquals("the second job finds a fresh run", once, store.load()!!.waitSince)
+    }
+
+    @Test fun aJobRunningLateButByItsDeadlineIsNotStale() {
+        val waiting = waitingRun()
+        github.advance(BoardJob.MergeAll(MergeAllMachine.POLL).runAnywayAfter)
+        assertFalse(MergeAllHealth.stale(store.load(), github.now))
+        process().run()
+        assertEquals("nothing shifted", waiting.waitSince, store.load()!!.waitSince)
+    }
+
+    @Test fun theWaitLimitStillAppliesAfterAResume() {
+        waitingRun()
+        github.advance(Duration.ofHours(3))
+        val resumedAt = github.now
+        var next = process().run().next
+        while (next != null) { github.advance(next); next = process().run().next }
+        val stop = (store.load()!!.end as MergeAllEnd.Stopped).stop
+        assertEquals(MergeAllStop.Kind.CHECKS_TIMEOUT, stop.kind)
+        val polled = Duration.between(resumedAt, github.now)
+        assertTrue("stopped ~60 min after the resume, was $polled", polled >= Duration.ofMinutes(59) && polled <= Duration.ofMinutes(61))
+    }
+
+    @Test fun cancelWithNoRunOrAnEndedRunDoesNothing() {
+        val control = MergeAllControl(store) { github.now }
+        assertNull(control.cancel(idle = true))
+        val ended = running().cancelled(github.now)
+        store.save(ended)
+        assertNull(control.cancel(idle = true))
+        assertFalse(store.cancelRequested("run"))
+        assertEquals(ended, store.load())
+    }
+
+    @Test fun cancelBetweenStepsEndsAtOnceInEveryPhaseButMerge() {
+        for (phase in MergeAllPhase.values()) {
+            store.save(running().copy(phase = phase))
+            val ended = MergeAllControl(store) { github.now }.cancel(idle = true)
+            assertEquals(phase.name, if (phase == MergeAllPhase.MERGE) null else MergeAllEnd.Cancelled, ended?.end)
+            store.clear()
+        }
+    }
+
+    @Test fun aStallBeforeAnyWaitLeavesNoWaitStart() {
+        val state = running()
+        assertNull(MergeAllHealth.resumed(state, state.updatedAt.plus(Duration.ofHours(1))).waitSince)
+    }
+
+    @Test fun aNullOfflineFieldReadsAsOnline() {
+        val json = MergeAllStateCodec.encode(running().copy(offline = true)).replace("\"offline\":true", "\"offline\":null")
+        assertTrue(json.contains("\"offline\":null"))
+        assertFalse(MergeAllStateCodec.decode(json)!!.offline)
+    }
+}
