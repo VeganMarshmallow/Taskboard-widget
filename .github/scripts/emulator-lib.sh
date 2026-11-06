@@ -51,6 +51,6 @@ restart_adb() {
 emulator_verdict() {
   if [ "$1" = success ]; then echo pass
   elif has_test_results "$2"; then echo fail
-  elif [ "${3:-1}" -lt 2 ]; then echo retry
-  else echo fail; fi
+  elif [ "${3:-1}" = 1 ]; then echo retry
+  else echo fail; fi  # attempt 2, or anything unexpected: never retry
 }

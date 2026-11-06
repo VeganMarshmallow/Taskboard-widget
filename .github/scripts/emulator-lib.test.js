@@ -143,6 +143,38 @@ test('emulator_verdict: a missing results dir counts as no results', () => {
   assert.strictEqual(run('emulator_verdict failure nope 1', dir).stdout.trim(), 'retry');
 });
 
+test('emulator_verdict: an unexpected attempt value never retries, and prints no shell error', () => {
+  for (const attempt of ['0', '-1', 'abc', '1.5', '99']) {
+    const dir = sandbox();
+    const r = run(`emulator_verdict failure nope ${attempt}`, dir);
+    assert.strictEqual(r.stdout.trim(), 'fail', attempt);
+    assert.strictEqual(r.stderr, '', attempt);
+  }
+  assert.strictEqual(run('emulator_verdict failure nope', sandbox()).stdout.trim(), 'retry');
+});
+
+test('emulator_verdict: an empty dir or only non-JUnit files count as no results; a zero-byte TEST-*.xml counts', () => {
+  const dir = sandbox();
+  fs.mkdirSync(path.join(dir, 'res dir'));
+  assert.strictEqual(run('emulator_verdict failure "res dir" 1', dir).stdout.trim(), 'retry');
+  fs.writeFileSync(path.join(dir, 'res dir', 'output-metrics.xml'), '<x/>');
+  fs.writeFileSync(path.join(dir, 'res dir', 'test-result.pb'), '');
+  assert.strictEqual(run('emulator_verdict failure "res dir" 1', dir).stdout.trim(), 'retry');
+  fs.writeFileSync(path.join(dir, 'res dir', 'TEST-emulator-5554.xml'), '');
+  assert.strictEqual(run('emulator_verdict failure "res dir" 1', dir).stdout.trim(), 'fail');
+  assert.strictEqual(run('emulator_verdict success "res dir" 1', dir).stdout.trim(), 'pass');
+});
+
+test('build.yml: emulator-recent keeps its own steps (no retry, no shared anchor), and failures after the tests still fail', () => {
+  const yml = fs.readFileSync(path.join(__dirname, '..', 'workflows', 'build.yml'), 'utf8');
+  const recent = yml.split(/\n  emulator-recent:\n/)[1].split(/\n  [\w-]+:\n/)[0];
+  assert.doesNotMatch(recent, /\*emulator-tests|steps\.retry|emulator_verdict/);
+  const job = yml.split(/\n  emulator:\n/)[1].split(/\n  emulator-recent:\n/)[0];
+  // Only the two emulator tries may swallow their failure.
+  assert.strictEqual((job.match(/continue-on-error: true/g) || []).length, 2);
+  assert.match(job, /- name: Annotate instrumented test failure\n\s+if: failure\(\) && steps\.emulator\.outcome == 'failure'\n/);
+});
+
 test('restart_adb kills and restarts the adb server, and never fails', () => {
   const dir = sandbox();
   fs.writeFileSync(path.join(dir, 'adb'), `#!/usr/bin/env bash\necho "$*" >> "${dir}/adb.log"; exit 1\n`, { mode: 0o755 });
