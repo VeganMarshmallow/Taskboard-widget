@@ -68,6 +68,11 @@ class MergeDialogs(private val messages: ErrorMessages, private val board: Repo 
             ).toTypedArray())
             is MergeProblem.MergeabilityUnknown -> refuse("Not ready yet", "GitHub is still working out whether PR #${problem.pr.number} can be merged. Try again in a minute.")
             is MergeProblem.ChecksRunning -> refuse("Checks still running", "Wait for ${names(problem.names)} to finish, then try again.")
+            is MergeProblem.ChecksAwaitingApproval -> refuse(
+                "Checks waiting for approval",
+                "GitHub is holding ${names(problem.names)} on PR #${problem.pr.number} until someone approves it on GitHub.",
+                "A passing build of the same commit replaces it; nothing failed.",
+            )
             is MergeProblem.ChecksFailed -> refuse("Checks failed", "${names(problem.names).replaceFirstChar { it.uppercase() }} failed on PR #${problem.pr.number}.")
             is MergeProblem.NoChecks -> refuse("No checks passed", "No workflow run has passed on PR #${problem.pr.number} (none reported yet, or all skipped).")
             is MergeProblem.HeadChanged -> refuse("PR changed; check again", "PR #${problem.pr.number} got new commits after it was checked. Nothing was merged.")

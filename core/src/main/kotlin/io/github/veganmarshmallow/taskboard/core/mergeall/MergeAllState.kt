@@ -21,7 +21,7 @@ enum class MergeAllPhase {
 /** Why a run stopped at a PR (#57). [detail]: workflow names, or GitHub's own message. */
 data class MergeAllStop(val kind: Kind, val detail: String? = null) {
     enum class Kind {
-        CONFLICT, CHECKS_FAILED, CHECKS_TIMEOUT, NO_CHECKS, PR_CHANGED, PR_CLOSED, DRAFT, STACKED,
+        CONFLICT, CHECKS_FAILED, CHECKS_TIMEOUT, CHECKS_APPROVAL, NO_CHECKS, PR_CHANGED, PR_CLOSED, DRAFT, STACKED,
         NO_ACCESS, NO_ACTIONS_ACCESS, RATE_LIMITED, NO_TOKEN, NETWORK, ERROR,
     }
 }
