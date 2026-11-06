@@ -21,30 +21,23 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp" />
 
-    <LinearLayout
+    <!-- #46 round 2: stacked full-width buttons, so "Check for updates" never wraps beside Update. -->
+    <Button
+        android:id="@+id/update_install"
+        style="?attr/tbButtonPrimary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:orientation="horizontal">
+        android:layout_marginTop="12dp"
+        android:text="@string/update_install"
+        android:visibility="gone" />
 
-        <Button
-            android:id="@+id/update_check"
-            style="?attr/tbButtonSecondary"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/update_check" />
-
-        <Button
-            android:id="@+id/update_install"
-            style="?attr/tbButtonPrimary"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:layout_weight="1"
-            android:text="@string/update_install"
-            android:visibility="gone" />
-    </LinearLayout>
+    <Button
+        android:id="@+id/update_check"
+        style="?attr/tbButtonSecondary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/update_check" />
 
     <TextView
         style="?attr/tbCaption"

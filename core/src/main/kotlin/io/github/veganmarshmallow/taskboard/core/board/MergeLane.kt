@@ -14,6 +14,9 @@ enum class MergeWait {
     CHECKS_RUNNING,
     CHECKS_FAILED,
 
+    /** A run GitHub holds for approval, and no passing build of the same commit replaces it (#64). */
+    CHECKS_APPROVAL,
+
     /** No workflow run on the current head yet (just updated), or none passed. */
     NO_CHECKS,
 

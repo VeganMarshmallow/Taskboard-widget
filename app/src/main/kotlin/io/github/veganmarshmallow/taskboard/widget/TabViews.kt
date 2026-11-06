@@ -34,6 +34,7 @@ class TabViews(private val context: Context) {
     }
 
     private fun recolour(views: RemoteViews, ids: Ids, palette: WidgetPalette) {
+        views.setInt(ids.label, "setBackgroundResource", palette.tabBackground)
         views.setInt(ids.selectedLabel, "setBackgroundResource", palette.tabSelectedBackground)
         colors.setTextColor(views, ids.selectedLabel, palette.tabSelectedText)
         colors.setTextColor(views, ids.label, palette.tabText)

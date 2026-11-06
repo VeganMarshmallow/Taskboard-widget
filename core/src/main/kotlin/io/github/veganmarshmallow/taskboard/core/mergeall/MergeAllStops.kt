@@ -10,6 +10,7 @@ object MergeAllStops {
         is MergeProblem.Conflicts -> MergeAllStop(Kind.CONFLICT, problem.detail)
         is MergeProblem.ChecksFailed -> MergeAllStop(Kind.CHECKS_FAILED, problem.names.joinToString(", "))
         is MergeProblem.ChecksRunning -> MergeAllStop(Kind.CHECKS_TIMEOUT, problem.names.joinToString(", "))
+        is MergeProblem.ChecksAwaitingApproval -> MergeAllStop(Kind.CHECKS_APPROVAL, problem.names.joinToString(", "))
         is MergeProblem.NoChecks -> MergeAllStop(Kind.NO_CHECKS)
         is MergeProblem.MergeabilityUnknown -> MergeAllStop(Kind.ERROR, "GitHub couldn't tell whether it can be merged")
         is MergeProblem.HeadChanged -> MergeAllStop(Kind.PR_CHANGED)
@@ -37,7 +38,12 @@ object MergeAllStops {
         else -> false
     }
 
-    /** A wait that may end by itself: checks running or not registered yet, or `mergeable` still being computed. */
+    /**
+     * A wait that may end by itself: checks running or not registered yet, `mergeable` still being
+     * computed, or a run held for approval (#64: the build the update workflow dispatches replaces it
+     * once it passes, and that run may not be registered yet).
+     */
     fun stillWaiting(problem: MergeProblem): Boolean =
-        problem is MergeProblem.ChecksRunning || problem is MergeProblem.NoChecks || problem is MergeProblem.MergeabilityUnknown
+        problem is MergeProblem.ChecksRunning || problem is MergeProblem.NoChecks || problem is MergeProblem.MergeabilityUnknown ||
+            problem is MergeProblem.ChecksAwaitingApproval
 }

@@ -33,7 +33,7 @@
         <item name="android:autoSizeStepGranularity">1dp</item>
     </style>
 
-    <!-- The selected tab's label: a tonal pill (calm) or an underline (ink, set by WidgetPalette). Hidden until the app shows it. -->
+    <!-- The selected tab's label: a clay pill (calm) or solid ink (ink, set by WidgetPalette). Hidden until the app shows it. -->
     <style name="WidgetTab.Selected">
         <item name="android:background">@drawable/tab_selected_background</item>
         <item name="android:textColor">@color/widget_accent_text</item>

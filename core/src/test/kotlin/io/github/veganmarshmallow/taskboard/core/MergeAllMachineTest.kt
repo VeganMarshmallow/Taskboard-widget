@@ -156,6 +156,23 @@ class MergeAllMachineTest {
         assertFalse(Duration.between(started, github.now) < MergeAllMachine.CHECKS_TIMEOUT)
     }
 
+    @Test fun aRunHeldForApprovalIsWaitedForUntilTheDispatchedBuildReplacesIt() {
+        // #64: the held pull_request run shows up before the dispatched build is registered.
+        github.add(mergeAllPr(31))
+        var polls = 0
+        github.checkResult = { pr -> if (++polls < 3) MergeStep.Stop(MergeProblem.ChecksAwaitingApproval(pr, listOf("build"))) else MergeStep.Ok(pr) }
+        assertEquals(MergeAllEnd.Done, drive(start(31)).end)
+        assertEquals(3, polls)
+    }
+
+    @Test fun aRunHeldForApprovalForeverStopsAfterTheTimeoutAndSaysSo() {
+        github.add(mergeAllPr(31))
+        github.checkResult = { MergeStep.Stop(MergeProblem.ChecksAwaitingApproval(it, listOf("build"))) }
+        val stop = stopOf(drive(start(31))).stop
+        assertEquals(Kind.CHECKS_APPROVAL, stop.kind)
+        assertEquals("build", stop.detail)
+    }
+
     @Test fun noPassingChecksStopAfterTheTimeout() {
         github.add(mergeAllPr(31))
         github.checkResult = { MergeStep.Stop(MergeProblem.NoChecks(it)) }

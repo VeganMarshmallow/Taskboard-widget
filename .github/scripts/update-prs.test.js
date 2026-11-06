@@ -17,7 +17,7 @@ function http(status, message) {
 }
 
 /** A fake Octokit recording every write. [behind]: behind_by per head SHA; [conflicts]: PRs whose update fails. */
-function fake({ open, closed = [], behind = {}, conflicts = [], updateError = {}, headMoves = true, retargetError = null, dispatchError = null, rejectInputs = false }) {
+function fake({ open, closed = [], behind = {}, conflicts = [], updateError = {}, headMoves = true, retargetError = null, dispatchError = null, rejectInputs = false, held = {} }) {
   const calls = [];
   const inputs = {}; // dispatch inputs per branch
   const counts = { paginated: 0 };
@@ -47,6 +47,13 @@ function fake({ open, closed = [], behind = {}, conflicts = [], updateError = {}
       removeLabel: async (args) => { calls.push(['unlabel', args.issue_number, args.name]); },
     },
     actions: {
+      // held: runs GitHub lists per head SHA (#64); the fake honours the filters the script sends.
+      listWorkflowRuns: async (args) => {
+        counts.listed = (counts.listed || 0) + 1;
+        const runs = (held[args.head_sha] || []).filter((r) => r.event === args.event && r.conclusion === args.status);
+        return { data: { total_count: runs.length, workflow_runs: runs } };
+      },
+      deleteWorkflowRun: async (args) => { calls.push(['drop', args.run_id]); },
       createWorkflowDispatch: async (args) => {
         if (rejectInputs && args.inputs) throw http(422, 'Unexpected inputs provided: ["full"]');
         calls.push(['dispatch', args.workflow_id, args.ref]); inputs[args.ref] = args.inputs; if (dispatchError) throw dispatchError;
@@ -66,7 +73,7 @@ function fake({ open, closed = [], behind = {}, conflicts = [], updateError = {}
       return closed.filter((p) => p.head.ref === branch);
     },
   };
-  const run = () => updatePrs({ github, owner: OWNER, repo: REPO, main: 'main', log: () => {}, wait: async () => {}, headPolls: 3, pollMs: 0 });
+  const run = () => updatePrs({ github, owner: OWNER, repo: REPO, main: 'main', log: () => {}, wait: async () => {}, headPolls: 3, heldPolls: 2, pollMs: 0 });
   return { calls, counts, run, inputs };
 }
 
@@ -232,4 +239,36 @@ test('conflict detection: 422 conflict vs other 422 vs other statuses', () => {
   assert.ok(!isConflict(null));
   assert.ok(isWorkflowRefusal(http(403, 'without `workflows` permission')));
   assert.ok(!isWorkflowRefusal(http(403, 'Resource not accessible by integration')));
+});
+
+// --- #64: the pull_request run GitHub holds for approval after a GITHUB_TOKEN update ---
+
+function heldRun(id, sha, { by = 'github-actions[bot]', event = 'pull_request', conclusion = 'action_required' } = {}) {
+  return { id, head_sha: sha, event, conclusion, status: 'completed', triggering_actor: { login: by }, actor: { login: by } };
+}
+
+test('the held pull_request run on the new head is deleted after the dispatch: one real CI run per update', async () => {
+  const f = fake({ open: [pr(45)], behind: { sha45: 1 }, held: { new45: [heldRun(329, 'new45')] } });
+  assert.deepStrictEqual(await f.run(), [{ number: 45, action: 'updated' }]);
+  assert.deepStrictEqual(f.calls, [['update', 45, 'sha45'], ['dispatch', 'build.yml', 'claude/45-x'], ['drop', 329]]);
+});
+
+test('held runs started by someone else, other events or the old head are left alone', async () => {
+  const f = fake({
+    open: [pr(45)],
+    behind: { sha45: 1 },
+    held: { new45: [heldRun(1, 'new45', { by: 'VeganMarshmallow' }), heldRun(2, 'new45', { event: 'push' }), heldRun(3, 'new45', { conclusion: 'success' })], sha45: [heldRun(4, 'sha45')] },
+  });
+  await f.run();
+  assert.ok(!f.calls.some((c) => c[0] === 'drop'), JSON.stringify(f.calls));
+  assert.strictEqual(f.counts.listed, 2, 'looks heldPolls times, then gives up');
+});
+
+test('no held run to look for when the head has not moved yet, or nothing was updated', async () => {
+  const slow = fake({ open: [pr(22)], behind: { sha22: 1 }, headMoves: false, held: { sha22: [heldRun(9, 'sha22')] } });
+  await slow.run();
+  assert.ok(!slow.counts.listed, 'the old head is never touched');
+  const upToDate = fake({ open: [pr(22)] });
+  await upToDate.run();
+  assert.ok(!upToDate.counts.listed);
 });

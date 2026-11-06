@@ -29,47 +29,20 @@
             android:layout_marginTop="24dp"
             android:text="@string/setup_title" />
 
-        <TextView
-            android:id="@+id/instructions"
-            style="?attr/tbBody"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/setup_instructions"
-            android:textColor="?attr/tbMuted"
-            android:textSize="14sp" />
-
-        <TextView
-            android:id="@+id/merge_instructions"
-            style="?attr/tbBody"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="@string/setup_merge_instructions"
-            android:textColor="?attr/tbMuted"
-            android:textSize="14sp" />
-
-        <Button
-            android:id="@+id/create_token"
-            style="?attr/tbButtonText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="@string/create_token" />
-
+        <!-- #46 round 2: one short hint; the full token steps sit behind "Setup steps". -->
         <TextView
             style="?attr/tbCaption"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="@string/token_label" />
+            android:layout_marginTop="4dp"
+            android:text="@string/setup_hint" />
 
         <EditText
             android:id="@+id/token"
             style="?attr/tbField"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="14dp"
             android:fontFamily="monospace"
             android:hint="@string/token_hint"
             android:importantForAutofill="no"
@@ -118,6 +91,57 @@
             android:text="@string/clear_token"
             android:visibility="gone" />
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/create_token"
+                style="?attr/tbButtonText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/create_token" />
+
+            <Button
+                android:id="@+id/token_help_toggle"
+                style="?attr/tbButtonText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:text="@string/token_help_show" />
+        </LinearLayout>
+
+        <!-- The full steps, folded until asked for. Bound by setup/TokenHelp.kt. -->
+        <LinearLayout
+            android:id="@+id/token_help"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/instructions"
+                style="?attr/tbBody"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/setup_instructions"
+                android:textColor="?attr/tbMuted"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/merge_instructions"
+                style="?attr/tbBody"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/setup_merge_instructions"
+                android:textColor="?attr/tbMuted"
+                android:textSize="14sp" />
+        </LinearLayout>
+
         <View style="@style/SettingsDivider" />
 
         <!-- #46: the theme switch. Bound by setup/ThemeSection.kt. -->
@@ -132,13 +156,6 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/settings_appearance" />
-
-            <TextView
-                style="?attr/tbCaption"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="@string/settings_theme_note" />
 
             <RadioGroup
                 android:id="@+id/theme_choice"

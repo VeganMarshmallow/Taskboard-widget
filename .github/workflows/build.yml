@@ -12,6 +12,9 @@ name: build
 #   (core/merge/WorkflowRuns.kt): a workflow with only partial runs on the PR head isn't a pass, so it
 #   waits for the full pull_request run instead of being satisfied by the push run's `build`.
 #   Keep the run-name condition in sync with FULL_CI below.
+# - #64: when update-prs.yml updates a PR with GITHUB_TOKEN, GitHub holds this workflow's pull_request
+#   run for approval (no jobs run; a job `if:` can't prevent it). update-prs dispatches this workflow
+#   instead and deletes the held run; the Merge button also ignores a held run once a full run passed.
 run-name: >-
   ${{ format('build: {0}{1}', github.head_ref || github.ref_name,
   (!((github.event_name == 'push' && github.ref == 'refs/heads/main')
@@ -42,6 +45,9 @@ env:
   # The branch and commit being built. A pull_request run checks out the PR head (not GitHub's merge
   # commit), so it tests the same code as the push run and its preview release can point at that commit.
   BRANCH: ${{ github.head_ref || github.ref_name }}
+  # Release signing key (#27). Not in the repo; empty on forks, where nothing is published.
+  SIGNING_KEYSTORE_B64: ${{ secrets.SIGNING_KEYSTORE_B64 }}
+  SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
   HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 # A new push cancels the older run of the same branch (or PR) and event. Push and pull_request runs
@@ -93,6 +99,13 @@ jobs:
         if: always() && steps.test.outcome != 'skipped'
         run: .github/scripts/test-summary.sh core/build/test-results/test
 
+      - name: Decode release signing key
+        if: env.SIGNING_KEYSTORE_B64 != ''
+        run: |
+          set -euo pipefail
+          printf '%s' "$SIGNING_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "SIGNING_STORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
       - name: Assemble release APK
         id: assemble
         run: |
@@ -139,8 +152,9 @@ jobs:
       - name: Publish APK to release
         id: publish
         # A forked PR's token can't write releases (and its branch name could collide with ours).
+        # Only APKs signed with the release key are published, so updates always install over the app.
         if: >-
-          env.FULL_CI == 'true' && (github.event_name != 'pull_request'
+          env.FULL_CI == 'true' && env.SIGNING_KEYSTORE_B64 != '' && (github.event_name != 'pull_request'
           || github.event.pull_request.head.repo.full_name == github.repository)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -174,8 +188,9 @@ jobs:
 
   # Instrumented tests on an emulator, plus the PR screenshots (uploaded next to the APK).
   # Full runs only (see the top of this file).
-  # The AVD (with a booted snapshot) is cached per API level. Only main saves it: a cache saved on a
-  # branch is visible to that branch alone, and these are GBs of the repo's 10 GB cache quota.
+  # The AVD (with a booted snapshot) is cached per API level; .github/actions/avd-setup sets it up
+  # (#54). Only main saves it: a cache saved on a branch is visible to that branch alone, and these
+  # are GBs of the repo's 10 GB cache quota.
   emulator:
     needs: build
     if: needs.build.outputs.full == 'true'
@@ -189,64 +204,21 @@ jobs:
         with:
           ref: ${{ env.HEAD_SHA }}
 
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - uses: gradle/actions/setup-gradle@v5
-
-      # Hardware acceleration for the emulator (from the android-emulator-runner README).
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      # The restored AVD cache (GBs) plus the system image sdkmanager installs overflow the runner's
-      # disk ("No space left on device"). Drop preinstalled toolchains this repo never uses.
-      - name: Free disk space
-        run: |
-          df -h /
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost
-          df -h /
-
-      - name: Restore AVD snapshot
-        id: avd
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: ${{ env.AVD_KEY }}
-
-      # From the android-emulator-runner README: boot once, save the snapshot, cache it.
-      - name: Create AVD snapshot (main only, on a cache miss)
-        if: steps.avd.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
-        uses: reactivecircus/android-emulator-runner@v2
+      # Java, Gradle, KVM, disk space and the cached AVD snapshot (created and saved on main only).
+      - uses: ./.github/actions/avd-setup
         with:
           api-level: 30
-          arch: x86_64
-          target: google_apis
-          profile: pixel_5
-          force-avd-creation: false
-          disable-animations: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: echo "AVD snapshot created"
+          cache-key: ${{ env.AVD_KEY }}
 
-      - name: Save AVD snapshot
-        if: steps.avd.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: ${{ env.AVD_KEY }}
-
+      # #58: about one run in three, system_server dies right after the snapshot loads, so the
+      # runner's own `adb shell input keyevent 82` fails (DeadSystemException, adb exit 1) before
+      # the script starts. A re-run always passed, so the step runs once more, but only when no test
+      # result exists yet: a real test failure is never retried.
       - name: Instrumented tests and screenshots
         id: emulator
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
-        with:
+        with: &emulator-tests
           api-level: 30
           arch: x86_64
           target: google_apis
@@ -255,6 +227,28 @@ jobs:
           disable-animations: true
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: .github/scripts/emulator-tests.sh
+
+      - name: Retry only if no test ran
+        id: retry
+        if: steps.emulator.outcome == 'failure'
+        run: |
+          . .github/scripts/emulator-lib.sh
+          if has_test_results app/build/outputs/androidTest-results/connected/debug; then
+            echo "retry=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning title=Emulator retried::the emulator or adb failed before any instrumented test result existed"
+            stop_emulator 30
+            echo "retry=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Instrumented tests and screenshots (retry)
+        if: steps.retry.outputs.retry == 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with: *emulator-tests
+
+      - name: Fail on instrumented test failure
+        if: steps.emulator.outcome == 'failure' && steps.retry.outputs.retry != 'true'
+        run: exit 1
 
       - name: Annotate instrumented test failure
         if: failure() && steps.emulator.outcome == 'failure'
@@ -283,7 +277,8 @@ jobs:
   # widget update instead of through a RemoteViewsService; API 30 above only covers the old path.
   # (API 36 never finished booting on these runners.) Only the tab tests run, to keep it short.
   # It costs ~10 emulator minutes, so the "scope" step skips it (the job still passes) unless the
-  # push is to main or the branch changes the widget code, these tests, their host or this file.
+  # push is to main or the branch changes the widget code, these tests, their host, this file or
+  # the avd-setup action.
   # Like `emulator`, full runs only, with the AVD snapshot cached from main.
   emulator-recent:
     needs: build
@@ -306,69 +301,18 @@ jobs:
           tests='^app/src/androidTest/kotlin/.*/(TabFlashRealHostTest|TabTapRealHostTest|InlineListTest|RealWidgetHost)\.kt$'
           if [ "$GITHUB_REF_NAME" = main ]; then run=true
           elif ! base="$(git merge-base origin/main HEAD 2>/dev/null)"; then run=true
-          elif git diff --name-only "$base" HEAD > changed.txt && grep -qE "$widget|$tests|^\.github/workflows/build\.yml$" changed.txt; then run=true
+          elif git diff --name-only "$base" HEAD > changed.txt && grep -qE "$widget|$tests|^\.github/workflows/build\.yml$|^\.github/actions/avd-setup/" changed.txt; then run=true
           else run=false; fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
           [ "$run" = true ] || echo "::notice title=Recent-Android tab tests skipped::no widget list changes on this branch"
 
-      - uses: actions/setup-java@v5
+      - uses: ./.github/actions/avd-setup
         if: steps.scope.outputs.run == 'true'
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - uses: gradle/actions/setup-gradle@v5
-        if: steps.scope.outputs.run == 'true'
-
-      - name: Enable KVM
-        if: steps.scope.outputs.run == 'true'
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      # The restored AVD cache (GBs) plus the system image sdkmanager installs overflow the runner's
-      # disk ("No space left on device"). Drop preinstalled toolchains this repo never uses.
-      - name: Free disk space
-        if: steps.scope.outputs.run == 'true'
-        run: |
-          df -h /
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost
-          df -h /
-
-      - name: Restore AVD snapshot
-        id: avd
-        if: steps.scope.outputs.run == 'true'
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: ${{ env.AVD_KEY }}
-
-      - name: Create AVD snapshot (main only, on a cache miss)
-        if: steps.scope.outputs.run == 'true' && steps.avd.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
-        uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
-          arch: x86_64
-          target: google_apis
-          profile: pixel_5
-          force-avd-creation: false
-          disable-animations: false
-          emulator-boot-timeout: 1200
           ram-size: 4096M
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: echo "AVD snapshot created"
-
-      - name: Save AVD snapshot
-        if: steps.scope.outputs.run == 'true' && steps.avd.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: ${{ env.AVD_KEY }}
+          emulator-boot-timeout: 1200
+          cache-key: ${{ env.AVD_KEY }}
 
       - name: Tab tests on a recent Android
         id: emulator
