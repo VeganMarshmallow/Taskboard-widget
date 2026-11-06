@@ -10,5 +10,9 @@ fun <T> Timed<Outcome<T>>.toOutcome(): Outcome<T> = when (this) {
     Timed.TimedOut -> Outcome.Failure(BoardError.Timeout)
 }
 
-/** The error for a bug or platform failure inside background work. Safe to show: only the exception's type. */
-fun crashError(error: Throwable): BoardError = BoardError.Unexpected("internal error: ${error.javaClass.simpleName}")
+/**
+ * The error for a bug or platform failure inside the app. Safe to show: only the exception's type
+ * (for an anonymous class, its nearest named superclass), never its message.
+ */
+fun crashError(error: Throwable): BoardError =
+    BoardError.Internal(generateSequence<Class<*>>(error.javaClass) { it.superclass }.map { it.simpleName }.first { it.isNotEmpty() })

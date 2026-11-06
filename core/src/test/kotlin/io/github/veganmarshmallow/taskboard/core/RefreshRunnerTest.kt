@@ -66,7 +66,7 @@ class RefreshRunnerTest {
     @Test fun crashesIncludingErrorsEndInAnErrorState() {
         listOf<Throwable>(IllegalStateException("x"), NoSuchMethodError("encode"), StackOverflowError(), OutOfMemoryError()).forEach { t ->
             val r = runner().run { throw t }
-            assertEquals("$t", BoardError.Unexpected("internal error: ${t.javaClass.simpleName}"), r.state().error)
+            assertEquals("$t", BoardError.Internal(t.javaClass.simpleName), r.state().error)
             assertEquals(Status.IDLE, tracker.status())
         }
     }
@@ -87,7 +87,7 @@ class RefreshRunnerTest {
         disk.state = WidgetState(board, null, NOW)
         disk.failSaves = true
         val r = runner().run { it.withBoard(board) } // never throws: the widget must get something to render
-        assertEquals(BoardError.Unexpected("internal error: IllegalStateException"), r.state().error)
+        assertEquals(BoardError.Internal("IllegalStateException"), r.state().error)
         assertEquals("the board on disk is what the list shows", board, r.state().board)
         assertEquals(Status.IDLE, tracker.status())
     }
@@ -98,7 +98,7 @@ class RefreshRunnerTest {
         disk.failSaves = true
         val r = runner().run { it.withBoard(newer) }
         assertEquals("every render reads the store, so it must show the failure", r.state(), states.load())
-        assertEquals(BoardError.Unexpected("internal error: IllegalStateException"), states.load().error)
+        assertEquals(BoardError.Internal("IllegalStateException"), states.load().error)
         assertEquals("nothing unsaved reaches the disk", saved, disk.state)
     }
 

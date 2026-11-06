@@ -74,6 +74,13 @@ class PreviewScreenshotTest {
 
     // --- added in review ---
 
+    /** #55: a crash in the app is not blamed on GitHub. */
+    @Test fun approveCrashSaysTheAppFailed() {
+        val v = capture("55-preview-approve-app-error", FakePreviews.approveCrashed(), heightDp = 520)
+        assertEquals("Couldn't approve #11: Something went wrong in the app (IllegalStateException)", v.text(R.id.preview_error))
+        assertTrue(!v.text(R.id.preview_error).contains("GitHub"))
+    }
+
     @Test fun issueDeletedOrMoved() {
         val v = capture("11-7-preview-issue-gone", FakePreviews.issueGone(), heightDp = 340)
         assertTrue(v.text(R.id.preview_error).contains("not found"))

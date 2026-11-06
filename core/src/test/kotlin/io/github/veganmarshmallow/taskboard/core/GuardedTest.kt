@@ -17,7 +17,7 @@ class GuardedTest {
         Thread.interrupted()
     }
 
-    private fun unexpected(type: String) = Outcome.Failure(BoardError.Unexpected("internal error: $type"))
+    private fun unexpected(type: String) = Outcome.Failure(BoardError.Internal(type))
 
     @Test fun passesResultsThrough() {
         assertEquals(Outcome.Success(Unit), guarded { Outcome.Success(Unit) })
@@ -39,14 +39,14 @@ class GuardedTest {
     @Test fun theErrorNeverCarriesTheExceptionMessage() {
         val token = "github_pat_SECRET123"
         val r = guarded<Unit> { throw IllegalArgumentException("Authorization: Bearer $token") }
-        val detail = ((r as Outcome.Failure).error as BoardError.Unexpected).detail
+        val detail = ((r as Outcome.Failure).error as BoardError.Internal).type
         assertFalse(detail, detail.contains(token))
         assertFalse(detail.contains("Bearer"))
     }
 
     @Test fun anonymousExceptionsStillGetADetail() {
         val r = guarded<Unit> { throw object : RuntimeException("x") {} }
-        assertTrue(r is Outcome.Failure && (r.error as BoardError.Unexpected).detail.startsWith("internal error:"))
+        assertEquals(BoardError.Internal("RuntimeException"), (r as Outcome.Failure).error) // named after its superclass
     }
 
     @Test fun fatalVmErrorsAreRethrown() {

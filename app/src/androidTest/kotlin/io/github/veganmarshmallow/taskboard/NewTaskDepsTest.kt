@@ -106,7 +106,7 @@ class NewTaskDepsTest {
         val controller = NewTaskController(syncDeps({ throw IllegalStateException("boom") }))
         sendNow(controller)
         assertEquals(
-            Outcome.Failure(BoardError.Unexpected("internal error: IllegalStateException")),
+            Outcome.Failure(BoardError.Internal("IllegalStateException")),
             controller.session.takeResult(),
         )
         assertFalse(controller.session.isSubmitting)

@@ -29,6 +29,7 @@ object MergeAllStops {
         BoardError.Network, BoardError.Unreachable, BoardError.Timeout, is BoardError.Server -> MergeAllStop(Kind.NETWORK)
         is BoardError.IssueGone -> MergeAllStop(Kind.ERROR, "issue #${error.number} is gone")
         is BoardError.Unexpected -> MergeAllStop(Kind.ERROR, error.detail)
+        is BoardError.Internal -> MergeAllStop(Kind.ERROR, "internal error: ${error.type}")
     }
 
     /** Trouble that may clear by itself (network, timeout, GitHub 5xx): a wait goes on through it. */

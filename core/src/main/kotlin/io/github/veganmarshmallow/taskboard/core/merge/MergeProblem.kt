@@ -2,6 +2,7 @@ package io.github.veganmarshmallow.taskboard.core.merge
 
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.model.Repo
+import io.github.veganmarshmallow.taskboard.core.work.crashError
 
 /** Why a task's PR can't be merged from the widget (now, or at all). [pr] is null when no PR was settled on. */
 sealed class MergeProblem {
@@ -71,5 +72,5 @@ sealed class MergeStep<out T> {
 inline fun <T> guardedStep(block: () -> MergeStep<T>): MergeStep<T> = try {
     block()
 } catch (e: RuntimeException) {
-    MergeStep.Stop(MergeProblem.Failed(BoardError.Unexpected("internal error: ${e.javaClass.simpleName}")))
+    MergeStep.Stop(MergeProblem.Failed(crashError(e)))
 }

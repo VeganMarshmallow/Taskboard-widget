@@ -27,13 +27,25 @@ class WidgetStateTest {
         val errors = listOf(
             null, BoardError.NoToken, BoardError.BadToken(401), BoardError.NoAccess,
             BoardError.RateLimited(NOW), BoardError.RateLimited(null), BoardError.Network, BoardError.Unreachable,
-            BoardError.Server(503), BoardError.Unexpected("x \"y\""),
+            BoardError.Server(503), BoardError.Unexpected("x \"y\""), BoardError.Internal("IllegalStateException"),
+            BoardError.Internal(""), BoardError.Unexpected("internal errors happen"),
         )
         errors.forEach { error ->
             val state = WidgetState(board, error, NOW)
             assertEquals(state, WidgetStateCodec.decode(WidgetStateCodec.encode(state)))
         }
         assertEquals(WidgetState.INITIAL, WidgetStateCodec.decode(WidgetStateCodec.encode(WidgetState.INITIAL)))
+    }
+
+    /** #55: a crash saved before Internal existed was an Unexpected "internal error: <type>". */
+    @Test fun aCrashStoredAsUnexpectedBeforeIssue55DecodesAsInternal() {
+        fun stored(detail: String) = WidgetStateCodec.decode(
+            WidgetStateCodec.encode(WidgetState(board, BoardError.Unexpected(detail), NOW)),
+        ).error
+        assertEquals(BoardError.Internal("IllegalStateException"), stored("internal error: IllegalStateException"))
+        assertEquals(BoardError.Unexpected("HTTP 418"), stored("HTTP 418"))
+        assertEquals(BoardError.Unexpected("internal error"), stored("internal error"))
+        assertEquals(BoardError.Internal(""), stored("internal error: "))
     }
 
     @Test fun decodeNeverThrowsOnGarbage() {

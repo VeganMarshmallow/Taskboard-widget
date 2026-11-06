@@ -171,4 +171,7 @@ object FakePreviews {
     fun issueGone(): PreviewScreen = cachedWhileLoading().issueFailed(BoardError.IssueGone(17))
 
     fun expiredToken(): PreviewScreen = cachedWhileLoading().issueFailed(BoardError.BadToken(401))
+
+    /** #55: Approve hit a bug inside the app, not a GitHub answer. */
+    fun approveCrashed(): PreviewScreen = todoLoaded().approveStarted().approveFailed(BoardError.Internal("IllegalStateException"))
 }

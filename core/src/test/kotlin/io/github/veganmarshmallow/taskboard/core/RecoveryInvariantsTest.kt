@@ -28,7 +28,7 @@ class RecoveryInvariantsTest {
     private val transient = listOf(BoardError.Network, BoardError.Unreachable, BoardError.Timeout, BoardError.Server(500), BoardError.Server(503))
     private val permanent = listOf(
         BoardError.NoToken, BoardError.BadToken(401), BoardError.BadToken(403), BoardError.NoAccess, BoardError.RateLimited(null),
-        BoardError.RateLimited(NOW), BoardError.IssueGone(1), BoardError.Unexpected("internal error: RuntimeException"),
+        BoardError.RateLimited(NOW), BoardError.IssueGone(1), BoardError.Internal("RuntimeException"),
     )
     private val steady = Duration.ofMinutes(30)
 

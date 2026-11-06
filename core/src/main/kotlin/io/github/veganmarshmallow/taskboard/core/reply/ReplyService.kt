@@ -6,6 +6,7 @@ import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.merge.PullRequest
 import io.github.veganmarshmallow.taskboard.core.merge.TaskPrLookup
 import io.github.veganmarshmallow.taskboard.core.model.Labels
+import io.github.veganmarshmallow.taskboard.core.work.crashError
 
 /**
  * Answers Claude from the task preview (tasks #44, #65), on the board repo [api] is configured with.
@@ -31,7 +32,7 @@ class ReplyService(
             is ReplyAction.Move -> move(issue, action.move)
         }
     } catch (e: RuntimeException) {
-        ReplyResult.Failed(action.step, BoardError.Unexpected("internal error: ${e.javaClass.simpleName}"))
+        ReplyResult.Failed(action.step, crashError(e))
     }
 
     private fun post(issue: Int, action: ReplyAction.Post): ReplyResult {

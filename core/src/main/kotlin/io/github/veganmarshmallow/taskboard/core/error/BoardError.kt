@@ -41,4 +41,10 @@ sealed class BoardError {
 
     /** A status code or body we did not expect. [detail] is safe to show (it never contains the token). */
     data class Unexpected(val detail: String) : BoardError()
+
+    /**
+     * A bug or platform failure inside the app itself; GitHub may never have been asked.
+     * [type] is only the exception's simple class name, so it is safe to show.
+     */
+    data class Internal(val type: String) : BoardError()
 }

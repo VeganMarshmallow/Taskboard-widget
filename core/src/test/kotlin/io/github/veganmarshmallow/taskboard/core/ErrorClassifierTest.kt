@@ -4,6 +4,7 @@ import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.error.ErrorClassifier
 import io.github.veganmarshmallow.taskboard.core.error.ErrorMessages
 import io.github.veganmarshmallow.taskboard.core.http.HttpResponse
+import io.github.veganmarshmallow.taskboard.core.work.crashError
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -77,7 +78,7 @@ class ErrorClassifierTest {
         val all = listOf(
             BoardError.NoToken, BoardError.BadToken(401), BoardError.BadToken(403), BoardError.NoAccess,
             BoardError.RateLimited(NOW), BoardError.RateLimited(null), BoardError.Network, BoardError.Unreachable,
-            BoardError.Server(502), BoardError.Unexpected("bad"),
+            BoardError.Server(502), BoardError.Unexpected("bad"), BoardError.Internal("IllegalStateException"),
         )
         all.forEach {
             val m = messages.widgetMessage(it)
@@ -96,5 +97,18 @@ class ErrorClassifierTest {
         assertTrue(messages.opensSetup(BoardError.NoAccess))
         assertFalse(messages.opensSetup(BoardError.Network))
         assertFalse(messages.opensSetup(BoardError.RateLimited(null)))
+    }
+
+    /** #55: a crash inside the app is not blamed on GitHub. */
+    @Test fun aLocalCrashIsNotCalledAGitHubResponse() {
+        val messages = ErrorMessages { "14:05" }
+        val crash = crashError(IllegalStateException("Authorization: Bearer $TOKEN"))
+        assertEquals(BoardError.Internal("IllegalStateException"), crash)
+        assertEquals("Something went wrong in the app (IllegalStateException)", messages.message(crash))
+        assertFalse(messages.message(crash).contains("GitHub"))
+        assertFalse(messages.message(crash).contains(TOKEN))
+        assertTrue(messages.widgetMessage(crash).endsWith("tap to retry"))
+        assertFalse(messages.opensSetup(crash))
+        assertEquals("Unexpected response from GitHub (HTTP 418)", messages.message(BoardError.Unexpected("HTTP 418")))
     }
 }

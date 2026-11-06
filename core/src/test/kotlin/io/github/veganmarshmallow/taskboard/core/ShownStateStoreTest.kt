@@ -11,7 +11,7 @@ class ShownStateStoreTest {
     private val disk = MemoryStateStore()
     private val store = ShownStateStore(disk)
     private val saved = WidgetState(null, null, NOW)
-    private val failure = saved.withError(BoardError.Unexpected("internal error: IllegalStateException"), NOW)
+    private val failure = saved.withError(BoardError.Internal("IllegalStateException"), NOW)
 
     @Test fun showsTheDiskWhenNothingIsUnsaved() {
         disk.state = saved
