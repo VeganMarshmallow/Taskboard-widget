@@ -102,7 +102,7 @@ class PreviewScreenshotTest {
         val v = capture("43-1-preview-claude-comment-collapsed", FakePreviews.blockedWithLongComment(), heightDp = 640)
         assertTrue(v.visible(R.id.preview_claude_need))
         assertTrue(v.text(R.id.preview_claude_need_text).startsWith("add a DEPLOY_KEY secret"))
-        assertEquals(4, v.findViewById<TextView>(R.id.preview_claude_text).maxLines)
+        assertEquals(1, v.findViewById<TextView>(R.id.preview_claude_text).maxLines) // #46: one line + Show more
         assertEquals(context.getString(R.string.preview_show_more), v.text(R.id.preview_claude_toggle))
     }
 

@@ -6,9 +6,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.veganmarshmallow.taskboard.core.tags.Rgb
 import io.github.veganmarshmallow.taskboard.core.tags.TagPill
-import io.github.veganmarshmallow.taskboard.core.tags.TextTone
 import io.github.veganmarshmallow.taskboard.preview.FlowLayout
 import io.github.veganmarshmallow.taskboard.preview.TagPillViews
+import io.github.veganmarshmallow.taskboard.theme.AppTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -87,18 +87,22 @@ class FlowLayoutTest {
         assertTrue(f.measuredHeight > 20 * 30)
     }
 
-    @Test fun pillViewsUseTheBackgroundAndContrastingText() {
+    /** #46: pills are neutral, in the theme's card and text colours, whatever the GitHub label colour. */
+    @Test fun pillViewsUseTheThemesNeutralColours() {
         var flow: FlowLayout? = null
+        val themed = AppTheme.wrap(context, R.style.Theme_Taskboard)
         instrumentation.runOnMainSync {
-            flow = FlowLayout(context)
+            flow = FlowLayout(themed)
             TagPillViews.bind(flow!!, listOf(TagPill("Approved", Rgb(0x1D76DB), TagPill.Kind.APPROVED), TagPill("Feature", Rgb(0xA2EEEF), TagPill.Kind.TYPE)))
         }
         val f = flow!!
         assertEquals(View.VISIBLE, f.visibility)
-        val approved = f.child(0) as TextView
-        assertEquals(TextTone.LIGHT.rgb.argb, approved.currentTextColor)
-        assertEquals(0xFF1D76DB.toInt(), approved.backgroundTintList!!.defaultColor)
-        assertEquals(TextTone.DARK.rgb.argb, (f.child(1) as TextView).currentTextColor)
+        val card = AppTheme.color(themed, R.attr.tbCard)
+        val text = AppTheme.color(themed, R.attr.tbText)
+        (0 until 2).map { f.child(it) as TextView }.forEach {
+            assertEquals(text, it.currentTextColor)
+            assertEquals(card, it.backgroundTintList!!.defaultColor)
+        }
         instrumentation.runOnMainSync { TagPillViews.bind(f, emptyList()) }
         assertEquals(View.GONE, f.visibility)
         assertEquals(0, f.childCount)

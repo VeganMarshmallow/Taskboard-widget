@@ -6,11 +6,13 @@ import android.util.AttributeSet
 import android.widget.LinearLayout
 import android.widget.TextView
 import io.github.veganmarshmallow.taskboard.R
+import io.github.veganmarshmallow.taskboard.core.preview.NoteFold
 
 /**
- * A text that starts collapsed to [collapsedLines] lines, with a "Show more" / "Show less" toggle
- * that only appears when the text is longer than that (task #43). Children, from the layout: the
- * [TextView] first, the toggle second. Whether the text overflows is decided while measuring, so it
+ * A text that starts collapsed to [collapsedLines] lines (one, #46), with a "Show more" / "Show less"
+ * toggle that only appears when the text is longer than that (task #43). The rules are [NoteFold]'s. Children, from the layout: the
+ * [TextView] first, the toggle second. Collapsed, the toggle sits at the end of the text's own line
+ * ("Ready to merge… Show more", #46 round 2); expanded, "Show less" goes below the full text. Whether the text overflows is decided while measuring, so it
  * is right for the actual width and font size, and a screenshot taken after one layout pass is too.
  */
 class CollapsibleText @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : LinearLayout(context, attrs) {
@@ -22,13 +24,10 @@ class CollapsibleText @JvmOverloads constructor(context: Context, attrs: Attribu
     private val text: TextView get() = getChildAt(0) as TextView
     private val toggle: TextView get() = getChildAt(1) as TextView
 
-    init {
-        orientation = VERTICAL
-    }
-
     override fun onFinishInflate() {
         super.onFinishInflate()
         toggle.setOnClickListener { toggle() }
+        arrange()
     }
 
     /** Shows [value], collapsed; binding the same text again keeps it expanded or collapsed. */
@@ -36,23 +35,41 @@ class CollapsibleText @JvmOverloads constructor(context: Context, attrs: Attribu
         if (value == text.text.toString()) return
         text.text = value
         expanded = false
-        requestLayout()
+        arrange()
     }
 
     fun toggle() {
         expanded = !expanded
+        arrange()
+    }
+
+    /**
+     * Collapsed: one row, the text taking what the toggle leaves (it ellipsizes there; with no toggle
+     * it has the full width). Expanded: a column, the toggle under the text. Measuring decides only
+     * whether the toggle shows, so the row is right for any width.
+     */
+    private fun arrange() {
+        orientation = if (expanded) VERTICAL else HORIZONTAL
+        text.layoutParams = if (expanded) {
+            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+        } else {
+            LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
+        }
+        toggle.layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+            marginStart = if (expanded) 0 else (TOGGLE_GAP_DP * resources.displayMetrics.density).toInt()
+        }
         requestLayout()
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = MeasureSpec.getSize(widthMeasureSpec) - paddingLeft - paddingRight - text.paddingLeft - text.paddingRight
-        val overflows = MeasureSpec.getMode(widthMeasureSpec) != MeasureSpec.UNSPECIFIED && width > 0 && lineCount(width) > collapsedLines
+        val measurable = MeasureSpec.getMode(widthMeasureSpec) != MeasureSpec.UNSPECIFIED && width > 0
+        val shape = NoteFold.shape(if (measurable) lineCount(width) else 0, expanded, collapsedLines)
         // Only touch the children when something changed: each setter requests another layout.
-        val lines = if (overflows && !expanded) collapsedLines else Int.MAX_VALUE
-        if (text.maxLines != lines) text.maxLines = lines
-        val visibility = if (overflows) VISIBLE else GONE
+        if (text.maxLines != shape.maxLines) text.maxLines = shape.maxLines
+        val visibility = if (shape.showToggle) VISIBLE else GONE
         if (toggle.visibility != visibility) toggle.visibility = visibility
-        val label = context.getString(if (expanded) R.string.preview_show_less else R.string.preview_show_more)
+        val label = context.getString(if (shape.toggleShowsLess) R.string.preview_show_less else R.string.preview_show_more)
         if (toggle.text.toString() != label) toggle.text = label
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
     }
@@ -70,6 +87,7 @@ class CollapsibleText @JvmOverloads constructor(context: Context, attrs: Attribu
     }
 
     companion object {
-        const val DEFAULT_COLLAPSED_LINES = 4
+        const val DEFAULT_COLLAPSED_LINES = NoteFold.COLLAPSED_LINES
+        private const val TOGGLE_GAP_DP = 8
     }
 }

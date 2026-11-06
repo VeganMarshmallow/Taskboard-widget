@@ -127,7 +127,7 @@ class MergeNextTest {
         instrumentation.runOnMainSync { widget = WidgetHost(context).render(state, 340, 260, Section.NEEDS_YOU).widget }
         val merges = rows(widget).filter { it.shows(R.id.item_merge) }
         assertTrue(merges.isNotEmpty())
-        val strong = context.getColor(R.color.status_text)
+        val strong = context.getColor(R.color.widget_on_accent) // #46: text on the filled accent Merge
         merges.forEach {
             assertEquals("strong text, as before #45", strong, it.findViewById<TextView>(R.id.item_merge).currentTextColor)
             assertTrue("no reason", !it.shows(R.id.item_merge_note))

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- App-only (#46): theme tokens, never used by the widget (launchers can't resolve theme attributes). -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="@color/widget_bg" />
-    <corners android:radius="20dp" />
+    <solid android:color="?attr/tbSurface" />
+    <corners android:radius="?attr/tbRadiusCard" />
 </shape>

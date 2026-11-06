@@ -10,12 +10,15 @@ import io.github.veganmarshmallow.taskboard.core.board.BoardRow
 import io.github.veganmarshmallow.taskboard.core.board.RowBadge
 import io.github.veganmarshmallow.taskboard.core.board.RowFit
 import io.github.veganmarshmallow.taskboard.core.board.Section
+import io.github.veganmarshmallow.taskboard.theme.DayNightColor
+import io.github.veganmarshmallow.taskboard.theme.WidgetPalette
 
 /**
  * Maps one [BoardRow] to its RemoteViews, with fill-in intents for taps. [build]'s widthDp is the widget's width
  * (null when unknown): a row whose button would squeeze its title away gets the two-line layout (#49, [RowFit]).
  */
 class RowViews(private val context: Context) {
+    private val colors = DayNightColor(context)
     private val links = BoardLinks()
     private val mergeLanes = MergeLaneViews(context)
 
@@ -42,13 +45,17 @@ class RowViews(private val context: Context) {
         setTextViewText(R.id.item_badge, badge)
         setViewVisibility(R.id.item_badge, if (badge.isEmpty()) View.GONE else View.VISIBLE)
         setOnClickFillInIntent(R.id.item_root, RowAction.Preview(item.number).toFillIn())
+        val palette = WidgetPalette.current(context)
         if (item.canApprove) {
             setViewVisibility(R.id.item_approve, View.VISIBLE)
+            // Rows are recycled across theme switches, so every theme sets its look (#46).
+            setInt(R.id.item_approve, "setBackgroundResource", palette.approveBackground)
+            colors.setTextColor(this, R.id.item_approve, palette.approveText)
             setOnClickFillInIntent(R.id.item_approve, RowAction.Approve(item.number, item.title).toFillIn())
         } else {
             setViewVisibility(R.id.item_approve, View.GONE)
         }
-        mergeLanes.bind(this, item)
+        mergeLanes.bind(this, item, palette)
     }
 
     private fun note(text: String, row: BoardRow) = RemoteViews(context.packageName, R.layout.row_note).apply {

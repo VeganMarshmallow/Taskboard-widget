@@ -3,6 +3,7 @@ package io.github.veganmarshmallow.taskboard
 import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.Intent
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import androidx.test.core.app.ActivityScenario
@@ -48,6 +49,21 @@ class SetupActivityTest {
             assertEquals(Activity.RESULT_OK, result.resultCode)
             assertEquals(widgetId, result.resultData.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1))
             assertEquals("github_pat_TESTONLY", TokenStore(context).get())
+        }
+    }
+
+    /** #46 round 2: the folded "Setup steps" stay open across a rotation (the activity is recreated). */
+    @Test fun openSetupStepsSurviveRecreation() {
+        ActivityScenario.launch<SetupActivity>(Intent(context, SetupActivity::class.java)).use { scenario ->
+            scenario.onActivity {
+                assertEquals(View.GONE, it.findViewById<View>(R.id.token_help).visibility)
+                it.findViewById<Button>(R.id.token_help_toggle).performClick()
+            }
+            scenario.recreate()
+            scenario.onActivity {
+                assertEquals(View.VISIBLE, it.findViewById<View>(R.id.token_help).visibility)
+                assertEquals(it.getString(R.string.token_help_hide), it.findViewById<Button>(R.id.token_help_toggle).text.toString())
+            }
         }
     }
 

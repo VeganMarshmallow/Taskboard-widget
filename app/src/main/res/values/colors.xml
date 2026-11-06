@@ -1,18 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Theme A, "calm tonal" (#46): warm-tinted neutrals and one clay accent. The widget's layouts and the
+     calm tokens (values/themes_tokens.xml) use these; theme B's are in colors_ink.xml. -->
 <resources>
-    <color name="widget_bg">#F7F7F8</color>
-    <color name="widget_text">#1B1C1F</color>
-    <color name="widget_muted">#62656D</color>
-    <color name="widget_header_text">#3A3D44</color>
-    <color name="widget_accent">#C2410C</color>
-    <color name="widget_accent_text">#FFFFFF</color>
-    <color name="widget_error_bg">#FDE7E3</color>
+    <color name="widget_bg">#F8F6F4</color>
+    <color name="widget_text">#1F1B18</color>
+    <color name="widget_muted">#6B625C</color>
+    <color name="widget_header_text">#4A423D</color>
+    <color name="widget_accent">#B4441B</color>
+    <!-- Text on the tonal (soft clay) fill: the selected tab, Approve, the Claude box label. -->
+    <color name="widget_accent_text">#7A2A0E</color>
+    <!-- Text on the filled accent: Merge and the app's main buttons. -->
+    <color name="widget_on_accent">#FFFFFF</color>
+    <color name="widget_tonal">#FBE3D8</color>
+    <color name="widget_outline">#E3DAD3</color>
+    <color name="widget_divider">#ECE6E1</color>
+    <color name="widget_error_bg">#FBE0DC</color>
     <color name="widget_error_text">#8A1C0B</color>
-    <color name="widget_tab_bg">#E6E7EB</color>
-    <color name="widget_badge">#C2410C</color>
+    <color name="widget_tab_bg">#EFEAE6</color>
+    <color name="widget_badge">#B4441B</color>
     <color name="error">#B42318</color>
     <!-- The highlighted "What I need from you" box in the preview (task #43). -->
-    <color name="claude_need_bg">#FFF1E8</color>
+    <color name="claude_need_bg">#FCEAE1</color>
     <color name="ok">#1F7A3A</color>
     <color name="status_needs_you">#C2410C</color>
     <color name="status_review">#7C3AED</color>

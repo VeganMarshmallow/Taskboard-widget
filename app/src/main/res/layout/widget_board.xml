@@ -30,10 +30,24 @@
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:maxLines="1"
+                android:fontFamily="sans-serif-medium"
                 android:text="@string/widget_title"
                 android:textColor="@color/widget_text"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+                android:textSize="16sp" />
+
+            <!-- The ink theme's serif title (#46); RemoteViews can't change a typeface, so it is its own view. -->
+            <TextView
+                android:id="@+id/title_serif"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="serif"
+                android:maxLines="1"
+                android:text="@string/widget_title"
+                android:textColor="@color/ink_text"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
 
             <TextView
                 android:id="@+id/updated"
@@ -181,9 +195,9 @@
             android:gravity="center"
             android:paddingHorizontal="12dp"
             android:text="@string/merge_all"
-            android:textColor="@color/status_text"
-            android:textSize="13sp"
-            android:textStyle="bold" />
+            android:fontFamily="sans-serif-medium"
+            android:textColor="@color/widget_on_accent"
+            android:textSize="13sp" />
     </LinearLayout>
 
     <FrameLayout

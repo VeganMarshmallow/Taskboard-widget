@@ -12,6 +12,7 @@ import io.github.veganmarshmallow.taskboard.core.task.NewTaskSession
 import io.github.veganmarshmallow.taskboard.core.task.SubmitRecovery
 import io.github.veganmarshmallow.taskboard.core.task.TaskType
 import io.github.veganmarshmallow.taskboard.data.AppGraph
+import io.github.veganmarshmallow.taskboard.theme.AppTheme
 
 /**
  * The "New task" form, opened from the widget's + button. A thin binder: validation, the draft
@@ -31,6 +32,7 @@ class NewTaskActivity : Activity() {
     private var keepDraft = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AppTheme.apply(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_new_task)
         form = DraftForm(this)

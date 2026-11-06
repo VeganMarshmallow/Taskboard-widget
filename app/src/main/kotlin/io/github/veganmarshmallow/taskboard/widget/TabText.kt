@@ -1,8 +1,12 @@
 package io.github.veganmarshmallow.taskboard.widget
 
 import android.content.Context
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.TypefaceSpan
 import io.github.veganmarshmallow.taskboard.R
 import io.github.veganmarshmallow.taskboard.core.board.CountBadge
+import io.github.veganmarshmallow.taskboard.core.board.TabLabel
 import io.github.veganmarshmallow.taskboard.core.board.Section
 
 /**
@@ -30,6 +34,28 @@ object TabText {
 
     fun label(context: Context, section: Section, count: Int): String =
         context.getString(R.string.tab_label, context.getString(name(section)), countText(context, CountBadge.of(count)))
+
+    /**
+     * What the tab shows (#46): [label] with the name in medium weight and the count in the regular
+     * weight at the same size, so the name leads and the count never outshouts it. Without a board
+     * ([count] null) just the name.
+     */
+    fun styledLabel(context: Context, section: Section, count: Int?): CharSequence =
+        if (count == null) {
+            styled(context.getString(name(section)), "")
+        } else {
+            styled(label(context, section, count), countText(context, CountBadge.of(count)))
+        }
+
+    /** [label] with its name part (found around [count], see [TabLabel]) set in medium weight. */
+    fun styled(label: String, count: String): CharSequence {
+        val name = TabLabel.nameRange(label, count) ?: return label
+        return SpannableString(label).apply {
+            setSpan(TypefaceSpan(NAME_FONT), name.first, name.last + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+    }
+
+    private const val NAME_FONT = "sans-serif-medium"
 
     /** Both forms use the locale's digits (via `%d`), like [R.string.tab_description] does. */
     fun countText(context: Context, badge: CountBadge): String = when (badge) {

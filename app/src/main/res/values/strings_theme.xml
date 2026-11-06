@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings: the theme switch (#46). -->
+    <string name="settings_appearance">Appearance</string>
+    <!-- The main screen's short hints (#46 round 2); the full token steps fold behind token_help_show. -->
+    <string name="setup_hint">Paste a fine-grained GitHub token for claude-workspace.</string>
+    <string name="token_help_show">Setup steps</string>
+    <string name="token_help_hide">Hide steps</string>
+    <string name="theme_calm">Calm</string>
+    <string name="theme_ink">Ink and paper</string>
+</resources>

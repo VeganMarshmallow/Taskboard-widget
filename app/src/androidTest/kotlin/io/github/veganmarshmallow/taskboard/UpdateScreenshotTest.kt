@@ -46,7 +46,7 @@ class UpdateScreenshotTest {
         instrumentation.runOnMainSync {
             val density = context.resources.displayMetrics.density
             // The app's theme, as in SetupActivity: without it the card renders in the platform's blue accent.
-            val themed = android.view.ContextThemeWrapper(context, R.style.Theme_Taskboard)
+            val themed = io.github.veganmarshmallow.taskboard.theme.AppTheme.wrap(context, R.style.Theme_Taskboard)
             val frame = FrameLayout(themed).apply { setBackgroundColor(android.graphics.Color.WHITE) }
             val pad = (16 * density).toInt()
             frame.setPadding(pad, 0, pad, pad)
@@ -91,6 +91,8 @@ class UpdateScreenshotTest {
         val v = card("14-2-update-available", FakeUpdates.available(), Activity.Idle)
         assertEquals("Update available (v0.1.57): tap Update to download it in your browser", v.text(R.id.update_status))
         assertTrue(v.visible(R.id.update_install))
+        // #46 round 2: "Check for updates" stays on one line next to (now: under) Update.
+        assertEquals(1, v.findViewById<TextView>(R.id.update_check).lineCount)
         assertTrue(v.findViewById<View>(R.id.update_install).isEnabled)
     }
 

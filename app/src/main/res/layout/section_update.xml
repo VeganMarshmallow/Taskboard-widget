@@ -1,57 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- "App updates" card on the main screen. Bound by update/UpdateSection.kt. -->
+<!-- "App updates" on the main screen. Bound by update/UpdateSection.kt. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/update_section"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginTop="24dp"
     android:background="@drawable/update_card_background"
     android:orientation="vertical"
     android:padding="16dp">
 
     <TextView
+        style="?attr/tbSectionLabel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/update_title"
-        android:textAppearance="@android:style/TextAppearance.Material.Subhead" />
+        android:text="@string/update_title" />
 
     <TextView
         android:id="@+id/update_status"
+        style="?attr/tbBody"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:textAppearance="@android:style/TextAppearance.Material.Body1"
-        android:textColor="@color/update_text" />
+        android:layout_marginTop="6dp" />
 
-    <LinearLayout
+    <!-- #46 round 2: stacked full-width buttons, so "Check for updates" never wraps beside Update. -->
+    <Button
+        android:id="@+id/update_install"
+        style="?attr/tbButtonPrimary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="@string/update_install"
+        android:visibility="gone" />
+
+    <Button
+        android:id="@+id/update_check"
+        style="?attr/tbButtonSecondary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/update_check"
-            style="@android:style/Widget.Material.Button"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/update_check" />
-
-        <Button
-            android:id="@+id/update_install"
-            style="@android:style/Widget.Material.Button.Colored"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:layout_weight="1"
-            android:text="@string/update_install"
-            android:visibility="gone" />
-    </LinearLayout>
+        android:text="@string/update_check" />
 
     <TextView
+        style="?attr/tbCaption"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/update_note"
-        android:textAppearance="@android:style/TextAppearance.Material.Caption" />
+        android:layout_marginTop="10dp"
+        android:text="@string/update_note" />
 </LinearLayout>

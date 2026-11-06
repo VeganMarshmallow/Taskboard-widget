@@ -153,6 +153,18 @@ object FakePreviews {
             ),
         )
 
+    /** #46 round 2: Claude's "ready to merge" note, long enough to fold to one line. */
+    const val READY_TO_MERGE_COMMENT = "✅ Ready to merge: PR #47 adds the Calm and Ink and paper themes, with a switch under " +
+        "Settings → Appearance. The full CI run is green and the screenshots of both themes are in the PR body."
+
+    /** #46 round 2: an in-review task with that note: Send, Merge and Open on GitHub share one line. */
+    fun inReviewReadyToMerge(): PreviewScreen = inReviewWithNote(READY_TO_MERGE_COMMENT)
+
+    /** The same in-review task with Claude's latest note set to [note]. */
+    fun inReviewWithNote(note: String): PreviewScreen = PreviewScreen.initial(46, null)
+        .issueLoaded(details(46, "Beautify the taskboard", "### What should be done\nTwo looks for the app and the widget, switchable in Settings.\n\n### Repo\nVeganMarshmallow/Taskboard-widget", Labels.IN_REVIEW, Labels.READY_FOR_CLAUDE, "type: feature"))
+        .commentsLoaded(listOf(IssueComment(1, note, null)))
+
     fun justApproved(): PreviewScreen = todoLoaded().approveStarted().approveSucceeded()
 
     /** The task was deleted or moved since the widget loaded: stale row kept, no Approve. */

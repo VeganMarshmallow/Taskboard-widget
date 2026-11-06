@@ -3,7 +3,6 @@ package io.github.veganmarshmallow.taskboard
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Color
-import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -11,6 +10,7 @@ import android.widget.FrameLayout
 import io.github.veganmarshmallow.taskboard.core.preview.PreviewScreen
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.preview.PreviewViews
+import io.github.veganmarshmallow.taskboard.theme.AppTheme
 
 /**
  * Inflates the real preview layout with the preview's theme and binds a [PreviewScreen], the way
@@ -18,7 +18,8 @@ import io.github.veganmarshmallow.taskboard.preview.PreviewViews
  * [fontScale] and [night] override the device settings (large text, dark mode); null keeps them.
  */
 class PreviewHost(context: Context, fontScale: Float? = null, night: Boolean? = null) {
-    private val themed = ContextThemeWrapper(configured(context, fontScale, night), R.style.Theme_Taskboard_Preview)
+    // The stored theme (#46) on top of the preview's own, as TaskPreviewActivity does.
+    private val themed = AppTheme.wrap(configured(context, fontScale, night), R.style.Theme_Taskboard_Preview)
 
     class Rendered(val root: View, val sheet: View, val views: PreviewViews)
 

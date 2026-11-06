@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget (#46): plain colours only, launchers can't resolve theme attributes. Ink: Merge is the filled ink button. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/ink_primary" />
+    <corners android:radius="4dp" />
+</shape>

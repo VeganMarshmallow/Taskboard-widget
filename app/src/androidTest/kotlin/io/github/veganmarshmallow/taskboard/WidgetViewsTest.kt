@@ -7,6 +7,7 @@ import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.veganmarshmallow.taskboard.TabTestViews.isHighlighted
+import io.github.veganmarshmallow.taskboard.TabTestViews.shownTab
 import io.github.veganmarshmallow.taskboard.core.board.BoardItem
 import io.github.veganmarshmallow.taskboard.core.board.BoardRow
 import io.github.veganmarshmallow.taskboard.core.board.BoardRows
@@ -15,6 +16,9 @@ import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.model.Priority
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
+import io.github.veganmarshmallow.taskboard.core.theme.ThemeChoice
+import io.github.veganmarshmallow.taskboard.data.ThemeStore
+import io.github.veganmarshmallow.taskboard.theme.WidgetPalette
 import io.github.veganmarshmallow.taskboard.widget.RowViews
 import io.github.veganmarshmallow.taskboard.widget.WidgetViews
 import org.junit.Assert.assertEquals
@@ -64,6 +68,44 @@ class WidgetViewsTest {
         val v = applyWidget(WidgetState.INITIAL)
         assertEquals(View.GONE, v.visibilityOf(R.id.error))
         assertEquals(context.getString(R.string.loading), v.text(R.id.board_empty))
+    }
+
+    /**
+     * #46 review: a launcher reapplies an update onto the views it shows when the layout id is the
+     * same, so each theme must have its own id (a switch back to calm re-inflates instead of keeping
+     * ink's card, serif title and tab colours). Each theme, freshly inflated, shows its own look.
+     */
+    @Test fun eachThemeHasItsOwnWidgetLayoutIdAndLook() {
+        val themes = ThemeStore(context)
+        val state = WidgetState(FakeBoards.realistic(), null, FakeBoards.NOW)
+        try {
+            val ids = ThemeChoice.entries.map { choice ->
+                themes.save(choice)
+                val remote = onMain { WidgetViews(context).build(state, 1, Section.TODO) }
+                val widget = onMain { remote.apply(context, FrameLayout(context)) }
+                val palette = WidgetPalette.of(choice)
+                assertEquals("$choice title", if (palette.serifTitle) View.GONE else View.VISIBLE, widget.visibilityOf(R.id.title))
+                assertEquals("$choice serif title", if (palette.serifTitle) View.VISIBLE else View.GONE, widget.visibilityOf(R.id.title_serif))
+                assertEquals("$choice tab", context.getColor(palette.tabSelectedText), widget.shownTab(Section.TODO).currentTextColor)
+                remote.layoutId
+            }
+            assertEquals(ids.size, ids.toSet().size)
+        } finally {
+            themes.save(ThemeChoice.DEFAULT)
+        }
+    }
+
+    /** #46 review: a value of the wrong type under the theme key (corrupt file) reads as the default, no crash. */
+    @Test fun aCorruptThemePreferenceReadsAsTheDefault() {
+        val prefs = context.getSharedPreferences("theme", android.content.Context.MODE_PRIVATE)
+        try {
+            prefs.edit().putInt("choice", 7).commit()
+            assertEquals(ThemeChoice.DEFAULT, ThemeStore(context).load())
+            prefs.edit().putString("choice", "no-such-theme").commit()
+            assertEquals(ThemeChoice.DEFAULT, ThemeStore(context).load())
+        } finally {
+            prefs.edit().clear().commit()
+        }
     }
 
     @Test fun boardStateShowsListAndLastUpdated() {

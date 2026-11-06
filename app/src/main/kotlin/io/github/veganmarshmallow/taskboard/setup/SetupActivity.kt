@@ -15,6 +15,7 @@ import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.setup.SetupFlow
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.TokenStore
+import io.github.veganmarshmallow.taskboard.theme.AppTheme
 import io.github.veganmarshmallow.taskboard.update.UpdateSection
 import io.github.veganmarshmallow.taskboard.widget.WidgetIntents
 
@@ -31,6 +32,7 @@ class SetupActivity : Activity() {
     private lateinit var saveButton: Button
     private val tester = ConnectionTester()
     private lateinit var updates: UpdateSection
+    private lateinit var tokenHelp: TokenHelp
     private val widgetId by lazy {
         intent?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
             ?: AppWidgetManager.INVALID_APPWIDGET_ID
@@ -38,8 +40,11 @@ class SetupActivity : Activity() {
     private val flow by lazy { SetupFlow(isConfiguring = widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AppTheme.apply(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_setup)
+        ThemeSection(this).bind()
+        tokenHelp = TokenHelp(this).also { it.bind(savedInstanceState) }
         tokenStore = TokenStore(this)
         tokenField = findViewById(R.id.token)
         status = findViewById(R.id.status)
@@ -70,6 +75,11 @@ class SetupActivity : Activity() {
     override fun onResume() {
         super.onResume()
         updates.onResume()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        tokenHelp.save(outState)
     }
 
     override fun onDestroy() {

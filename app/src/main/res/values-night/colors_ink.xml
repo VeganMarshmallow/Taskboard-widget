@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ink_bg">#121413</color>
+    <color name="ink_text">#ECEEEB</color>
+    <color name="ink_muted">#A0A6A3</color>
+    <color name="ink_header_text">#C7CCC9</color>
+    <color name="ink_primary">#ECEEEB</color>
+    <color name="ink_on_primary">#121413</color>
+    <color name="ink_signal">#FF7A5C</color>
+    <color name="ink_outline">#ECEEEB</color>
+    <color name="ink_divider">#2A2E2C</color>
+    <color name="ink_tab_bg">#1E2120</color>
+    <color name="ink_need_bg">#2A1A16</color>
+    <color name="ink_card_bg">#1C1F1E</color>
+</resources>

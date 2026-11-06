@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A hairline between settings sections (#46). App-only (theme tokens). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="?attr/tbDivider" />
+    <size android:height="1dp" />
+</shape>

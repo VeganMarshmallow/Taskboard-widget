@@ -6,18 +6,24 @@ import android.widget.RemoteViews
 import io.github.veganmarshmallow.taskboard.R
 import io.github.veganmarshmallow.taskboard.core.board.Board
 import io.github.veganmarshmallow.taskboard.core.board.Section
+import io.github.veganmarshmallow.taskboard.theme.DayNightColor
+import io.github.veganmarshmallow.taskboard.theme.WidgetPalette
 
 /**
  * Binds the five status tabs: label with count, highlight on [selected], and a tap that selects the tab.
  * The highlight shows the slot's highlighted label instead of recolouring one from code, so the
  * launcher keeps resolving the colours itself (they follow a light/dark switch; see widget_tabs.xml).
+ * A theme other than the layout's own (#46) swaps the highlight drawable and the label colours.
  */
 class TabViews(private val context: Context) {
-    fun bind(views: RemoteViews, board: Board?, selected: Section, widgetId: Int) {
+    private val colors = DayNightColor(context)
+
+    fun bind(views: RemoteViews, board: Board?, selected: Section, widgetId: Int, palette: WidgetPalette = WidgetPalette.CALM) {
         for (section in Section.entries) {
             val ids = ids(section)
             val isSelected = section == selected
-            val label = if (board == null) context.getString(TabText.name(section)) else TabText.label(context, section, board.count(section))
+            val label = TabText.styledLabel(context, section, board?.count(section))
+            if (!palette.isLayoutDefault) recolour(views, ids, palette)
             views.setTextViewText(ids.label, label)
             views.setTextViewText(ids.selectedLabel, label)
             views.setViewVisibility(ids.label, if (isSelected) View.GONE else View.VISIBLE)
@@ -25,6 +31,13 @@ class TabViews(private val context: Context) {
             views.setContentDescription(ids.slot, description(section, board, isSelected))
             views.setOnClickPendingIntent(ids.slot, WidgetIntents.selectTab(context, widgetId, section))
         }
+    }
+
+    private fun recolour(views: RemoteViews, ids: Ids, palette: WidgetPalette) {
+        views.setInt(ids.label, "setBackgroundResource", palette.tabBackground)
+        views.setInt(ids.selectedLabel, "setBackgroundResource", palette.tabSelectedBackground)
+        colors.setTextColor(views, ids.selectedLabel, palette.tabSelectedText)
+        colors.setTextColor(views, ids.label, palette.tabText)
     }
 
     /** Full name and count, e.g. "In progress: 2, selected". No count before the first load. */

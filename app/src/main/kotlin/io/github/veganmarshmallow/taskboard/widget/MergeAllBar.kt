@@ -10,6 +10,8 @@ import io.github.veganmarshmallow.taskboard.core.merge.MergeDialogs
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllBanner
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllText
 import io.github.veganmarshmallow.taskboard.data.AppGraph
+import io.github.veganmarshmallow.taskboard.theme.DayNightColor
+import io.github.veganmarshmallow.taskboard.theme.WidgetPalette
 
 /**
  * The widget's Merge all line (#57), under the tabs: "3 PRs ready to merge [Merge all]" on Needs you,
@@ -17,9 +19,11 @@ import io.github.veganmarshmallow.taskboard.data.AppGraph
  * What it says is [MergeAllBanner]'s; this only maps it onto the views and their taps.
  */
 class MergeAllBar(private val context: Context) {
+    private val colors = DayNightColor(context)
     private val text = MergeAllText(MergeDialogs(AppGraph.messages(context)))
 
-    fun bind(views: RemoteViews, board: Board?, selected: Section) {
+    fun bind(views: RemoteViews, board: Board?, selected: Section, palette: WidgetPalette = WidgetPalette.CALM) {
+        if (!palette.isLayoutDefault) recolour(views, palette)
         val store = AppGraph.mergeAllStore(context)
         val state = store.load()
         val cancelling = state != null && store.cancelRequested(state.runId)
@@ -42,6 +46,14 @@ class MergeAllBar(private val context: Context) {
                 MergeAllBanner.Button.DISMISS -> WidgetIntents.dismissMergeAll(context)
             },
         )
+    }
+
+    /** Another theme's bar and button (#46); the layout carries the default look. */
+    private fun recolour(views: RemoteViews, palette: WidgetPalette) {
+        views.setInt(R.id.merge_all_bar, "setBackgroundResource", palette.mergeAllBackground)
+        views.setInt(R.id.merge_all_button, "setBackgroundResource", palette.mergeBackground)
+        colors.setTextColor(views, R.id.merge_all_button, palette.mergeText)
+        colors.setTextColor(views, R.id.merge_all_text, palette.mergeMutedText)
     }
 
     private fun label(button: MergeAllBanner.Button): Int = when (button) {

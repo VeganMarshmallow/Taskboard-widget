@@ -6,7 +6,6 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Color
-import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -48,7 +47,7 @@ class MergeScreenshotTest {
     private fun captureDialog(name: String, dialog: MergeDialog, night: Boolean = false, heightDp: Int = 420): View {
         lateinit var root: View
         instrumentation.runOnMainSync {
-            val themed = ContextThemeWrapper(configured(night), R.style.Theme_Taskboard_MergeDialog)
+            val themed = io.github.veganmarshmallow.taskboard.theme.AppTheme.wrap(configured(night), R.style.Theme_Taskboard_MergeDialog)
             val density = themed.resources.displayMetrics.density
             val frame = FrameLayout(themed).apply { setBackgroundColor(DIMMED) }
             root = LayoutInflater.from(themed).inflate(R.layout.dialog_merge, frame, false)
@@ -156,9 +155,16 @@ class MergeScreenshotTest {
         TokenStore(context).clear()
         val activity: Activity = instrumentation.startActivitySync(Intent(context, SetupActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         instrumentation.waitForIdleSync()
+        // #46 round 2: the steps are folded behind "Setup steps" on the clean main screen.
+        instrumentation.runOnMainSync {
+            assertTrue(activity.findViewById<View>(R.id.token_help).visibility == View.GONE)
+            activity.findViewById<View>(R.id.token_help_toggle).performClick()
+        }
+        instrumentation.waitForIdleSync()
         var bitmap: Bitmap? = null
         instrumentation.runOnMainSync {
             val root = activity.window.decorView
+            assertTrue(root.findViewById<View>(R.id.token_help).visibility == View.VISIBLE)
             val text = root.findViewById<TextView>(R.id.merge_instructions)
             val s = text.text.toString()
             assertTrue(s.startsWith("To merge from the widget"))
@@ -167,7 +173,10 @@ class MergeScreenshotTest {
             assertTrue(s.contains("Actions: Read-only"))
             assertTrue(!s.contains("Checks") && !s.contains("Commit statuses"))
             assertTrue(s.contains("write access to those repos' code"))
-            activity.findViewById<android.widget.ScrollView>(R.id.setup_scroll).scrollTo(0, text.top - 40)
+            val scroll = activity.findViewById<android.widget.ScrollView>(R.id.setup_scroll)
+            val at = android.graphics.Rect().also { text.getDrawingRect(it) }
+            scroll.offsetDescendantRectToMyCoords(text, at)
+            scroll.scrollTo(0, at.top - 40)
         }
         instrumentation.waitForIdleSync()
         instrumentation.runOnMainSync { bitmap = WidgetHost.toBitmap(activity.window.decorView) }
