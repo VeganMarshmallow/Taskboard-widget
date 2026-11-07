@@ -212,8 +212,10 @@ jobs:
 
       # #58: about one run in three, system_server dies right after the snapshot loads, so the
       # runner's own `adb shell input keyevent 82` fails (DeadSystemException, adb exit 1) before
-      # the script starts. A re-run always passed, so the step runs once more, but only when no test
-      # result exists yet: a real test failure is never retried.
+      # the script starts. So the step runs once more, but only when no test result exists yet: a
+      # real test failure is never retried. #80: the retry cold-boots (no snapshot load) after the
+      # dead emulator is killed and adb restarted, since a second snapshot restore could die the same
+      # way. `emulator_verdict` (emulator-lib.sh) makes each decision; at most one retry per job.
       - name: Instrumented tests and screenshots
         id: emulator
         continue-on-error: true
@@ -225,7 +227,8 @@ jobs:
           profile: pixel_5
           force-avd-creation: false
           disable-animations: true
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          # cold_boot is empty on the first try and -no-snapshot-load on the retry.
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none ${{ steps.retry.outputs.cold_boot }}
           script: .github/scripts/emulator-tests.sh
 
       - name: Retry only if no test ran
@@ -233,22 +236,38 @@ jobs:
         if: steps.emulator.outcome == 'failure'
         run: |
           . .github/scripts/emulator-lib.sh
-          if has_test_results app/build/outputs/androidTest-results/connected/debug; then
-            echo "retry=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "::warning title=Emulator retried::the emulator or adb failed before any instrumented test result existed"
+          if [ "$(emulator_verdict failure app/build/outputs/androidTest-results/connected/debug 1)" = retry ]; then
+            echo "::warning title=Emulator retried::the emulator or adb failed before any instrumented test result existed; cold-booting and retrying once"
             stop_emulator 30
+            restart_adb
             echo "retry=true" >> "$GITHUB_OUTPUT"
+            echo "cold_boot=-no-snapshot-load" >> "$GITHUB_OUTPUT"
+          else
+            echo "retry=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Instrumented tests and screenshots (retry)
+        id: emulator_retry
         if: steps.retry.outputs.retry == 'true'
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with: *emulator-tests
 
-      - name: Fail on instrumented test failure
-        if: steps.emulator.outcome == 'failure' && steps.retry.outputs.retry != 'true'
-        run: exit 1
+      # Fails the job unless the retry passed (continue-on-error above keeps both tries from doing so).
+      - name: Instrumented test verdict
+        if: steps.emulator.outcome == 'failure'
+        env:
+          RETRIED: ${{ steps.retry.outputs.retry }}
+          RETRY_OUTCOME: ${{ steps.emulator_retry.outcome }}
+        run: |
+          . .github/scripts/emulator-lib.sh
+          [ "$RETRIED" = true ] || exit 1
+          if [ "$(emulator_verdict "$RETRY_OUTCOME" app/build/outputs/androidTest-results/connected/debug 2)" = pass ]; then
+            echo "::warning title=Emulator retried::emulator failed to start; retried once and passed"
+          else
+            echo "::error title=Emulator retried::the retry failed too"
+            exit 1
+          fi
 
       - name: Annotate instrumented test failure
         if: failure() && steps.emulator.outcome == 'failure'
