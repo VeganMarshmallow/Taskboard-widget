@@ -179,6 +179,39 @@
 
         <View style="@style/SettingsDivider" />
 
+        <!-- #79: auto merge, off by default. Bound by setup/AutoMergeSection.kt. -->
+        <LinearLayout
+            android:id="@+id/auto_merge_section"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                style="?attr/tbSectionLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_merging" />
+
+            <Switch
+                android:id="@+id/auto_merge_switch"
+                style="?attr/tbBody"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:minHeight="48dp"
+                android:text="@string/auto_merge"
+                android:textColor="?attr/tbText" />
+
+            <TextView
+                style="?attr/tbCaption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/auto_merge_hint" />
+        </LinearLayout>
+
+        <View style="@style/SettingsDivider" />
+
         <include layout="@layout/section_update" />
     </LinearLayout>
 </ScrollView>

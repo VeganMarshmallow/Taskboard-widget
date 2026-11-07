@@ -112,10 +112,23 @@ sealed class BoardJob {
         }
     }
 
+    /**
+     * One auto merge poll (#79), started after a refresh when the setting is on and a PR is ready:
+     * merges at most the next PR. One job id, so polls never overlap or pile up. Not persisted: the
+     * next refresh starts another.
+     */
+    data object AutoMerge : BoardJob() {
+        override val jobId get() = AUTO_MERGE_ID
+        override val urgent get() = false
+        override val needsNetwork get() = true
+        override fun toExtras() = mapOf(KIND to KIND_AUTO_MERGE)
+    }
+
     companion object {
         const val REFRESH_ID = 1
         const val SWEEP_ID = 2
         const val MERGE_ALL_ID = 3
+        const val AUTO_MERGE_ID = 4
         const val APPROVE_BASE_ID = 1_000_000
 
         /** See [runAnywayAfter]. */
@@ -132,6 +145,7 @@ sealed class BoardJob {
         private const val KIND_APPROVE = "approve"
         private const val KIND_SWEEP = "sweep"
         private const val KIND_MERGE_ALL = "merge_all"
+        private const val KIND_AUTO_MERGE = "auto_merge"
 
         /** Reads [toExtras]' output back. Null for anything unknown or malformed (e.g. a job from another app version). */
         fun fromExtras(get: (String) -> String?): BoardJob? = when (get(KIND)) {
@@ -139,6 +153,7 @@ sealed class BoardJob {
             KIND_APPROVE -> get(ISSUE)?.toIntOrNull()?.takeIf { it in 1..MAX_ISSUE }?.let(::Approve)
             KIND_SWEEP -> Sweep
             KIND_MERGE_ALL -> delayFromExtras(get)?.let(::MergeAll)
+            KIND_AUTO_MERGE -> AutoMerge
             else -> null
         }
 

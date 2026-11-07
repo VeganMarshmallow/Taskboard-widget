@@ -85,10 +85,10 @@ test('a PR behind main is updated, then its build is dispatched on its branch', 
   assert.deepStrictEqual(f.inputs['claude/22-x'], { full: 'true' }, 'a ready PR gets the full run (emulator tests)');
 });
 
-test('a draft PR behind main is updated and gets only the quick build (#52)', async () => {
+test('a draft PR is not updated: only the next mergeable PR is (#79)', async () => {
   const f = fake({ open: [pr(22, { draft: true }), pr(23)], behind: { sha22: 1, sha23: 1 } });
-  await f.run();
-  assert.deepStrictEqual(f.inputs, { 'claude/22-x': { full: 'false' }, 'claude/23-x': { full: 'true' } });
+  assert.deepStrictEqual(await f.run(), [{ number: 22, action: 'draft' }, { number: 23, action: 'updated' }]);
+  assert.deepStrictEqual(f.inputs, { 'claude/23-x': { full: 'true' } });
 });
 
 test('a PR without a draft field (older API shape) counts as ready and gets the full run', async () => {
@@ -216,12 +216,13 @@ test('other 422s from the dispatch are not retried', async () => {
   assert.strictEqual(f.calls.filter((c) => c[0] === 'dispatch').length, 1);
 });
 
-test('more than 30 open PRs are all handled through pagination', async () => {
+test('more than 30 open PRs are all listed through pagination', async () => {
   const open = Array.from({ length: 35 }, (_, i) => pr(100 + i));
-  const f = fake({ open, behind: { sha134: 1 } });
+  const f = fake({ open, behind: { sha100: 1, sha134: 1 } });
   const results = await f.run();
   assert.strictEqual(results.length, 35);
-  assert.deepStrictEqual(results.at(-1), { number: 134, action: 'updated' });
+  assert.deepStrictEqual(results[0], { number: 100, action: 'updated' });
+  assert.deepStrictEqual(results.at(-1), { number: 134, action: 'queued' });
   assert.strictEqual(f.counts.paginated, 1);
 });
 
@@ -271,4 +272,43 @@ test('no held run to look for when the head has not moved yet, or nothing was up
   const upToDate = fake({ open: [pr(22)] });
   await upToDate.run();
   assert.ok(!upToDate.counts.listed);
+});
+
+// --- #79: only the next PR in merge order is updated and re-tested ---
+
+test('only the next PR (the oldest) is updated and re-tested; the others wait their turn', async () => {
+  const f = fake({ open: [pr(24), pr(22), pr(23)], behind: { sha22: 1, sha23: 1, sha24: 1 } });
+  assert.deepStrictEqual(await f.run(), [{ number: 24, action: 'queued' }, { number: 22, action: 'updated' }, { number: 23, action: 'queued' }]);
+  assert.deepStrictEqual(f.calls, [['update', 22, 'sha22'], ['dispatch', 'build.yml', 'claude/22-x']]);
+});
+
+test('an up-to-date next PR needs nothing, and nothing after it is updated', async () => {
+  const f = fake({ open: [pr(22), pr(23)], behind: { sha23: 4 } });
+  assert.deepStrictEqual(await f.run(), [{ number: 22, action: 'up-to-date' }, { number: 23, action: 'queued' }]);
+  assert.deepStrictEqual(f.calls, []);
+});
+
+test('a conflicting next PR is labelled and the one after it is updated instead', async () => {
+  const f = fake({ open: [pr(22), pr(23), pr(24)], behind: { sha22: 1, sha23: 1, sha24: 1 }, conflicts: [22] });
+  assert.deepStrictEqual(await f.run(), [{ number: 22, action: 'conflict' }, { number: 23, action: 'updated' }, { number: 24, action: 'queued' }]);
+  assert.deepStrictEqual(f.calls.map((c) => c.slice(0, 2)), [['update', 22], ['label', 22], ['comment', 22], ['update', 23], ['dispatch', 'build.yml']]);
+});
+
+test('a PR stacked on the branch just merged is next, ahead of older PRs (Merge all order)', async () => {
+  const merged = { ...pr(21), merged_at: '2026-11-07T10:00:00Z' };
+  const f = fake({ open: [pr(20), pr(25, { base: 'claude/21-x' })], closed: [merged], behind: { sha20: 1, sha25: 1 } });
+  assert.deepStrictEqual(await f.run(), [{ number: 20, action: 'queued' }, { number: 25, action: 'updated' }]);
+  assert.deepStrictEqual(f.calls.map((c) => c[0]), ['retarget', 'update', 'dispatch']);
+});
+
+test('only PRs that are all stacked or drafts: nothing is updated', async () => {
+  const f = fake({ open: [pr(22, { draft: true }), pr(23, { base: 'claude/22-x' })], behind: { sha22: 1, sha23: 1 } });
+  assert.deepStrictEqual(await f.run(), [{ number: 22, action: 'draft' }, { number: 23, action: 'stacked' }]);
+  assert.deepStrictEqual(f.calls, []);
+});
+
+test('every PR conflicting: each is labelled, none dispatched', async () => {
+  const f = fake({ open: [pr(22), pr(23)], behind: { sha22: 1, sha23: 1 }, conflicts: [22, 23] });
+  assert.deepStrictEqual((await f.run()).map((r) => r.action), ['conflict', 'conflict']);
+  assert.ok(!f.calls.some((c) => c[0] === 'dispatch'));
 });

@@ -1,7 +1,10 @@
 name: update-prs
 
-# #45: after every merge to main, bring Claude's open PRs up to date and re-run their CI, so the
-# widget can highlight the next one to merge. Logic and its tests: .github/scripts/update-prs*.js.
+# #45: after every merge to main, bring Claude's next PR up to date and re-run its CI, so the
+# widget can highlight it and (#79, auto merge) merge it once green. #79: only the next PR in merge
+# order is updated per run (.github/scripts/update-prs-select.js), not every open PR: one CI run per
+# merge; that PR's own merge runs this again for the one after it. Logic and its tests:
+# .github/scripts/update-prs*.js.
 #
 # #64, one CI run per update: the update goes through GITHUB_TOKEN, so GitHub starts no workflow for
 # it; the script dispatches build.yml on the branch instead. GitHub does still register the PR's
@@ -33,7 +36,7 @@ jobs:
         with:
           sparse-checkout: .github/scripts
 
-      - name: Update PRs and re-run their builds
+      - name: Update the next PR and re-run its build
         uses: actions/github-script@v7
         with:
           script: |

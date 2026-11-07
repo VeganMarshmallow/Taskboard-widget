@@ -45,6 +45,7 @@ class SetupActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_setup)
         ThemeSection(this).bind()
+        AutoMergeSection(this).bind()
         tokenHelp = TokenHelp(this).also { it.bind(savedInstanceState) }
         tokenStore = TokenStore(this)
         tokenField = findViewById(R.id.token)
