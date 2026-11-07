@@ -17,7 +17,16 @@ object ClaudeComments {
     private const val FOOTER_TAIL = 400
 
     fun isFromClaude(body: String): Boolean =
-        MARKERS.any { withoutPrefix(body).startsWith(it) } || FOOTER.containsMatchIn(body.takeLast(FOOTER_TAIL))
+        MARKERS.any { withoutPrefix(body).startsWith(it) } || endsWithFooter(body)
+
+    /**
+     * The footer is the comment's last visible line, not inside a `>` quote: an owner's reply that
+     * quotes a Claude comment (footer included) above or below a short answer stays the owner's.
+     */
+    private fun endsWithFooter(body: String): Boolean {
+        val last = body.takeLast(FOOTER_TAIL).lineSequence().map { it.trim() }.lastOrNull { it.isNotEmpty() } ?: return false
+        return !last.startsWith(">") && FOOTER.containsMatchIn(last)
+    }
 
     /** [body] without leading whitespace and invisible characters, as the markers are matched. */
     internal fun withoutPrefix(body: String) = body.trimStart { it.isWhitespace() || it in IGNORABLE_PREFIX }

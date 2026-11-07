@@ -65,6 +65,19 @@ class QuestionsActivity : Activity() {
         load()
     }
 
+    /**
+     * Back from a task sheet opened with "Open task": that sheet took over and then dropped the
+     * card's [ReplyDrafts] listener, so listen again and pick up how a send ended meanwhile
+     * (otherwise the card could stay on "Sending…").
+     */
+    override fun onResume() {
+        super.onResume()
+        cards.keys.toList().forEach { issue ->
+            cardListeners[issue]?.let { ReplyDrafts.listen(issue, it) }
+            if (ReplyDrafts.knows(issue)) updateCard(issue, ReplyDrafts.form(issue))
+        }
+    }
+
     override fun onDestroy() {
         if (::worker.isInitialized) worker.close()
         if (::screen.isInitialized) AskDrafts.stopListening(screen.askKey, onAskFinished)

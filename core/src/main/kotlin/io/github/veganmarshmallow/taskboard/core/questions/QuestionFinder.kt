@@ -14,7 +14,8 @@ import io.github.veganmarshmallow.taskboard.core.preview.IssueDetails
  * Claude's questions, on open tasks other than the board summary (#1):
  * - the task carries `needs-owner`, or Claude's latest comment (not counting its `**Answer:**`
  *   replies) asks something ([ClaudeAsks]);
- * - and the owner has not commented since that Claude comment. Once they have, the question waits
+ * - and the owner has not commented since that Claude comment (Claude's `**Answer:**` replies, with
+ *   or without a footer, don't count). Once they have, the question waits
  *   on Claude again, even if `needs-owner` is still there (the next run removes it).
  *
  * The owner's questions: every `**Question for Claude:**` comment, and the body of a general
@@ -51,7 +52,7 @@ object QuestionFinder {
         val last = comments.indexOfLast { ClaudeComments.isFromClaude(it.body) && !QuestionText.isAnswer(it.body) }
         val message = if (last < 0) null else ClaudeMessage.of(ClaudeComments.withoutPrefix(comments[last].body))
         if (!needsOwner && !ClaudeAsks.asks(message)) return null
-        val repliedSince = last >= 0 && comments.drop(last + 1).any { !ClaudeComments.isFromClaude(it.body) }
+        val repliedSince = last >= 0 && comments.drop(last + 1).any { !ClaudeComments.isFromClaude(it.body) && !QuestionText.isAnswer(it.body) }
         if (repliedSince) return null
         return ClaudeQuestion(task.issue.number, title(task), message, comments.getOrNull(last)?.createdAt, needsOwner)
     }
