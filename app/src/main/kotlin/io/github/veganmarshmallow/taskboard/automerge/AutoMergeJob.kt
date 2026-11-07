@@ -45,19 +45,23 @@ class AutoMergeJob(context: Context) {
     }
 
     private fun post(outcome: AutoMergeOutcome) {
-        val (title, body) = AutoMergeText(MergeAllText(MergeDialogs(AppGraph.messages(app)))).notice(outcome) ?: return
-        val merge = when (outcome) {
-            is AutoMergeOutcome.Merged -> outcome.merge
-            is AutoMergeOutcome.Failed -> outcome.merge
-            is AutoMergeOutcome.Skipped -> return
-        }
-        // One notification per PR (its tag), so merging several in a row shows each.
-        MergeNotices.post(app, MergeNotices.Notice(CHANNEL, R.string.auto_merge_channel, ID, title, body, merge.pr.webUrl, merge.pr.toString()))
+        notice(app, outcome)?.let { MergeNotices.post(app, it) }
     }
 
     companion object {
         private const val CHANNEL = "auto_merge"
         private const val ID = 79
+
+        /** The notification for [outcome]; null for a skipped poll. One per PR (its tag), so merging several in a row shows each. */
+        fun notice(context: Context, outcome: AutoMergeOutcome): MergeNotices.Notice? {
+            val (title, body) = AutoMergeText(MergeAllText(MergeDialogs(AppGraph.messages(context)))).notice(outcome) ?: return null
+            val merge = when (outcome) {
+                is AutoMergeOutcome.Merged -> outcome.merge
+                is AutoMergeOutcome.Failed -> outcome.merge
+                is AutoMergeOutcome.Skipped -> return null
+            }
+            return MergeNotices.Notice(CHANNEL, R.string.auto_merge_channel, ID, title, body, merge.pr.webUrl, merge.pr.toString())
+        }
 
         /** One poll at a time per process, even if JobScheduler starts a second job while one runs. */
         private val LOCK = ReentrantLock()

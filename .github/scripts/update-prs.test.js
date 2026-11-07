@@ -73,7 +73,7 @@ function fake({ open, closed = [], behind = {}, conflicts = [], updateError = {}
       return closed.filter((p) => p.head.ref === branch);
     },
   };
-  const run = () => updatePrs({ github, owner: OWNER, repo: REPO, main: 'main', log: () => {}, wait: async () => {}, headPolls: 3, heldPolls: 2, pollMs: 0 });
+  const run = (extra = {}) => updatePrs({ github, owner: OWNER, repo: REPO, main: 'main', log: () => {}, wait: async () => {}, headPolls: 3, heldPolls: 2, pollMs: 0, ...extra });
   return { calls, counts, run, inputs };
 }
 
@@ -311,4 +311,48 @@ test('every PR conflicting: each is labelled, none dispatched', async () => {
   const f = fake({ open: [pr(22), pr(23)], behind: { sha22: 1, sha23: 1 }, conflicts: [22, 23] });
   assert.deepStrictEqual((await f.run()).map((r) => r.action), ['conflict', 'conflict']);
   assert.ok(!f.calls.some((c) => c[0] === 'dispatch'));
+});
+
+// --- reviewer (#79): edge cases of the next-only update ---
+
+test('PRs stacked on the merged branch but not updated this run are still retargeted (no CI started)', async () => {
+  const merged = { ...pr(21), merged_at: '2026-11-07T10:00:00Z' };
+  const f = fake({
+    open: [pr(25, { base: 'claude/21-x' }), pr(26, { base: 'claude/21-x' }), pr(27, { base: 'claude/21-x', draft: true })],
+    closed: [merged], behind: { sha25: 1, sha26: 1, sha27: 1 },
+  });
+  assert.deepStrictEqual(await f.run(), [{ number: 25, action: 'updated' }, { number: 26, action: 'queued' }, { number: 27, action: 'draft' }]);
+  assert.deepStrictEqual(f.calls.filter((c) => c[0] === 'retarget').map((c) => c[1]).sort(), [25, 26, 27]);
+  assert.deepStrictEqual(f.calls.filter((c) => c[0] === 'update' || c[0] === 'dispatch').map((c) => c[0]), ['update', 'dispatch']);
+});
+
+test('a PR stacked on a still-open PR is not retargeted even when queued', async () => {
+  const f = fake({ open: [pr(22), pr(23), pr(24, { base: 'claude/23-x' })], behind: { sha22: 1, sha23: 1, sha24: 1 } });
+  await f.run();
+  assert.ok(!f.calls.some((c) => c[0] === 'retarget'));
+});
+
+test('a failed retarget of a waiting PR is reported as an error, the update still happened', async () => {
+  const merged = { ...pr(21), merged_at: '2026-11-07T10:00:00Z' };
+  const f = fake({ open: [pr(20), pr(27, { base: 'claude/21-x', draft: true })], closed: [merged], behind: { sha20: 1 }, retargetError: http(500, 'boom') });
+  const results = await f.run();
+  assert.deepStrictEqual(results[0], { number: 20, action: 'updated' });
+  assert.strictEqual(results[1].action, 'error');
+});
+
+test('an error on the next PR (not a conflict) moves on to the one after it', async () => {
+  const f = fake({ open: [pr(22), pr(23)], behind: { sha22: 1, sha23: 1 }, updateError: { 22: http(500, 'server error') } });
+  assert.deepStrictEqual((await f.run()).map((r) => r.action), ['error', 'updated']);
+});
+
+test('no open PRs at all: nothing is called', async () => {
+  const f = fake({ open: [] });
+  assert.deepStrictEqual(await f.run(), []);
+  assert.deepStrictEqual(f.calls, []);
+});
+
+test('an unknown mode fails loudly before any write', async () => {
+  const f = fake({ open: [pr(22)], behind: { sha22: 1 } });
+  await assert.rejects(f.run({ mode: 'fast' }), /unknown update mode/);
+  assert.deepStrictEqual(f.calls, []);
 });

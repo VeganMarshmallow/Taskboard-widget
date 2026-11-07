@@ -32,6 +32,15 @@ object MergeNotices {
         if (!allowed(context)) return
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         manager.createNotificationChannel(NotificationChannel(notice.channel, context.getString(notice.channelName), NotificationManager.IMPORTANCE_DEFAULT))
+        try {
+            manager.notify(notice.tag, notice.id, build(context, notice))
+        } catch (e: SecurityException) {
+            // The permission was taken back between the check and the post: the widget still shows it.
+        }
+    }
+
+    /** The notification for [notice], not posted (its channel is created by [post]). */
+    fun build(context: Context, notice: Notice): Notification {
         val builder = Notification.Builder(context, notice.channel)
             .setSmallIcon(R.drawable.ic_merge)
             .setContentTitle(notice.title)
@@ -42,11 +51,7 @@ object MergeNotices {
             val open = PendingIntent.getActivity(context, notice.id, WidgetIntents.viewUrl(url), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             builder.setContentIntent(open)
         }
-        try {
-            manager.notify(notice.tag, notice.id, builder.build())
-        } catch (e: SecurityException) {
-            // The permission was taken back between the check and the post: the widget still shows it.
-        }
+        return builder.build()
     }
 
     /** Android 13+ asks for the permission; earlier versions always allow it. */

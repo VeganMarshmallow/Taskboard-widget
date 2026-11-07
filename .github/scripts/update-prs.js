@@ -113,15 +113,20 @@ async function updatePrs({
     }
   }
 
+  /** Moves a PR whose base branch's own PR was merged onto the default branch. No CI is started. */
+  async function retarget(pr) {
+    await github.rest.pulls.update({ owner, repo, pull_number: pr.number, base: main });
+    log(`#${pr.number}: retargeted from ${pr.base.ref} to ${main}`);
+  }
+
   async function updateOne(pr) {
     const n = pr.number;
     const labels = (pr.labels || []).map((l) => l.name);
     let retargeted = false;
     if (pr.base.ref !== main) {
       if (!(await baseWasMerged(pr.base.ref))) return { number: n, action: 'stacked' };
-      await github.rest.pulls.update({ owner, repo, pull_number: n, base: main });
+      await retarget(pr);
       retargeted = true;
-      log(`#${n}: retargeted from ${pr.base.ref} to ${main}`);
     }
     const { data: diff } = await github.rest.repos.compareCommitsWithBasehead({ owner, repo, basehead: `${main}...${pr.head.sha}` });
     if (diff.behind_by === 0) {
@@ -172,15 +177,29 @@ async function updatePrs({
   }
   const { queue, skipped, limit } = selectPrsToUpdate(ours, { main, mergedBases, mode });
   const byNumber = new Map(skipped.map(({ pr, action }) => [pr.number, { number: pr.number, action }]));
+  const waiting = []; // not updated this run
   let settled = 0;
   for (const pr of queue) {
     if (settled >= limit) {
       byNumber.set(pr.number, { number: pr.number, action: 'queued' });
+      waiting.push(pr);
       continue;
     }
     const result = await attempt(pr);
     if (SETTLED.has(result.action)) settled += 1;
     byNumber.set(pr.number, result);
+  }
+  // Every PR still stacked on a merged branch is retargeted now, even one not updated this run (a
+  // draft, or queued behind the next PR): otherwise it would stay stacked, which Merge all and auto
+  // merge never take, until some later merge happened to pick it.
+  for (const pr of [...waiting, ...skipped.filter((s) => s.action === 'draft').map((s) => s.pr)]) {
+    if (pr.base.ref === main || !mergedBases.has(pr.base.ref)) continue;
+    try {
+      await retarget(pr);
+    } catch (error) {
+      log(`#${pr.number}: failed to retarget: ${error.status || ''} ${error.message}`);
+      byNumber.set(pr.number, { number: pr.number, action: 'error', error: String(error.message) });
+    }
   }
   if (queue.length) log(`next in merge order: ${queue.map((p) => `#${p.number}`).join(', ')} (updating up to ${limit})`);
   return ours.map((pr) => byNumber.get(pr.number));
