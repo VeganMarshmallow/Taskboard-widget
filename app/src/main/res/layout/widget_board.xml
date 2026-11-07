@@ -65,7 +65,7 @@
         <!-- #82: opens the Questions screen; the count of tasks waiting on your answer, or "?" with none. -->
         <TextView
             android:id="@+id/questions"
-            android:layout_width="32dp"
+            android:layout_width="28dp"
             android:layout_height="36dp"
             android:contentDescription="@string/questions_badge_none"
             android:gravity="center"
