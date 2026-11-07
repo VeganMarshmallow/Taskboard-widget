@@ -36,6 +36,7 @@ class PreviewViews(private val root: View, private val messages: ErrorMessages) 
     private val merged: View = root.findViewById(R.id.preview_merged)
     private val merge: Button = root.findViewById(R.id.preview_merge)
     private val retry: Button = root.findViewById(R.id.preview_retry)
+    private val ask: View = root.findViewById(R.id.preview_ask)
 
     fun bind(screen: PreviewScreen) {
         val task = screen.task
@@ -47,6 +48,7 @@ class PreviewViews(private val root: View, private val messages: ErrorMessages) 
         bindSummary(screen.summaryState)
         claude.bind(screen.claudeComment)
         reply.bind(screen)
+        ask.visibility = if (screen.task != null) View.VISIBLE else View.GONE
         error.showText(screen.error?.let { errorText(it, screen.number) })
         approved.visibility = if (screen.justApproved) View.VISIBLE else View.GONE
         approve.visibility = if (screen.showApprove || screen.approving) View.VISIBLE else View.GONE

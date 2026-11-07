@@ -9,6 +9,7 @@ import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.core.board.TabSelection
 import io.github.veganmarshmallow.taskboard.filter.FilterActivity
 import io.github.veganmarshmallow.taskboard.newtask.NewTaskActivity
+import io.github.veganmarshmallow.taskboard.questions.QuestionsActivity
 import io.github.veganmarshmallow.taskboard.setup.SetupActivity
 
 /** Every Intent / PendingIntent the widget uses, in one place so request codes never collide. */
@@ -37,6 +38,7 @@ object WidgetIntents {
     private const val RC_FILTER = 18
     private const val RC_FILTER_CLEAR = 19
     private const val RC_MERGE_ALL_RESET = 20
+    private const val RC_QUESTIONS = 21
     /** Tab taps use request codes from here up (one per tab); the intent data also names the widget, so no two collide. */
     private const val RC_TAB_BASE = 1000
 
@@ -124,6 +126,11 @@ object WidgetIntents {
         Intent(context, FilterActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
         IMMUTABLE,
+    )
+
+    /** The header's Questions badge (#82): the Questions screen, asking in general. */
+    fun questions(context: Context): PendingIntent = PendingIntent.getActivity(
+        context, RC_QUESTIONS, QuestionsActivity.intent(context), IMMUTABLE,
     )
 
     /** The "Filtered" line's Clear (#59). */

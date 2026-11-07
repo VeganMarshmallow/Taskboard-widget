@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Questions screen (task #82): ask Claude, Claude's open questions, and your questions with Claude's answers. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/questions_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/tbSurface"
+    android:fillViewport="true"
+    android:fitsSystemWindows="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            style="?attr/tbHeadline"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/questions_title" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/questions_wait"
+            android:textColor="?attr/tbMuted"
+            android:textDirection="locale"
+            android:textSize="13sp" />
+
+        <!-- Ask Claude: about the task the screen was opened from, or in general. -->
+        <LinearLayout
+            android:id="@+id/questions_ask"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/update_card_background"
+            android:orientation="vertical"
+            android:padding="14dp">
+
+            <TextView
+                style="?attr/tbSectionLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/questions_ask" />
+
+            <TextView
+                android:id="@+id/questions_ask_topic"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textAlignment="viewStart"
+                android:textColor="?attr/tbText"
+                android:textDirection="firstStrong"
+                android:textSize="14sp" />
+
+            <Button
+                android:id="@+id/questions_ask_general"
+                style="?attr/tbButtonText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minHeight="32dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="0dp"
+                android:text="@string/questions_ask_make_general"
+                android:textAllCaps="false"
+                android:visibility="gone" />
+
+            <include layout="@layout/reply_box" />
+
+            <Button
+                android:id="@+id/preview_reply_send"
+                style="@style/Button.Taskboard.Sheet.Primary"
+                android:layout_gravity="end"
+                android:layout_marginTop="8dp"
+                android:text="@string/questions_ask_send" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/questions_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="8dp"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/questions_retry"
+            style="@style/Button.Taskboard.Sheet.Secondary"
+            android:layout_gravity="end"
+            android:text="@string/questions_retry"
+            android:visibility="gone" />
+
+        <TextView
+            style="?attr/tbSectionLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="@string/questions_from_claude" />
+
+        <TextView
+            android:id="@+id/questions_from_claude_none"
+            style="@style/QuestionsEmpty"
+            android:text="@string/questions_from_claude_none" />
+
+        <LinearLayout
+            android:id="@+id/questions_from_claude"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <TextView
+            style="?attr/tbSectionLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="@string/questions_to_claude" />
+
+        <TextView
+            android:id="@+id/questions_to_claude_none"
+            style="@style/QuestionsEmpty"
+            android:text="@string/questions_to_claude_none" />
+
+        <LinearLayout
+            android:id="@+id/questions_to_claude"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </LinearLayout>
+</ScrollView>

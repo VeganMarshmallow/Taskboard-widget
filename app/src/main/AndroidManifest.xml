@@ -39,6 +39,13 @@
             android:label="@string/task_new_title"
             android:windowSoftInputMode="adjustResize|stateVisible" />
 
+        <!-- The Questions screen (task #82), opened from the widget header's badge or a task sheet's Ask Claude. -->
+        <activity
+            android:name=".questions.QuestionsActivity"
+            android:exported="false"
+            android:label="@string/questions_title"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
+
         <!-- Invisible trampoline for list-row taps: opens the issue, or confirms an approval. -->
         <activity
             android:name=".widget.RowActionActivity"

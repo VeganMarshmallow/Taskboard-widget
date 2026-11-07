@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Claude's comment in full (task #43): the "What I need from you" box, then the rest, collapsed when long. Bound by ClaudeCommentViews; used by the task sheet and the Questions screen (task #82). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/preview_claude"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="10dp"
+    android:orientation="vertical"
+    android:visibility="gone">
+
+    <LinearLayout
+        android:id="@+id/preview_claude_need"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:background="@drawable/claude_need_background"
+        android:orientation="vertical"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="8dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/preview_claude_need_label"
+            android:textColor="?attr/tbAccent"
+            android:textDirection="locale"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/preview_claude_need_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:lineSpacingExtra="2dp"
+            android:textAlignment="viewStart"
+            android:textColor="?attr/tbText"
+            android:textDirection="firstStrong"
+            android:textSize="14sp" />
+    </LinearLayout>
+
+    <io.github.veganmarshmallow.taskboard.preview.CollapsibleText
+        android:id="@+id/preview_claude_body"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <TextView
+            android:id="@+id/preview_claude_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:lineSpacingExtra="2dp"
+            android:textAlignment="viewStart"
+            android:textColor="?attr/tbMuted"
+            android:textDirection="firstStrong"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/preview_claude_toggle"
+            style="?attr/tbButtonText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="32dp"
+            android:minWidth="0dp"
+            android:paddingHorizontal="0dp"
+            android:text="@string/preview_show_more"
+            android:textAllCaps="false"
+            android:visibility="gone" />
+    </io.github.veganmarshmallow.taskboard.preview.CollapsibleText>
+</LinearLayout>

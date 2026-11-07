@@ -64,7 +64,7 @@ class GitHubApi(
     private fun fetchAll(first: HttpRequest): Outcome<List<Issue>> =
         PagedFetcher(maxPages, requests::page, ::sendPage).fetchAll(first).map { it.issues }
 
-    private fun sendPage(request: HttpRequest): Outcome<PagedFetcher.Page> = when (val r = send(request)) {
+    private fun sendPage(request: HttpRequest): Outcome<PagedFetcher.Page<Issue>> = when (val r = send(request)) {
         is Outcome.Failure -> r
         is Outcome.Success -> try {
             Outcome.Success(PagedFetcher.Page(IssueJsonParser.parsePage(r.value.body), r.value.header("link")))

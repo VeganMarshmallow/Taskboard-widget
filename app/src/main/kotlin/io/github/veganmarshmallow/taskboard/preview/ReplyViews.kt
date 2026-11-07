@@ -17,10 +17,40 @@ import io.github.veganmarshmallow.taskboard.core.reply.ReplyText
 import io.github.veganmarshmallow.taskboard.core.reply.StatusMove
 
 /**
- * The preview's reply box (task #44): text, the "unblock the task" checkbox for tasks waiting on
- * the owner, the "Request changes" checkbox for tasks in review (task #65), the result line and Send. [bind] only maps state to views; [listen] wires the input.
+ * What a reply box shows: whether it is [shown], its [form], and which checkboxes the task offers.
+ * The task sheet's comes from its [PreviewScreen]; the Questions screen (task #82) makes its own.
  */
-class ReplyViews(root: View, private val messages: ErrorMessages) {
+data class ReplyBox(
+    val shown: Boolean,
+    val form: ReplyForm,
+    val offerUnblock: Boolean = false,
+    val offerRequestChanges: Boolean = false,
+) {
+    companion object {
+        fun of(screen: PreviewScreen) = ReplyBox(screen.showReply, screen.reply, screen.offerUnblock, screen.offerRequestChanges)
+    }
+}
+
+/** The words a reply box uses: a reply to Claude, or (task #82) a question for Claude. */
+data class ReplyWords(
+    val hint: Int = R.string.reply_hint,
+    val send: Int = R.string.reply_send,
+    val sent: Int = R.string.reply_sent,
+    val failed: Int = R.string.reply_failed,
+) {
+    companion object {
+        val REPLY = ReplyWords()
+        val QUESTION = ReplyWords(R.string.questions_ask_hint, R.string.questions_ask_send, R.string.questions_ask_sent, R.string.questions_ask_failed)
+    }
+}
+
+/**
+ * A reply box (task #44): text, the "unblock the task" checkbox for tasks waiting on the owner,
+ * the "Request changes" checkbox for tasks in review (task #65), the result line and Send. [root]
+ * holds the `reply_box` layout and a `preview_reply_send` button: the task sheet, or one card of
+ * the Questions screen (task #82). [bind] only maps state to views; [listen] wires the input.
+ */
+class ReplyViews(root: View, private val messages: ErrorMessages, private val words: ReplyWords = ReplyWords.REPLY) {
     private val context = root.context
     private val container: View = root.findViewById(R.id.preview_reply)
     private val input: EditText = root.findViewById(R.id.preview_reply_input)
@@ -29,18 +59,24 @@ class ReplyViews(root: View, private val messages: ErrorMessages) {
     private val message: TextView = root.findViewById(R.id.preview_reply_message)
     private val send: Button = root.findViewById(R.id.preview_reply_send)
 
-    fun bind(screen: PreviewScreen) {
-        container.visibility = if (screen.showReply) View.VISIBLE else View.GONE
+    init {
+        if (words.hint != ReplyWords.REPLY.hint) input.setHint(words.hint)
+    }
+
+    fun bind(screen: PreviewScreen) = bind(ReplyBox.of(screen))
+
+    fun bind(box: ReplyBox) {
+        container.visibility = if (box.shown) View.VISIBLE else View.GONE
         // Send sits in the sheet's action row (#46 round 2), outside the box, so it follows the box itself.
         send.visibility = container.visibility
-        val form = screen.reply
+        val form = box.form
         if (input.text.toString() != form.draft) {
             input.setText(form.draft)
             input.setSelection(input.length())
         }
         input.isEnabled = !form.sending
-        bindChoice(unblock, screen.offerUnblock && !form.retriesLabels, form.unblock, form.sending)
-        val asksChanges = screen.offerRequestChanges && !form.retriesLabels
+        bindChoice(unblock, box.offerUnblock && !form.retriesLabels, form.unblock, form.sending)
+        val asksChanges = box.offerRequestChanges && !form.retriesLabels
         bindChoice(requestChanges, asksChanges, form.requestChanges, form.sending)
         bindMessage(form)
         send.isEnabled = form.canSend
@@ -51,7 +87,7 @@ class ReplyViews(root: View, private val messages: ErrorMessages) {
                 form.retriesLabels && form.pendingMove == StatusMove.REQUEST_CHANGES -> R.string.reply_retry_request_changes
                 form.retriesLabels -> R.string.reply_retry_unblock
                 asksChanges && form.requestChanges -> R.string.reply_send_request_changes
-                else -> R.string.reply_send
+                else -> words.send
             },
         )
     }
@@ -88,7 +124,7 @@ class ReplyViews(root: View, private val messages: ErrorMessages) {
     private fun failureText(failure: ReplyResult.Failed): String {
         val reason = sentence(messages.message(failure.error))
         return when (failure.step) {
-            ReplyStep.COMMENT -> context.getString(R.string.reply_failed, reason) +
+            ReplyStep.COMMENT -> context.getString(words.failed, reason) +
                 if (failure.mayHavePosted) " " + context.getString(R.string.reply_may_have_posted) else ""
             ReplyStep.UNBLOCK -> context.getString(R.string.reply_unblock_failed, reason)
             ReplyStep.REQUEST_CHANGES -> context.getString(R.string.reply_request_changes_failed, reason)
@@ -98,7 +134,7 @@ class ReplyViews(root: View, private val messages: ErrorMessages) {
     private fun sentText(sent: ReplyResult.Sent): Int = when {
         sent.changesRequested -> R.string.reply_sent_changes_requested
         sent.unblocked -> R.string.reply_sent_unblocked
-        else -> R.string.reply_sent
+        else -> words.sent
     }
 
     /** Error messages may or may not end in a full stop; the reply's text adds a sentence after them. */

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Questions screen (task #82): Claude's open questions, and the owner's questions to Claude. -->
+<resources>
+    <string name="questions_title">Questions</string>
+    <string name="questions_wait">Claude answers on its next run (tonight)</string>
+    <string name="questions_from_claude">Claude\'s questions to you</string>
+    <string name="questions_from_claude_none">Claude has no open questions.</string>
+    <string name="questions_to_claude">Your questions to Claude</string>
+    <string name="questions_to_claude_none">You haven\'t asked Claude anything lately.</string>
+    <string name="questions_ask">Ask Claude</string>
+    <string name="questions_ask_hint">Ask Claude anything…</string>
+    <string name="questions_ask_send">Ask</string>
+    <string name="questions_ask_sent">Asked. Claude answers on its next run (tonight)</string>
+    <string name="questions_ask_failed">Question not sent: %1$s</string>
+    <string name="questions_ask_general">A general question, not about one task</string>
+    <string name="questions_ask_about">About #%1$d %2$s</string>
+    <string name="questions_ask_about_number">About task #%1$d</string>
+    <string name="questions_ask_make_general">Ask in general instead</string>
+    <string name="questions_ask_about_task">Ask Claude about this task</string>
+    <string name="questions_task">#%1$d %2$s</string>
+    <string name="questions_general_question">General question #%1$d</string>
+    <string name="questions_no_text">Claude\'s question is older than the comments read. Open the task to see it.</string>
+    <string name="questions_open_task">Open task</string>
+    <string name="questions_you_asked">You asked</string>
+    <string name="questions_answer">Claude\'s answer</string>
+    <string name="questions_waiting">Waiting for Claude. It answers on its next run (tonight).</string>
+    <string name="questions_loading">Loading questions…</string>
+    <string name="questions_load_failed">Couldn\'t load questions: %1$s</string>
+    <string name="questions_retry">Retry</string>
+    <string name="questions_badge_none">Questions</string>
+    <plurals name="questions_badge">
+        <item quantity="one">Questions, %1$d from Claude</item>
+        <item quantity="other">Questions, %1$d from Claude</item>
+    </plurals>
+</resources>
