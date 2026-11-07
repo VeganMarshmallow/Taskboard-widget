@@ -1,5 +1,6 @@
 package io.github.veganmarshmallow.taskboard.core.mergeall
 
+import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.merge.MergeProblem
 import io.github.veganmarshmallow.taskboard.core.merge.MergeStep
 import io.github.veganmarshmallow.taskboard.core.merge.PullRequest
@@ -17,6 +18,9 @@ import java.time.Duration
  *
  * - The first problem stops the run; PRs merged so far stay merged.
  * - Cancel is honoured at the start of a step: a step already sent is finished, nothing more merges.
+ * - Each step checks the network first (#78): offline, it waits for one without calling GitHub, and
+ *   the run says "waiting for network". A run picked up after a stall ([MergeAllHealth]) doesn't
+ *   count the stalled time toward [checksTimeout].
  * - Checks running, a head not updated yet, and network trouble are waited out, up to [checksTimeout]
  *   per PR. A failed merge request without a clear answer is retried only after re-reading the PR,
  *   so a merge that went through is counted, never sent twice.
@@ -25,13 +29,18 @@ class MergeAllMachine(
     private val github: MergeAllGitHub,
     private val poll: Duration = POLL,
     private val checksTimeout: Duration = CHECKS_TIMEOUT,
+    private val staleAfter: Duration = MergeAllHealth.staleAfter(poll),
 ) {
     /** The state after a step, and how long to wait before the next one (null: go on at once). */
     data class Step(val state: MergeAllState, val waitFor: Duration? = null)
 
-    fun step(state: MergeAllState, cancel: Boolean): Step {
-        if (!state.running) return Step(state)
-        if (cancel && state.phase != MERGE) return Step(state.cancelled(github.now()))
+    /** One step of the [saved] run. [online]: whether the device has a network now (checked before any call). */
+    fun step(saved: MergeAllState, cancel: Boolean, online: Boolean = true): Step {
+        if (!saved.running) return Step(saved)
+        val resumed = MergeAllHealth.resumed(saved, github.now(), staleAfter)
+        if (cancel && resumed.phase != MERGE) return Step(resumed.cancelled(github.now()))
+        if (!online) return keepWaiting(resumed.copy(offline = true), MergeProblem.Failed(BoardError.Network))
+        val state = resumed.copy(offline = false)
         return when (state.phase) {
             PREPARE -> prepare(state)
             UPDATE -> update(state)

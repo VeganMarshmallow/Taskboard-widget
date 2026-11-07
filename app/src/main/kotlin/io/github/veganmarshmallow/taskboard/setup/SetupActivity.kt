@@ -15,6 +15,7 @@ import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.setup.SetupFlow
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.TokenStore
+import io.github.veganmarshmallow.taskboard.mergeall.MergeAllJob
 import io.github.veganmarshmallow.taskboard.theme.AppTheme
 import io.github.veganmarshmallow.taskboard.update.UpdateSection
 import io.github.veganmarshmallow.taskboard.widget.WidgetIntents
@@ -75,6 +76,7 @@ class SetupActivity : Activity() {
     override fun onResume() {
         super.onResume()
         updates.onResume()
+        MergeAllJob.ensureScheduled(this) // a stalled Merge all run resumes when the app opens (#78)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

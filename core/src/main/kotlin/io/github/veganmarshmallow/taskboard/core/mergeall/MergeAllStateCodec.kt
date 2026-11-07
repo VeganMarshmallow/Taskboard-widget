@@ -12,7 +12,8 @@ import java.time.Instant
 /**
  * [MergeAllState] to and from JSON, for the app's store (#57). [decode] returns null for anything it
  * can't read back in full (a corrupt file, another app version's format): no run is better than a
- * guessed one, which could merge the wrong PR.
+ * guessed one, which could merge the wrong PR. Fields added later ("offline", #78) are optional, so a
+ * run saved by an older build still reads back.
  */
 object MergeAllStateCodec {
     private const val VERSION = 1L
@@ -28,6 +29,7 @@ object MergeAllStateCodec {
             "oldHead" to state.oldHead,
             "checkedHead" to state.checkedHead,
             "waitSince" to state.waitSince?.toString(),
+            "offline" to state.offline,
             "end" to end(state.end),
             "updatedAt" to state.updatedAt.toString(),
         ),
@@ -57,6 +59,11 @@ object MergeAllStateCodec {
         oldHead = m.string("oldHead"),
         checkedHead = m.string("checkedHead"),
         waitSince = m.string("waitSince")?.let(Instant::parse),
+        offline = when (val offline = m["offline"]) {
+            null -> false
+            is Boolean -> offline
+            else -> throw IllegalArgumentException("bad offline")
+        },
         end = (m["end"] as? Map<*, *>)?.let(::endOf),
         updatedAt = Instant.parse(m.string("updatedAt")!!),
     )

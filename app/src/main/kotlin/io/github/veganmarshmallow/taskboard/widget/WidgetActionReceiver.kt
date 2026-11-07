@@ -9,7 +9,7 @@ import io.github.veganmarshmallow.taskboard.data.FilterStore
 import io.github.veganmarshmallow.taskboard.mergeall.MergeAllJob
 
 /**
- * The widget's refresh button, confirmed approvals, tab taps, Merge all's Cancel and OK (#57) and the filter's Clear (#59).
+ * The widget's refresh button, confirmed approvals, tab taps, Merge all's Cancel, OK (#57) and Reset (#78) and the filter's Clear (#59).
  * Refresh and approve only schedule jobs; a tab tap or Clear is quick local work, done in place ([TabTap]).
  */
 class WidgetActionReceiver : BroadcastReceiver() {
@@ -20,6 +20,7 @@ class WidgetActionReceiver : BroadcastReceiver() {
             WidgetIntents.ACTION_SELECT_TAB -> TabTap.handle(context.applicationContext, intent)
             WidgetIntents.ACTION_MERGE_ALL_CANCEL -> MergeAllJob.cancel(context)
             WidgetIntents.ACTION_MERGE_ALL_DISMISS -> MergeAllJob.dismiss(context)
+            WidgetIntents.ACTION_MERGE_ALL_RESET -> MergeAllJob.reset(context)
             WidgetIntents.ACTION_CLEAR_FILTER -> {
                 FilterStore(context).clear()
                 StateRedraw.redraw(context)

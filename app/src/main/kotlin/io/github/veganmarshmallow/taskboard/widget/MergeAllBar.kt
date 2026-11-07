@@ -15,7 +15,8 @@ import io.github.veganmarshmallow.taskboard.theme.WidgetPalette
 
 /**
  * The widget's Merge all line (#57), under the tabs: "3 PRs ready to merge [Merge all]" on Needs you,
- * "Merging 2 of 5… waiting for checks [Cancel]" while a run goes on, and how it ended [OK] after.
+ * "Merging 2 of 5… waiting for checks [Cancel]" while a run goes on ([Reset] once Cancel was tapped
+ * and it hasn't stopped yet, #78), and how it ended [OK] after.
  * What it says is [MergeAllBanner]'s; this only maps it onto the views and their taps.
  */
 class MergeAllBar(private val context: Context) {
@@ -27,7 +28,7 @@ class MergeAllBar(private val context: Context) {
         val store = AppGraph.mergeAllStore(context)
         val state = store.load()
         val cancelling = state != null && store.cancelRequested(state.runId)
-        val banner = MergeAllBanner.of(state, cancelling, board, selected == Section.NEEDS_YOU, text)
+        val banner = MergeAllBanner.of(state, cancelling, board, selected == Section.NEEDS_YOU, text, AppGraph.clock.instant())
         if (banner == null) {
             views.setViewVisibility(R.id.merge_all_bar, View.GONE)
             return
@@ -44,6 +45,7 @@ class MergeAllBar(private val context: Context) {
                 MergeAllBanner.Button.MERGE_ALL -> WidgetIntents.mergeAll(context)
                 MergeAllBanner.Button.CANCEL -> WidgetIntents.cancelMergeAll(context)
                 MergeAllBanner.Button.DISMISS -> WidgetIntents.dismissMergeAll(context)
+                MergeAllBanner.Button.RESET -> WidgetIntents.resetMergeAll(context)
             },
         )
     }
@@ -60,5 +62,6 @@ class MergeAllBar(private val context: Context) {
         MergeAllBanner.Button.MERGE_ALL -> R.string.merge_all
         MergeAllBanner.Button.CANCEL -> R.string.merge_all_cancel
         MergeAllBanner.Button.DISMISS -> R.string.merge_all_dismiss
+        MergeAllBanner.Button.RESET -> R.string.merge_all_reset
     }
 }

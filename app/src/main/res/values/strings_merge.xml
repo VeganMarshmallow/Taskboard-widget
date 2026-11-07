@@ -26,6 +26,7 @@
     <string name="merge_all">Merge all</string>
     <string name="merge_all_cancel">Cancel</string>
     <string name="merge_all_dismiss">OK</string>
+    <string name="merge_all_reset">Reset</string>
     <string name="merge_all_channel">Merge all</string>
     <string name="merge_all_done_title">Merge all finished</string>
     <string name="merge_all_cancelled_title">Merge all cancelled</string>

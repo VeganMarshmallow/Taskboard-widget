@@ -15,6 +15,7 @@ import io.github.veganmarshmallow.taskboard.core.work.BoardJob
 import io.github.veganmarshmallow.taskboard.core.work.RefreshPolicy
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTrigger
 import io.github.veganmarshmallow.taskboard.data.AppGraph
+import io.github.veganmarshmallow.taskboard.mergeall.MergeAllJob
 
 /**
  * The only way widget work is started: everything runs as a JobScheduler job in [BoardJobService],
@@ -33,6 +34,7 @@ object BoardJobs {
      */
     fun refresh(context: Context, trigger: RefreshTrigger) {
         val app = context.applicationContext
+        MergeAllJob.ensureScheduled(app) // a stalled Merge all run resumes on any refresh (#78)
         if (!RefreshPolicy.shouldSchedule(trigger, AppGraph.refreshTracker(app).status())) return
         if (trigger == RefreshTrigger.MANUAL) AppGraph.retryPlanner(app).reset()
         if (trigger == RefreshTrigger.MANUAL && !Connectivity.isOnline(app)) {
