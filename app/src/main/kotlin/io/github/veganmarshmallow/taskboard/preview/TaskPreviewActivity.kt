@@ -20,6 +20,7 @@ import io.github.veganmarshmallow.taskboard.core.reply.StatusMove
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.StateStore
 import io.github.veganmarshmallow.taskboard.merge.MergeFlow
+import io.github.veganmarshmallow.taskboard.questions.QuestionsActivity
 import io.github.veganmarshmallow.taskboard.setup.SetupActivity
 import io.github.veganmarshmallow.taskboard.widget.ApproveDialog
 import io.github.veganmarshmallow.taskboard.widget.WidgetIntents
@@ -57,6 +58,7 @@ class TaskPreviewActivity : Activity() {
         findViewById<View>(R.id.preview_approve).setOnClickListener { confirmApprove() }
         findViewById<View>(R.id.preview_merge).setOnClickListener { startMerge() }
         findViewById<View>(R.id.preview_retry).setOnClickListener { onRetry() }
+        findViewById<View>(R.id.preview_ask).setOnClickListener { askClaude() }
         views.reply.listen(
             onEdit = ::onReplyEdited,
             onUnblock = { update(screen.withReply(screen.reply.unblockChecked(it))) },
@@ -166,6 +168,12 @@ class TaskPreviewActivity : Activity() {
     private val onReplyFinished: (ReplyForm, ReplyResult) -> Unit = { form, result ->
         update(screen.withReply(form))
         if (result.posted) load()
+    }
+
+    /** Task #82: the Questions screen, its ask box about this task. */
+    private fun askClaude() {
+        startActivity(QuestionsActivity.intent(this, screen.number, screen.task?.title))
+        finish()
     }
 
     private fun onRetry() {

@@ -16,6 +16,8 @@ object Labels {
     const val READY_FOR_CLAUDE = "ready-for-claude"
     const val NEEDS_OWNER = "needs-owner"
     const val CREATED_BY_CLAUDE = "created-by-claude"
+    /** The owner asked Claude a question (task #82); Claude removes it once it has answered. */
+    const val QUESTION_FOR_CLAUDE = "question-for-claude"
     const val PRIORITY_HIGH = "priority: high"
     const val PRIORITY_LOW = "priority: low"
 

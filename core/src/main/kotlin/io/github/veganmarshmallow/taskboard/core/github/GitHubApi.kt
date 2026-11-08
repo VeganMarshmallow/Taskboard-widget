@@ -61,13 +61,19 @@ class GitHubApi(
     fun testConnection(): Outcome<Unit> =
         send(requests.repository()).flatMap { send(requests.openIssues()) }.map { }
 
-    private fun fetchAll(first: HttpRequest): Outcome<List<Issue>> =
-        PagedFetcher(maxPages, requests::page, ::sendPage).fetchAll(first).map { it.issues }
+    private fun fetchAll(first: HttpRequest): Outcome<List<Issue>> = fetchPages(first, maxPages, IssueJsonParser::parsePage)
 
-    private fun sendPage(request: HttpRequest): Outcome<PagedFetcher.Page> = when (val r = send(request)) {
+    /**
+     * Every item of a listing starting at [first], following `Link: rel="next"` up to [pages] pages,
+     * each page parsed with [parse] (issues here; the Questions screen's listings, task #82).
+     */
+    internal fun <T> fetchPages(first: HttpRequest, pages: Int, parse: (String) -> List<T>): Outcome<List<T>> =
+        PagedFetcher(pages, requests::page) { request: HttpRequest -> sendPage(request, parse) }.fetchAll(first).map { it.issues }
+
+    private fun <T> sendPage(request: HttpRequest, parse: (String) -> List<T>): Outcome<PagedFetcher.Page<T>> = when (val r = send(request)) {
         is Outcome.Failure -> r
         is Outcome.Success -> try {
-            Outcome.Success(PagedFetcher.Page(IssueJsonParser.parsePage(r.value.body), r.value.header("link")))
+            Outcome.Success(PagedFetcher.Page(parse(r.value.body), r.value.header("link")))
         } catch (e: MalformedResponseException) {
             Outcome.Failure(BoardError.Unexpected(e.message ?: "malformed JSON"))
         }

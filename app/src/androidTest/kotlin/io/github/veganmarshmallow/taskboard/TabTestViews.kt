@@ -52,14 +52,14 @@ object TabTestViews {
     }
 
     /**
-     * #28: every visible header button ([R.id.refresh], [R.id.new_task], the update dot) keeps its full size and lies
+     * #28: every visible header button ([R.id.refresh], [R.id.new_task], the Questions badge (#82), the update dot) keeps its full size and lies
      * inside the widget's content area (inside its padding), on either side in RTL, and top to bottom.
      */
     fun headerFitProblems(widget: View, what: String): List<String> {
         val left = widget.paddingLeft
         val right = widget.width - widget.paddingRight
         val bottom = widget.height - widget.paddingBottom
-        return listOf("refresh" to R.id.refresh, "new_task" to R.id.new_task, "filter" to R.id.filter, "update_dot" to R.id.update_dot).mapNotNull { (name, id) ->
+        return listOf("refresh" to R.id.refresh, "new_task" to R.id.new_task, "filter" to R.id.filter, "questions" to R.id.questions, "update_dot" to R.id.update_dot).mapNotNull { (name, id) ->
             val button = widget.findViewById<View>(id)
             if (button.visibility != View.VISIBLE) return@mapNotNull null
             val x = button.leftIn(widget)

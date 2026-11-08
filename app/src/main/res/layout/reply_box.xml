@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The reply box (tasks #44, #65): text, the unblock and request-changes checkboxes, and the result line. Bound by ReplyViews, with a Send button (preview_reply_send) beside it; used by the task sheet and the Questions screen (task #82). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/preview_reply"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="14dp"
+    android:orientation="vertical"
+    android:visibility="gone">
+
+    <EditText
+        android:id="@+id/preview_reply_input"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/reply_input_background"
+        android:gravity="top|start"
+        android:hint="@string/reply_hint"
+        android:importantForAutofill="no"
+        android:inputType="textMultiLine|textCapSentences"
+        android:maxLines="6"
+        android:minLines="2"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="8dp"
+        android:scrollbars="vertical"
+        android:textAlignment="textStart"
+        android:textColor="?attr/tbText"
+        android:textColorHint="?attr/tbMuted"
+        android:textDirection="firstStrong"
+        android:textSize="14sp" />
+
+    <CheckBox
+        android:id="@+id/preview_reply_unblock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:buttonTint="?attr/tbPrimary"
+        android:checked="true"
+        android:text="@string/reply_unblock"
+        android:textColor="?attr/tbText"
+        android:textDirection="locale"
+        android:textSize="13sp"
+        android:visibility="gone" />
+
+    <!-- Send an in-review task back to work on its PR (task #65). -->
+    <CheckBox
+        android:id="@+id/preview_reply_request_changes"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:buttonTint="@color/widget_accent"
+        android:text="@string/reply_request_changes"
+        android:textColor="@color/widget_text"
+        android:textDirection="locale"
+        android:textSize="13sp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/preview_reply_message"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="8dp"
+        android:textSize="13sp"
+        android:visibility="gone" />
+</LinearLayout>

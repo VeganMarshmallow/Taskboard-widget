@@ -94,141 +94,24 @@
             android:textSize="14sp" />
 
         <!-- Claude's latest comment (task #43): one line plus Show more (#46); the sheet scrolls when it is long. -->
-        <LinearLayout
-            android:id="@+id/preview_claude"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:orientation="vertical"
-            android:visibility="gone">
-
-            <LinearLayout
-                android:id="@+id/preview_claude_need"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/claude_need_background"
-                android:orientation="vertical"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="8dp"
-                android:visibility="gone">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/preview_claude_need_label"
-                    android:textColor="?attr/tbAccent"
-                    android:textDirection="locale"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/preview_claude_need_text"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:lineSpacingExtra="2dp"
-                    android:textAlignment="viewStart"
-                    android:textColor="?attr/tbText"
-                    android:textDirection="firstStrong"
-                    android:textSize="14sp" />
-            </LinearLayout>
-
-            <io.github.veganmarshmallow.taskboard.preview.CollapsibleText
-                android:id="@+id/preview_claude_body"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-
-                <TextView
-                    android:id="@+id/preview_claude_text"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:ellipsize="end"
-                    android:lineSpacingExtra="2dp"
-                    android:textAlignment="viewStart"
-                    android:textColor="?attr/tbMuted"
-                    android:textDirection="firstStrong"
-                    android:textSize="13sp" />
-
-                <Button
-                    android:id="@+id/preview_claude_toggle"
-                    style="?attr/tbButtonText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:minHeight="32dp"
-                    android:minWidth="0dp"
-                    android:paddingHorizontal="0dp"
-                    android:text="@string/preview_show_more"
-                    android:textAllCaps="false"
-                    android:visibility="gone" />
-            </io.github.veganmarshmallow.taskboard.preview.CollapsibleText>
-        </LinearLayout>
+        <include layout="@layout/claude_comment" />
 
         <!-- Reply to Claude, and optionally unblock the task (task #44). Bound by ReplyViews. -->
-        <LinearLayout
-            android:id="@+id/preview_reply"
-            android:layout_width="match_parent"
+        <include layout="@layout/reply_box" />
+
+        <!-- Ask Claude a question about this task (task #82): opens the Questions screen. -->
+        <Button
+            android:id="@+id/preview_ask"
+            style="?attr/tbButtonText"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:orientation="vertical"
-            android:visibility="gone">
-
-            <EditText
-                android:id="@+id/preview_reply_input"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="@drawable/reply_input_background"
-                android:gravity="top|start"
-                android:hint="@string/reply_hint"
-                android:importantForAutofill="no"
-                android:inputType="textMultiLine|textCapSentences"
-                android:maxLines="6"
-                android:minLines="2"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="8dp"
-                android:scrollbars="vertical"
-                android:textAlignment="textStart"
-                android:textColor="?attr/tbText"
-                android:textColorHint="?attr/tbMuted"
-                android:textDirection="firstStrong"
-                android:textSize="14sp" />
-
-            <CheckBox
-                android:id="@+id/preview_reply_unblock"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:buttonTint="?attr/tbPrimary"
-                android:checked="true"
-                android:text="@string/reply_unblock"
-                android:textColor="?attr/tbText"
-                android:textDirection="locale"
-                android:textSize="13sp"
-                android:visibility="gone" />
-
-            <!-- Send an in-review task back to work on its PR (task #65). -->
-            <CheckBox
-                android:id="@+id/preview_reply_request_changes"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:buttonTint="@color/widget_accent"
-                android:text="@string/reply_request_changes"
-                android:textColor="@color/widget_text"
-                android:textDirection="locale"
-                android:textSize="13sp"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/preview_reply_message"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="8dp"
-                android:textSize="13sp"
-                android:visibility="gone" />
-        </LinearLayout>
+            android:layout_marginTop="4dp"
+            android:minHeight="36dp"
+            android:minWidth="0dp"
+            android:paddingHorizontal="0dp"
+            android:text="@string/questions_ask_about_task"
+            android:textAllCaps="false"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/preview_error"

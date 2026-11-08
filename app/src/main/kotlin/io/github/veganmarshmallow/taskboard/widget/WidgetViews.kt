@@ -74,6 +74,7 @@ class WidgetViews(private val context: Context) {
         // Buttons, list rows and the error banner have their own intents, which take precedence.
         views.setOnClickPendingIntent(ROOT, WidgetIntents.swallowTap(context))
         UpdateDot.bind(views, context)
+        QuestionsBadgeViews.bind(views, context, state.board)
         val fetched = state.board?.fetchedAt
         views.setTextViewText(
             R.id.updated,

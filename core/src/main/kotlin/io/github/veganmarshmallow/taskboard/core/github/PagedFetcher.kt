@@ -3,28 +3,27 @@ package io.github.veganmarshmallow.taskboard.core.github
 import io.github.veganmarshmallow.taskboard.core.error.BoardError
 import io.github.veganmarshmallow.taskboard.core.http.HttpRequest
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
-import io.github.veganmarshmallow.taskboard.core.model.Issue
 
 /**
- * Fetches every page of an issues listing by following `Link: rel="next"`, up to [maxPages].
- * [send] performs one request and returns the parsed page plus its Link header, or an error.
+ * Fetches every page of a listing (issues, or comments for task #82) by following `Link: rel="next"`,
+ * up to [maxPages]. [send] performs one request and returns the parsed page plus its Link header, or an error.
  */
-class PagedFetcher(
+class PagedFetcher<T>(
     private val maxPages: Int = DEFAULT_MAX_PAGES,
     private val pageRequest: (String) -> HttpRequest,
-    private val send: (HttpRequest) -> Outcome<Page>,
+    private val send: (HttpRequest) -> Outcome<Page<T>>,
 ) {
     init {
         require(maxPages >= 1) { "maxPages must be at least 1" }
     }
 
-    data class Page(val issues: List<Issue>, val linkHeader: String?)
+    data class Page<T>(val issues: List<T>, val linkHeader: String?)
 
-    /** All issues across pages. [truncated] is true when [maxPages] stopped us early. */
-    data class Result(val issues: List<Issue>, val truncated: Boolean)
+    /** All items across pages. [truncated] is true when [maxPages] stopped us early. */
+    data class Result<T>(val issues: List<T>, val truncated: Boolean)
 
-    fun fetchAll(first: HttpRequest): Outcome<Result> {
-        val all = ArrayList<Issue>()
+    fun fetchAll(first: HttpRequest): Outcome<Result<T>> {
+        val all = ArrayList<T>()
         val seenUrls = HashSet<String>()
         var request = first
         repeat(maxPages) {

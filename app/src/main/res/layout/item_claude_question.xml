@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One of Claude's open questions (task #82): the task, Claude's comment, and the reply box. Bound by ClaudeQuestionViews. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="10dp"
+    android:background="@drawable/update_card_background"
+    android:orientation="vertical"
+    android:padding="14dp">
+
+    <TextView
+        android:id="@+id/question_task"
+        style="@style/QuestionTask" />
+
+    <TextView
+        android:id="@+id/question_no_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/questions_no_text"
+        android:textColor="?attr/tbMuted"
+        android:textSize="13sp"
+        android:visibility="gone" />
+
+    <include layout="@layout/claude_comment" />
+
+    <include layout="@layout/reply_box" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/question_open"
+            style="?attr/tbButtonText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:gravity="center_vertical|start"
+            android:maxLines="1"
+            android:minWidth="0dp"
+            android:text="@string/questions_open_task"
+            android:textAllCaps="false" />
+
+        <Button
+            android:id="@+id/preview_reply_send"
+            style="@style/Button.Taskboard.Sheet.Secondary"
+            android:text="@string/reply_send" />
+    </LinearLayout>
+</LinearLayout>

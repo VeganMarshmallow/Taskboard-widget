@@ -91,12 +91,16 @@ class HeaderScreenshotTest {
         assertEquals(context.getString(R.string.widget_title), title.text.toString())
     }
 
+    /**
+     * The title is never cut at 250dp or wider. The updated time shows at 340dp; at 250dp the
+     * Questions badge (#82, a fourth header button) takes its room, which the header gives up first (#28).
+     */
     @Test fun normalSizesLookAsBefore() {
         listOf(250, 340).forEach { width ->
             val widget = render(context, board, width)
             val title = widget.findViewById<TextView>(R.id.title)
             assertEquals("${width}dp title ellipsized", 0, title.layout.getEllipsisCount(0))
-            assertTrue("${width}dp updated time collapsed", widget.findViewById<View>(R.id.updated).width > 0)
+            if (width >= 340) assertTrue("${width}dp updated time collapsed", widget.findViewById<View>(R.id.updated).width > 0)
             assertHeaderFits(widget, "${width}dp")
         }
     }

@@ -8,3 +8,10 @@ import io.github.veganmarshmallow.taskboard.core.reply.ReplyMemory
  * Main thread only.
  */
 val ReplyDrafts = ReplyMemory()
+
+/**
+ * The Questions screen's "Ask Claude" box (task #82), per task number, or
+ * [io.github.veganmarshmallow.taskboard.core.questions.QuestionsScreen.GENERAL] for a general
+ * question; kept apart from [ReplyDrafts] so a question never mixes with a reply on the same task.
+ */
+val AskDrafts = ReplyMemory()

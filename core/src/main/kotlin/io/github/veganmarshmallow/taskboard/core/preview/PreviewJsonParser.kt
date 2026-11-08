@@ -13,8 +13,12 @@ import io.github.veganmarshmallow.taskboard.core.model.Labels
 object PreviewJsonParser {
     fun parseIssue(body: String): IssueDetails {
         val obj = parse(body) as? Map<*, *> ?: throw MalformedResponseException("Expected a JSON issue object")
-        return IssueDetails(IssueJsonParser.parseIssue(obj, 0), obj.string("body").orEmpty(), labelColors(obj.list("labels")))
+        return issueOf(obj, 0)
     }
+
+    /** One issue object of a single-issue response or of a listing (task #82 reads bodies from listings). */
+    internal fun issueOf(obj: Map<*, *>, index: Int): IssueDetails =
+        IssueDetails(IssueJsonParser.parseIssue(obj, index), obj.string("body").orEmpty(), labelColors(obj.list("labels")))
 
     /** Label objects' `name` → `color`. Plain-string labels get no colour; anything else is skipped. */
     private fun labelColors(raw: List<*>?): Map<String, String?> {
@@ -35,18 +39,22 @@ object PreviewJsonParser {
     fun parseComments(body: String): List<IssueComment> {
         val array = parse(body) as? List<*> ?: throw MalformedResponseException("Expected a JSON array of comments")
         return array.mapIndexedNotNull { index, element ->
-            val obj = element as? Map<*, *> ?: throw MalformedResponseException("Comment $index is not an object")
-            val text = obj.string("body") ?: return@mapIndexedNotNull null
-            val createdAt = try {
-                IssueJsonParser.parseInstant(obj.string("created_at"), 0)
-            } catch (e: MalformedResponseException) {
-                null // a bad timestamp only loses ordering information; list order still applies
-            }
-            IssueComment(obj.long("id") ?: 0L, text, createdAt)
+            commentOf(element as? Map<*, *> ?: throw MalformedResponseException("Comment $index is not an object"))
         }
     }
 
-    private fun parse(body: String): Any? = try {
+    /** One comment object, or null without a usable body. */
+    internal fun commentOf(obj: Map<*, *>): IssueComment? {
+        val text = obj.string("body") ?: return null
+        val createdAt = try {
+            IssueJsonParser.parseInstant(obj.string("created_at"), 0)
+        } catch (e: MalformedResponseException) {
+            null // a bad timestamp only loses ordering information; list order still applies
+        }
+        return IssueComment(obj.long("id") ?: 0L, text, createdAt)
+    }
+
+    internal fun parse(body: String): Any? = try {
         JsonParser.parse(body.removePrefix("\uFEFF"))
     } catch (e: JsonParseException) {
         throw MalformedResponseException("Response is not valid JSON", e)

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The widget header's Questions badge with a count (#82): a small accent circle inside the 28x36dp slot. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetLeft="3dp"
+    android:insetRight="3dp"
+    android:insetTop="7dp"
+    android:insetBottom="7dp">
+    <shape android:shape="oval">
+        <solid android:color="@color/widget_accent" />
+    </shape>
+</inset>
