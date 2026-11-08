@@ -68,7 +68,7 @@ class WorkPaceScreenshotTest {
             val section = positionIn(scroll, root.findViewById(R.id.work_pace_section))
             val hintAt = positionIn(scroll, hint)
             // the section's top 120dp down, or lower if the Auto merge description would be cut off
-            scroll.scrollTo(0, maxOf(section.top - (120 * density).toInt(), hintAt.bottom - scroll.height + (16 * density).toInt()))
+            scroll.scrollTo(0, maxOf(section.top - (120 * density).toInt(), hintAt.bottom - (scroll.height - scroll.paddingBottom) + (16 * density).toInt()))
             check(root)
             assertTrue("section on screen", root.findViewById<View>(R.id.pace_fast).getGlobalVisibleRect(Rect()))
             assertEquals(autoMergeHint(pace), hint.text.toString())
