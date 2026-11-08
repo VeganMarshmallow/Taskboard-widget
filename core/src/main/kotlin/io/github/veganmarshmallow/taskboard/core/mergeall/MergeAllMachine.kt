@@ -134,11 +134,12 @@ class MergeAllMachine(
     /**
      * #83 Faster only: once this run merged a PR, a PR it left behind goes straight to MERGE at its
      * current head if that head's checks are green now. Null otherwise: update it as in Save usage.
+     * The head kept is the one the checks passed (they re-read the PR), so MERGE refuses any other.
      */
     private fun mergeAsIs(state: MergeAllState, pr: PullRequest): Step? {
         if (!pace.mergesBackToBack || state.merged.isEmpty()) return null
-        if (github.checks(pr) !is MergeStep.Ok) return null
-        return Step(state.copy(oldHead = null, checkedHead = pr.headSha).at(MERGE, github.now()))
+        val checked = (github.checks(pr) as? MergeStep.Ok)?.value ?: return null
+        return Step(state.copy(oldHead = null, checkedHead = checked.headSha).at(MERGE, github.now()))
     }
 
     /**

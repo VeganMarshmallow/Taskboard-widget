@@ -7,6 +7,7 @@ import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllMachine
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllState
 import io.github.veganmarshmallow.taskboard.core.pace.WorkPace
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -63,5 +64,30 @@ class MergeAllPaceTest {
         github.add(mergeAllPr(31, sha = sha('1')), mergeAllPr(34, base = "claude/31", sha = sha('4')))
         run(WorkPace.FAST, 31, 34)
         assertEquals(listOf("merge #31", "retarget #34 to main", "merge #34"), github.calls)
+    }
+    @Test fun fasterKeepsTheHeadWhoseChecksPassed() {
+        github.add(mergeAllPr(31, sha = sha('1')), mergeAllPr(32, sha = sha('2')))
+        // A push lands on #32 while its checks are read: the checks re-read it and pass the new head.
+        github.checkResult = { pr ->
+            if (pr.number == 32 && pr.headSha == sha('2')) {
+                val pushed = pr.copy(headSha = sha('9'))
+                github.prs[32] = pushed
+                MergeStep.Ok(pushed)
+            } else {
+                MergeStep.Ok(pr)
+            }
+        }
+        val end = run(WorkPace.FAST, 31, 32)
+        assertEquals(MergeAllEnd.Done, end.end)
+        assertEquals(listOf("merge #31", "merge #32"), github.calls)
+    }
+
+    @Test fun fasterNeverMergesADraftOrAConflictingPrAsItIs() {
+        github.add(mergeAllPr(31, sha = sha('1')), mergeAllPr(32, sha = sha('2')))
+        github.checkResult = { pr -> if (pr.number == 32) MergeStep.Stop(MergeProblem.Conflicts(pr)) else MergeStep.Ok(pr) }
+        github.fail("update", 32, MergeProblem.Conflicts(github.prs.getValue(32)))
+        val end = run(WorkPace.FAST, 31, 32)
+        assertEquals(listOf("merge #31"), github.calls)
+        assertTrue("stopped, not merged: $end", end.end !is MergeAllEnd.Done)
     }
 }

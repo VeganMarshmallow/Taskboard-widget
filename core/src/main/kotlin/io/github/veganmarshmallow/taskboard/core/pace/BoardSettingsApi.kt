@@ -20,7 +20,8 @@ data class SettingsFile(val text: String, val sha: String)
  * Reads and writes the board's `.board/settings.json` (#83) through the Contents API, with the
  * owner's token (Contents: Read and write on the board repo). Neither call throws.
  * - A 404 on reading means there is no file yet: Save usage, and the first save creates it.
- * - Saving keeps the file's other keys ([BoardSettings.withPace]) and sends the SHA it read, so a
+ * - Saving keeps the file's other keys ([BoardSettings.withPace]; a file that isn't a JSON object is
+ *   replaced, and the commit message says so) and sends the SHA it read, so a
  *   write in between (another phone, Claude, the owner on github.com) is refused (409, or 422 for a
  *   file created meanwhile) instead of overwritten: then it reads again and tries once more.
  */
@@ -50,7 +51,7 @@ class BoardSettingsApi(private val api: GitHubApi, private val repo: Repo = Repo
                 return Outcome.Success(pace) // already stored exactly so: no commit
             }
             val text = BoardSettings.withPace(current?.text, pace)
-            val response = when (val sent = send { api.requests.putContents(repo, text, current?.sha, "Work pace: ${pace.value} (set in the widget)") }) {
+            val response = when (val sent = send { api.requests.putContents(repo, text, current?.sha, commitMessage(pace, current?.text)) }) {
                 is Outcome.Failure -> return sent
                 is Outcome.Success -> sent.value
             }
@@ -59,6 +60,11 @@ class BoardSettingsApi(private val api: GitHubApi, private val repo: Repo = Repo
             return Outcome.Success(pace)
         }
         return Outcome.Failure(BoardError.Unexpected("$PATH kept changing while saving"))
+    }
+
+    private fun commitMessage(pace: WorkPace, old: String?): String {
+        val message = "Work pace: ${pace.value} (set in the widget)"
+        return if (BoardSettings.replacesUnreadable(old)) "$message\n\nThe previous $PATH was not a JSON object; it was replaced (see this file's history)." else message
     }
 
     private fun send(build: () -> HttpRequest): Outcome<HttpResponse> = api.send(build()) { null }

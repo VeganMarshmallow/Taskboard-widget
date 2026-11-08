@@ -64,7 +64,7 @@ internal fun GitHubRequests.compare(repo: Repo, base: String, sha: String): Http
 internal fun GitHubRequests.mergePull(pr: PullRequest, pace: WorkPace = WorkPace.DEFAULT): HttpRequest {
     require(SHA.matches(pr.headSha)) { "not a commit SHA" }
     val body = linkedMapOf<String, Any?>("merge_method" to "merge", "sha" to pr.headSha)
-    pace.mergeTrailer?.let { body["commit_message"] = "${pr.title}\n\n$it" }
+    pace.mergeTrailer?.let { body["commit_message"] = "${pr.title.trim().ifEmpty { "PR #${pr.number}" }}\n\n$it" }
     return withJson("PUT", "${repoPath(pr.repo)}/pulls/${pr.number}/merge", body)
 }
 

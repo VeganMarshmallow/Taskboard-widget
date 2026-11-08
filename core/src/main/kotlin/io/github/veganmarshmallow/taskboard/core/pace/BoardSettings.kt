@@ -29,6 +29,12 @@ object BoardSettings {
         return JsonWriter.write(fields) + "\n"
     }
 
+    /**
+     * Whether [text] has content [withPace] can't keep (not blank, but not a JSON object): saving
+     * replaces it. The old text stays in the file's git history; the commit message says so.
+     */
+    fun replacesUnreadable(text: String?): Boolean = !text.isNullOrBlank() && objectOf(text) == null
+
     private fun objectOf(text: String?): Map<*, *>? {
         if (text.isNullOrBlank()) return null
         return try {

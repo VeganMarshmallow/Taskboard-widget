@@ -30,10 +30,17 @@ const TRAILER = /^[ \t]*work-pace[ \t]*:[ \t]*(\S*)[ \t]*$/gim;
 /**
  * The mode for a run started by a push whose head commit has [message]: `all` when its last
  * `Work-Pace:` trailer line says `fast` (any case), else `next` (no trailer, `save`, unknown, no message).
+ *
+ * Only the trailer block counts: the last paragraph, and only when the message has at least three
+ * (GitHub's "Merge pull request #n from …" subject, the PR title the widget puts first, the trailer).
+ * GitHub's own merge message (subject + PR title) is two paragraphs, so a PR *titled*
+ * "Work-Pace: fast", or one quoting it in a merged-on-github.com message's middle, can't switch modes.
  */
 function modeForCommit(message) {
   if (typeof message !== 'string') return MODES.NEXT;
-  const values = [...message.matchAll(TRAILER)].map((m) => m[1].toLowerCase());
+  const paragraphs = message.replace(/\r\n?/g, '\n').split(/\n[ \t]*\n/).filter((p) => p.trim() !== '');
+  if (paragraphs.length < 3) return MODES.NEXT;
+  const values = [...paragraphs[paragraphs.length - 1].matchAll(TRAILER)].map((m) => m[1].toLowerCase());
   return values.length && values[values.length - 1] === 'fast' ? MODES.ALL : MODES.NEXT;
 }
 

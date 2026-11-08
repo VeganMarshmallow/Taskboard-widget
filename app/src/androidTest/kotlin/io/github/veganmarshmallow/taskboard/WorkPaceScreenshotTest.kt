@@ -48,7 +48,7 @@ class WorkPaceScreenshotTest {
             assertTrue(root.findViewById<RadioButton>(R.id.pace_fast).isChecked)
             assertEquals(context.getString(R.string.pace_saved), root.findViewById<TextView>(R.id.work_pace_status).text.toString())
         }
-        assertEquals("""{"theme":"ink","pace":"fast"}""" + "\n", fake.text)
+        assertEquals("other keys kept in place", """{"pace":"fast","theme":"ink"}""" + "\n", fake.text)
         assertEquals(WorkPace.FAST, WorkPaceStore(context).cached())
         FakeBoardSettings.finish(activity)
     }
