@@ -30,6 +30,13 @@ class LockedMergeAllStore(private val records: MergeAllRecords, private val lock
         true
     }
 
+    override fun saveIf(state: MergeAllState): Boolean = synchronized(lock) {
+        val saved = load()
+        if (saved == null || saved.runId != state.runId || !saved.running) return false
+        records.writeState(MergeAllStateCodec.encode(state))
+        true
+    }
+
     override fun save(state: MergeAllState) = synchronized(lock) { records.writeState(MergeAllStateCodec.encode(state)) }
 
     override fun clear() = synchronized(lock) { records.clear() }
