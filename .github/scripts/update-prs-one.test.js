@@ -115,3 +115,34 @@ test('the held pull_request run on the new head is dropped and counted in the lo
   assert.deepStrictEqual(calls.at(-1), ['drop', 42]);
   assert.match(logs.at(-1), /deleted 1 held pull_request run\(s\)$/);
 });
+
+// With the run around it (update-prs.js): the merged-base lookup is shared, so each base is asked once.
+const { updatePrs } = require('./update-prs.js');
+
+function runWith(ctx, open, closedFor) {
+  let asked = 0;
+  ctx.github.paginate = async (_m, params) => {
+    if (params.state === 'open') return open;
+    asked += 1;
+    return closedFor(params.head.split(':')[1]);
+  };
+  return { run: () => updatePrs({ ...ctx, mode: 'all' }), asked: () => asked };
+}
+const ours = (number, base) => ({ ...pr({ base }), number, head: { ref: `claude/${number}-x`, sha: 'old', repo: { full_name: 'o/r' } } });
+
+test('run: a merged base is asked about once, shared by the scan and each PR stacked on it', async () => {
+  const { ctx, calls } = setup();
+  const r = runWith(ctx, [ours(5, 'b'), ours(6, 'b')], () => [{ merged_at: '2026-01-01' }]);
+  const results = await r.run();
+  assert.deepStrictEqual(results.map((x) => x.action), ['updated', 'updated']);
+  assert.strictEqual(r.asked(), 1);
+  assert.deepStrictEqual(calls.filter((c) => c[0] === 'retarget'), [['retarget', 'main'], ['retarget', 'main']]);
+});
+
+test('run: a base whose lookup fails is logged and treated as stacked, with nothing written', async () => {
+  const { ctx, calls, logs } = setup();
+  const r = runWith(ctx, [ours(5, 'b')], () => { throw new Error('list failed'); });
+  assert.deepStrictEqual(await r.run(), [{ number: 5, action: 'stacked' }]);
+  assert.deepStrictEqual(calls, []);
+  assert.deepStrictEqual(logs, ["#5: couldn't tell whether b was merged: list failed"]);
+});
