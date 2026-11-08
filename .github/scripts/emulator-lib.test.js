@@ -21,11 +21,11 @@ case "$*" in
     [ -n "\${FAKE_PM_DEAD:-}" ] && { echo "Error: android.os.DeadSystemException" >&2; exit 255; }
     echo "package:/system/framework/framework-res.apk";;
   "shell pidof system_server")
-    # FAKE_PIDS: the pid each call prints, in order (the last repeats; "-" prints nothing).
+    # FAKE_PIDS: the pid each call prints, in order (the last repeats; "-" prints nothing; "1,2" prints "1 2").
     n=$(( $(cat "$dir/pids" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$dir/pids"
     read -ra seq <<< "\${FAKE_PIDS:-100}"
     i=$(( n <= \${#seq[@]} ? n - 1 : \${#seq[@]} - 1 ))
-    [ "\${seq[$i]}" = - ] || printf '%s\\r\\n' "\${seq[$i]}";;
+    [ "\${seq[$i]}" = - ] || printf '%s\\r\\n' "\${seq[$i]//,/ }";;
 esac
 `;
 
@@ -175,12 +175,56 @@ test('settle_system: the system going down during the idle window is not settled
 test('snapshot-settle.sh is executable and avd-setup creates the snapshot through it', () => {
   const script = path.join(__dirname, 'snapshot-settle.sh');
   assert.ok(fs.statSync(script).mode & 0o111, 'snapshot-settle.sh must be executable');
-  assert.match(fs.readFileSync(script, 'utf8'), /^settle_system 300 30$/m);
+  // settle_system is the last command, so its failure is the script's exit status.
+  assert.match(fs.readFileSync(script, 'utf8'), /^settle_system 300 30\n?$/m);
+  assert.match(fs.readFileSync(script, 'utf8').trimEnd(), /\nsettle_system 300 30$/);
   const action = fs.readFileSync(path.join(__dirname, '..', 'actions', 'avd-setup', 'action.yml'), 'utf8');
   const create = action.split('- name: Create AVD snapshot')[1].split('\n    - name:')[0];
   assert.match(create, /^\s+script: \.github\/scripts\/snapshot-settle\.sh$/m);
   // The snapshot is saved on exit, so the create step must not disable saving.
   assert.doesNotMatch(create, /-no-snapshot-save/);
+  // An unsettled system fails the create step, and then the snapshot must not be saved.
+  const save = action.split('- name: Save AVD snapshot')[1];
+  assert.doesNotMatch(create, /continue-on-error/);
+  assert.doesNotMatch(save, /always\(\)|failure\(\)|continue-on-error/);
+  for (const step of [create, save]) {
+    assert.match(step, /if: steps\.avd\.outputs\.cache-hit != 'true' && github\.ref == 'refs\/heads\/main'/);
+  }
+});
+
+test('settle_system: several system_server pids that stay the same are settled', () => {
+  const dir = sandbox();
+  const r = run('settle_system 10 0 0', dir, { FAKE_PIDS: '100,101' });
+  assert.strictEqual(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /System settled: system_server 100 101 stayed up/);
+});
+
+test('settle_system: one of several system_server pids changing is not settled', () => {
+  const dir = sandbox();
+  const r = run('settle_system 10 0 0', dir, { FAKE_PIDS: '100,101 100,102 100,102' });
+  assert.strictEqual(r.status, 0, r.stdout + r.stderr);
+  assert.strictEqual((r.stdout.match(/restarted while settling/g) || []).length, 1);
+  assert.match(r.stdout, /System settled: system_server 100 102/);
+});
+
+test('settle_system: fails when pidof never finds system_server', () => {
+  const dir = sandbox();
+  const r = run('settle_system 1 0.2 0', dir, { FAKE_PIDS: '-' });
+  assert.strictEqual(r.status, 1);
+  assert.match(r.stdout, /::error title=Emulator::system did not settle within 1s/);
+  assert.doesNotMatch(r.stdout, /System settled/);
+});
+
+test('settle_system: a timeout of 0 still makes one settle attempt', () => {
+  let dir = sandbox();
+  let r = run('settle_system 0 0 0', dir);
+  assert.strictEqual(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /System settled: system_server 100/);
+  dir = sandbox();
+  r = run('settle_system 0 0 0', dir, { FAKE_PIDS: '1 2 3' });
+  assert.strictEqual(r.status, 1);
+  assert.match(r.stdout, /did not settle within 0s/);
+  assert.strictEqual(pidCalls(dir), 2);
 });
 
 test('snapshot-settle.sh settles through emulator-lib.sh from any working directory', () => {
