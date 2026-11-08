@@ -276,12 +276,13 @@
                 android:text="@string/auto_merge"
                 android:textColor="?attr/tbText" />
 
+            <!-- Text set by AutoMergeSection.showPace: it follows the Work pace choice (#88). -->
             <TextView
+                android:id="@+id/auto_merge_hint"
                 style="?attr/tbCaption"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="@string/auto_merge_hint" />
+                android:layout_marginTop="4dp" />
         </LinearLayout>
 
         <View style="@style/SettingsDivider" />
