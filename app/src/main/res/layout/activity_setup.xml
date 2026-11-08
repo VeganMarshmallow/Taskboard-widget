@@ -179,6 +179,80 @@
 
         <View style="@style/SettingsDivider" />
 
+        <!-- #83: work pace, read from and saved to the board repo. Bound by setup/WorkPaceSection.kt. -->
+        <LinearLayout
+            android:id="@+id/work_pace_section"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                style="?attr/tbSectionLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_work_pace" />
+
+            <RadioGroup
+                android:id="@+id/work_pace_choice"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@+id/pace_save"
+                    style="?attr/tbBody"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="@string/pace_save"
+                    android:textColor="?attr/tbText" />
+
+                <TextView
+                    style="?attr/tbCaption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="32dp"
+                    android:text="@string/pace_save_hint" />
+
+                <RadioButton
+                    android:id="@+id/pace_fast"
+                    style="?attr/tbBody"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:minHeight="48dp"
+                    android:text="@string/pace_fast"
+                    android:textColor="?attr/tbText" />
+
+                <TextView
+                    style="?attr/tbCaption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="32dp"
+                    android:text="@string/pace_fast_hint" />
+            </RadioGroup>
+
+            <TextView
+                android:id="@+id/work_pace_status"
+                style="?attr/tbCaption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/work_pace_retry"
+                style="?attr/tbButtonText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/pace_retry"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <View style="@style/SettingsDivider" />
+
         <!-- #79: auto merge, off by default. Bound by setup/AutoMergeSection.kt. -->
         <LinearLayout
             android:id="@+id/auto_merge_section"

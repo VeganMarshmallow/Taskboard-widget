@@ -13,6 +13,7 @@ import io.github.veganmarshmallow.taskboard.core.mergeall.PullsMergeAllGitHub
 import io.github.veganmarshmallow.taskboard.core.work.BoardJob
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTrigger
 import io.github.veganmarshmallow.taskboard.data.AppGraph
+import io.github.veganmarshmallow.taskboard.data.WorkPaceStore
 import io.github.veganmarshmallow.taskboard.data.TestOverrides
 import io.github.veganmarshmallow.taskboard.widget.BoardJobs
 import io.github.veganmarshmallow.taskboard.widget.Connectivity
@@ -44,7 +45,8 @@ class MergeAllJob(private val context: Context) {
             ended(saved.stopped(MergeAllStop(MergeAllStop.Kind.NO_TOKEN), AppGraph.clock.instant()).also(store::save))
             return null
         }
-        val runner = MergeAllRunner(MergeAllMachine(PullsMergeAllGitHub(api)), store, onStep = { StateRedraw.redraw(app) }, online = { online(app) })
+        val pace = WorkPaceStore(app).cached() // #83: Faster merges green PRs back to back
+        val runner = MergeAllRunner(MergeAllMachine(PullsMergeAllGitHub(api, pace), pace = pace), store, onStep = { StateRedraw.redraw(app) }, online = { online(app) })
         val result = runner.run()
         result.state?.takeUnless { it.running }?.let { ended(it) }
         result.next

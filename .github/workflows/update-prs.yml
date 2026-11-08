@@ -6,6 +6,12 @@ name: update-prs
 # merge; that PR's own merge runs this again for the one after it. Logic and its tests:
 # .github/scripts/update-prs*.js.
 #
+# #83, work pace: the owner's setting lives in the private board repo (.board/settings.json in
+# claude-workspace), which this GITHUB_TOKEN can't read, and reading it would need a stored secret.
+# So the widget writes it into each merge commit it makes instead: a `Work-Pace: fast` trailer means
+# Faster, and every open PR is updated at once (mode `all`). No trailer (Save usage, or a merge made
+# on github.com) keeps mode `next`.
+#
 # #64, one CI run per update: the update goes through GITHUB_TOKEN, so GitHub starts no workflow for
 # it; the script dispatches build.yml on the branch instead. GitHub does still register the PR's
 # `pull_request` run for the new head, but holds it for approval (actor github-actions[bot]):
@@ -36,12 +42,16 @@ jobs:
         with:
           sparse-checkout: .github/scripts
 
-      - name: Update the next PR and re-run its build
+      - name: Update the next PR (or all, with work pace Faster) and re-run its build
         uses: actions/github-script@v7
         with:
           script: |
             const { updatePrs } = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/update-prs.js`);
+            const { modeForCommit } = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/update-prs-select.js`);
+            const mode = modeForCommit(context.payload.head_commit && context.payload.head_commit.message);
+            core.info(`update mode: ${mode}`);
             const results = await updatePrs({
+              mode,
               github,
               owner: context.repo.owner,
               repo: context.repo.repo,

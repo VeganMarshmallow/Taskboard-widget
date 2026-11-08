@@ -356,3 +356,32 @@ test('an unknown mode fails loudly before any write', async () => {
   await assert.rejects(f.run({ mode: 'fast' }), /unknown update mode/);
   assert.deepStrictEqual(f.calls, []);
 });
+
+// --- #83, work pace Faster: mode `all` ---
+
+test('all mode updates every open PR behind main at once, a draft with the quick build only', async () => {
+  const f = fake({ open: [pr(24), pr(22), pr(23, { draft: true })], behind: { sha22: 1, sha23: 2, sha24: 1 } });
+  const results = await f.run({ mode: 'all' });
+  assert.deepStrictEqual(results.map((r) => [r.number, r.action]), [[24, 'updated'], [22, 'updated'], [23, 'updated']]);
+  assert.deepStrictEqual(f.calls.filter((c) => c[0] === 'update').map((c) => c[1]), [22, 23, 24]);
+  assert.deepStrictEqual(f.inputs['claude/22-x'], { full: 'true' });
+  assert.deepStrictEqual(f.inputs['claude/23-x'], { full: 'false' });
+});
+
+test('all mode: a conflict does not stop the others, stacked PRs still wait, a merged base is retargeted', async () => {
+  const f = fake({
+    open: [pr(22), pr(23), pr(25, { base: 'claude/21-x' }), pr(26, { base: 'claude/24-x' })],
+    closed: [{ head: { ref: 'claude/21-x' }, merged_at: '2026-11-08T00:00:00Z' }],
+    behind: { sha22: 1, sha23: 1, sha25: 1 },
+    conflicts: [22],
+  });
+  const byNumber = Object.fromEntries((await f.run({ mode: 'all' })).map((r) => [r.number, r.action]));
+  assert.deepStrictEqual(byNumber, { 22: 'conflict', 23: 'updated', 25: 'updated', 26: 'stacked' });
+  assert.ok(f.calls.some((c) => c[0] === 'retarget' && c[1] === 25));
+});
+
+test('next mode with the same PRs updates only one (Save usage, unchanged)', async () => {
+  const f = fake({ open: [pr(24), pr(22), pr(23)], behind: { sha22: 1, sha23: 1, sha24: 1 } });
+  const results = await f.run({ mode: 'next' });
+  assert.deepStrictEqual(results.map((r) => r.action), ['queued', 'updated', 'queued']);
+});

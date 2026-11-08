@@ -11,7 +11,10 @@ import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllPlanning
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllStop
 import io.github.veganmarshmallow.taskboard.core.mergeall.PlannedMerge
 import io.github.veganmarshmallow.taskboard.core.mergeall.PullsMergeAllGitHub
+import io.github.veganmarshmallow.taskboard.core.json.JsonParser
+import io.github.veganmarshmallow.taskboard.core.pace.WorkPace
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
@@ -35,6 +38,8 @@ class AutoMergeApiTest {
         var mergedAfterPut: Boolean = false,
         /** Reads of PR #31 that still see [SHA_31]; later ones see [headNow31]. */
         var readsBeforeMove: Int = 0,
+        /** How far #32 is behind once #31 is merged (#83: Faster merges it anyway, it was ready when the poll began). */
+        var behind32AfterMerge: Int = 0,
     ) {
         var merged31 = false
         private var reads31 = 0
@@ -58,6 +63,7 @@ class AutoMergeApiTest {
                 path.startsWith("$REPO/actions/runs?head_sha=$SHA_31") -> ok(runsOf(run31))
                 path.startsWith("$REPO/actions/runs?head_sha=$SHA_32") -> ok(runsOf(run(SHA_32, "2026-11-07T09:40:00Z")))
                 path.startsWith("$REPO/compare/main...$SHA_31") -> ok("""{"behind_by":$behind31,"ahead_by":3}""")
+                path.startsWith("$REPO/compare/main...$SHA_32") -> ok("""{"behind_by":${if (merged31) behind32AfterMerge else 0},"ahead_by":3}""")
                 path.startsWith("$REPO/compare/main...") -> ok("""{"behind_by":0,"ahead_by":3}""")
                 else -> throw IOException("no route for $path")
             }
@@ -150,6 +156,43 @@ class AutoMergeApiTest {
         assertEquals(AutoMergeOutcome.Skipped(Skip.NOT_READY_YET), poll())
         gh.mergedAfterPut = true
         assertEquals("the re-read shows it merged", merged31, poll())
+    }
+
+    // --- #83, work pace ---
+
+    private fun pollAt(pace: WorkPace) = AutoMerger({ MergeAllPlanning(api).candidates() }, PullsMergeAllGitHub(api, pace) {}, pace).pollAll(true, false)
+    private val merged32 = AutoMergeOutcome.Merged(PlannedMerge(44, "Widget: show the build number", PullRef(FakeMergeRepo, 32)))
+    private fun mergeBodies() = http.requests.filter { it.method == "PUT" }.map { JsonParser.parse(it.body!!) as Map<*, *> }
+
+    @Test fun saveUsageMergesOneAndLeavesGitHubsMessage() {
+        assertEquals(listOf(merged31), pollAt(WorkPace.SAVE))
+        assertNull(mergeBodies().single()["commit_message"])
+    }
+
+    @Test fun fasterMergesEveryReadyPrBackToBackWithItsTrailer() {
+        assertEquals(listOf(merged31, merged32), pollAt(WorkPace.FAST))
+        assertEquals(listOf("PUT $REPO/pulls/31/merge", "PUT $REPO/pulls/32/merge"), writes())
+        assertEquals(listOf("PR 31\n\nWork-Pace: fast", "PR 32\n\nWork-Pace: fast"), mergeBodies().map { it["commit_message"] })
+        assertEquals("still pinned to the checked head", SHA_31, mergeBodies().first()["sha"])
+    }
+
+    @Test fun fasterMergesAPrLeftBehindOnlyByThisPoll() {
+        gh.behind32AfterMerge = 1
+        assertEquals(listOf(merged31, merged32), pollAt(WorkPace.FAST))
+    }
+
+    @Test fun fasterStopsAtTheFirstPrThatDoesNotMerge() {
+        gh.mergeStatus = 405
+        gh.mergeBody = """{"message":"Pull Request is not mergeable"}"""
+        val outcomes = pollAt(WorkPace.FAST)
+        assertEquals(1, outcomes.size)
+        assertEquals(MergeAllStop.Kind.CONFLICT, (outcomes.single() as AutoMergeOutcome.Failed).stop.kind)
+        assertTrue(writes().none { "/pulls/32/" in it })
+    }
+
+    @Test fun fasterStillWaitsForAFirstPrThatIsBehind() {
+        gh.behind31 = 1 // not ready at the listing: #32 goes first, and alone
+        assertEquals(listOf(merged32), pollAt(WorkPace.FAST))
     }
 
     @Test fun noTokenAccessToTheBoardIsAQuietSkip() {
