@@ -133,6 +133,34 @@ class MergeAllSaveIfTest {
         assertTrue("nothing redrawn from the dropped step", steps.isEmpty())
     }
 
+    @Test fun aStepThatWouldEndTheRunIsDroppedAfterAReset() {
+        waitingRun()
+        github.checkResult = { pr -> MergeStep.Stop(MergeProblem.ChecksFailed(pr, listOf("build"))) }
+        beforeTheNextSave { MergeAllControl(text) { github.now }.reset() }
+        assertEquals("no ended run to notify about", MergeAllRunner.Result(null, null), process().run())
+        assertNull(text.load())
+        assertTrue(steps.isEmpty())
+    }
+
+    @Test fun aCrashedStepIsDroppedAfterAReset() {
+        waitingRun()
+        github.checkResult = { error("bug") }
+        beforeTheNextSave { text.clear() }
+        assertEquals(MergeAllRunner.Result(null, null), process().run())
+        assertNull("the Reset is kept, not an error line", text.load())
+    }
+
+    @Test fun aStepThatEndsTheRunIsSavedWhenNothingIntervenes() {
+        waitingRun()
+        github.checkResult = { pr -> MergeStep.Stop(MergeProblem.ChecksFailed(pr, listOf("build"))) }
+        val result = process().run()
+        assertNull(result.next)
+        assertFalse(result.state!!.running)
+        assertEquals(result.state, text.load())
+        assertEquals(listOf(result.state), steps)
+        assertEquals(0, store.refused)
+    }
+
     @Test fun aNewRunStartedBetweenAStepAndItsSaveIsLeftAlone() {
         waitingRun()
         val other = MergeAllState.start("other", planned(32), github.now)
