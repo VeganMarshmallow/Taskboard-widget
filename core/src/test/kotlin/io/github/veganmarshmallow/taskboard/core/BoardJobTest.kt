@@ -23,7 +23,7 @@ class BoardJobTest {
         listOf(
             BoardJob.Refresh(RefreshTrigger.MANUAL), BoardJob.Refresh(RefreshTrigger.AUTOMATIC),
             BoardJob.Refresh(RefreshTrigger.RETRY), BoardJob.Refresh(RefreshTrigger.RETRY, Duration.ofMinutes(30)),
-            BoardJob.Approve(1), BoardJob.Approve(17), BoardJob.Approve(BoardJob.MAX_ISSUE), BoardJob.Sweep,
+            BoardJob.Approve(1), BoardJob.Approve(17), BoardJob.Approve(BoardJob.MAX_ISSUE), BoardJob.Sweep, BoardJob.AutoMerge,
         ).forEach { assertEquals(it, roundTrip(it)) }
     }
 
@@ -44,14 +44,14 @@ class BoardJobTest {
 
     @Test fun jobIdsNeverCollideAndRefreshesShareOne() {
         assertEquals(BoardJob.Refresh(RefreshTrigger.MANUAL).jobId, BoardJob.Refresh(RefreshTrigger.AUTOMATIC).jobId)
-        val ids = listOf(BoardJob.Refresh(RefreshTrigger.MANUAL), BoardJob.Sweep, BoardJob.Approve(1), BoardJob.Approve(2), BoardJob.Approve(BoardJob.MAX_ISSUE))
+        val ids = listOf(BoardJob.Refresh(RefreshTrigger.MANUAL), BoardJob.Sweep, BoardJob.MergeAll(), BoardJob.AutoMerge, BoardJob.Approve(1), BoardJob.Approve(2), BoardJob.Approve(BoardJob.MAX_ISSUE))
             .map { it.jobId }
         assertEquals(ids.size, ids.toSet().size)
         assertEquals(Int.MAX_VALUE, BoardJob.Approve(BoardJob.MAX_ISSUE).jobId)
     }
 
     @Test fun everyJobHasAConstraintAndUrgencyFollowsTheTrigger() {
-        listOf(BoardJob.Refresh(RefreshTrigger.MANUAL), BoardJob.Refresh(RefreshTrigger.AUTOMATIC), BoardJob.Refresh(RefreshTrigger.RETRY), BoardJob.Approve(3), BoardJob.Sweep)
+        listOf(BoardJob.Refresh(RefreshTrigger.MANUAL), BoardJob.Refresh(RefreshTrigger.AUTOMATIC), BoardJob.Refresh(RefreshTrigger.RETRY), BoardJob.Approve(3), BoardJob.Sweep, BoardJob.AutoMerge)
             .forEach { assertTrue("$it", it.needsNetwork || !it.minLatency.isZero) }
         assertTrue(BoardJob.Refresh(RefreshTrigger.MANUAL).urgent)
         assertFalse(BoardJob.Refresh(RefreshTrigger.AUTOMATIC).urgent)

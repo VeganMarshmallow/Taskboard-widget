@@ -28,6 +28,11 @@
     <string name="merge_all_dismiss">OK</string>
     <string name="merge_all_reset">Reset</string>
     <string name="merge_all_channel">Merge all</string>
+    <!-- Auto merge (#79): the settings switch and its notification channel. -->
+    <string name="settings_merging">Merging</string>
+    <string name="auto_merge">Auto merge</string>
+    <string name="auto_merge_hint">Merges Claude\'s next PR as soon as it is ready: all checks passed, up to date, no conflicts, not stacked. One at a time, in Merge all\'s order, with your token. Each merge and failure is notified.</string>
+    <string name="auto_merge_channel">Auto merge</string>
     <string name="merge_all_done_title">Merge all finished</string>
     <string name="merge_all_cancelled_title">Merge all cancelled</string>
     <string name="merge_all_stopped_title">Merge all stopped</string>
