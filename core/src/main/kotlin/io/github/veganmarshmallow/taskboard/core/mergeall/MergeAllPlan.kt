@@ -41,12 +41,15 @@ object MergeAllPlanner {
 
 /** Works out a fresh plan when Merge all is tapped: the open tasks offering Merge, checked now. Never throws. */
 class MergeAllPlanning(private val api: GitHubApi, private val board: Repo = Repo.BOARD) {
-    fun plan(): MergeStep<List<PlannedMerge>> = guardedStep {
+    fun plan(): MergeStep<List<PlannedMerge>> = candidates().then { MergeStep.Ok(MergeAllPlanner.order(it)) }
+
+    /** The open tasks offering Merge, each with its PR checked now (auto merge #79 picks from these too). */
+    fun candidates(): MergeStep<List<MergeCandidate>> = guardedStep {
         when (val issues = api.fetchIssues()) {
             is Outcome.Failure -> MergeStep.Stop(MergeProblem.Failed(issues.error))
             is Outcome.Success -> {
                 val tasks = issues.value.filter(Placement::canMerge).distinctBy { it.number }
-                MergeStep.Ok(MergeAllPlanner.order(MergeCandidates(board).of(tasks, api)))
+                MergeStep.Ok(MergeCandidates(board).of(tasks, api))
             }
         }
     }

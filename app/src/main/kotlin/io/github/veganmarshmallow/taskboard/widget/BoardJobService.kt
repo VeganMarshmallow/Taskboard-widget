@@ -4,6 +4,7 @@ import android.app.job.JobParameters
 import android.app.job.JobService
 import android.content.Context
 import android.util.Log
+import io.github.veganmarshmallow.taskboard.automerge.AutoMergeJob
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllMachine
 import io.github.veganmarshmallow.taskboard.core.work.BoardJob
 import io.github.veganmarshmallow.taskboard.core.work.RefreshRunner
@@ -52,7 +53,10 @@ class BoardJobService : JobService() {
         when (job) {
             is BoardJob.Refresh -> {
                 when (val result = WidgetRefresher(app).refresh()) {
-                    is RefreshRunner.Result.Committed -> RetryScheduler.afterRefresh(app, result.state.error, job)
+                    is RefreshRunner.Result.Committed -> {
+                        RetryScheduler.afterRefresh(app, result.state.error, job)
+                        AutoMergeJob.scheduleIfDue(app, result.state.board) // #79: a PR ready to merge next, setting on
+                    }
                     RefreshRunner.Result.Superseded -> Unit // the newer run plans its own retry
                 }
                 MergeAllJob.ensureScheduled(app)
@@ -60,6 +64,7 @@ class BoardJobService : JobService() {
             is BoardJob.Approve -> WidgetApprover(app).approveAndToast(job.issue)
             BoardJob.Sweep -> WidgetRefresher(app).sweep()?.let { RetryScheduler.afterRefresh(app, it.error, finished = null) }
             is BoardJob.MergeAll -> return MergeAllJob(app).run()?.let { BoardJob.MergeAll(it) }
+            BoardJob.AutoMerge -> AutoMergeJob(app).run()
         }
         return null
     }
