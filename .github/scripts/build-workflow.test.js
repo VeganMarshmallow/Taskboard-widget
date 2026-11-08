@@ -99,7 +99,7 @@ test('every avd-setup input is used by the action, and the jobs pass only declar
 test('avd-setup keeps the jobs\' AVD settings and cache keys', () => {
   const api30 = passedInputs(job('emulator'));
   assert.deepStrictEqual(api30, { 'api-level': '30', 'cache-key': '${{ env.AVD_KEY }}' });
-  assert.match(job('emulator'), /^      AVD_KEY: avd-30-google_apis-x86_64-pixel_5-v1$/m);
+  assert.match(job('emulator'), /^      AVD_KEY: avd-30-google_apis-x86_64-pixel_5-v2$/m);
   const api35 = passedInputs(job('emulator-recent'));
   assert.deepStrictEqual(api35, { 'api-level': '35', 'ram-size': '4096M', 'emulator-boot-timeout': '1200', 'cache-key': '${{ env.AVD_KEY }}' });
   assert.match(job('emulator-recent'), /^      AVD_KEY: avd-35-google_apis-x86_64-pixel_5-4096M-v1$/m);
