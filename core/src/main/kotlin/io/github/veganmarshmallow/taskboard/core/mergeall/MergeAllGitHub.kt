@@ -7,6 +7,7 @@ import io.github.veganmarshmallow.taskboard.core.merge.MergeStep
 import io.github.veganmarshmallow.taskboard.core.merge.PullRef
 import io.github.veganmarshmallow.taskboard.core.merge.PullRequest
 import io.github.veganmarshmallow.taskboard.core.merge.PullsApi
+import io.github.veganmarshmallow.taskboard.core.pace.WorkPace
 import java.time.Duration
 import java.time.Instant
 
@@ -26,8 +27,15 @@ interface MergeAllGitHub {
     fun now(): Instant
 }
 
-/** [MergeAllGitHub] over the merge package's [PullsApi] and [MergeChecker]: no check is written twice. */
-class PullsMergeAllGitHub(api: GitHubApi, sleep: (Duration) -> Unit = { Thread.sleep(it.toMillis()) }) : MergeAllGitHub {
+/**
+ * [MergeAllGitHub] over the merge package's [PullsApi] and [MergeChecker]: no check is written twice.
+ * [pace] (#83) goes into each merge commit for the update-prs workflow ([PullsApi.merge]).
+ */
+class PullsMergeAllGitHub(
+    api: GitHubApi,
+    private val pace: WorkPace = WorkPace.DEFAULT,
+    sleep: (Duration) -> Unit = { Thread.sleep(it.toMillis()) },
+) : MergeAllGitHub {
     private val pulls = PullsApi(api)
     private val checker = MergeChecker(pulls, sleep)
     private val defaults = HashMap<String, String>()
@@ -42,7 +50,7 @@ class PullsMergeAllGitHub(api: GitHubApi, sleep: (Duration) -> Unit = { Thread.s
 
     override fun checks(pr: PullRequest): MergeStep<PullRequest> = checker.check(FoundPr(pr, null))
 
-    override fun merge(pr: PullRequest): MergeStep<Unit> = checker.recheck(pr).then { pulls.merge(it) }
+    override fun merge(pr: PullRequest): MergeStep<Unit> = checker.recheck(pr).then { pulls.merge(it, pace) }
 
     override fun now(): Instant = pulls.now()
 

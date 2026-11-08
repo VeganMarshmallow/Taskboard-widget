@@ -151,3 +151,10 @@ test('update-prs keeps the Actions write permission it needs to dispatch builds 
   assert.match(update, /^\s+actions: write\b/m);
   assert.match(update, /sparse-checkout: \.github\/scripts/, 'held-runs.js must be checked out next to update-prs.js');
 });
+
+test('update-prs takes its mode from the merge commit trailer (#83, work pace)', () => {
+  const update = fs.readFileSync(path.join(__dirname, '..', 'workflows', 'update-prs.yml'), 'utf8');
+  assert.match(update, /modeForCommit\(context\.payload\.head_commit && context\.payload\.head_commit\.message\)/);
+  assert.match(update, /updatePrs\(\{\s*mode,/);
+  assert.doesNotMatch(update, /secrets\./, 'no stored secret: the setting travels in the merge commit');
+});

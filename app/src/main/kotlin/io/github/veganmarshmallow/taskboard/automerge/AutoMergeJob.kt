@@ -16,6 +16,7 @@ import io.github.veganmarshmallow.taskboard.core.work.BoardJob
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTrigger
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.AutoMergePrefs
+import io.github.veganmarshmallow.taskboard.data.WorkPaceStore
 import io.github.veganmarshmallow.taskboard.mergeall.MergeNotices
 import io.github.veganmarshmallow.taskboard.widget.BoardJobs
 import java.util.concurrent.locks.ReentrantLock
@@ -26,22 +27,34 @@ import kotlin.concurrent.withLock
  * owner's token), started after a refresh found a PR to merge next ([scheduleIfDue]). A merge, or a
  * new failure, posts a notification; a merge also refreshes the board. A Merge all run going on
  * makes the poll wait, so the two never merge against each other.
+ *
+ * #83: each poll reads the Work pace first ([WorkPaceStore.fresh]); with Faster it may merge several
+ * PRs back to back ([AutoMerger.pollAll]), each notified.
  */
 class AutoMergeJob(context: Context) {
     private val app = context.applicationContext
     private val prefs = AutoMergePrefs(app)
 
-    fun run(): AutoMergeOutcome = LOCK.withLock {
-        val api = AppGraph.apiOrNull(app) ?: return AutoMergeOutcome.Skipped(AutoMergeOutcome.Skip.CANT_CHECK)
-        val merger = AutoMerger({ MergeAllPlanning(api).candidates() }, PullsMergeAllGitHub(api))
-        merger.poll(prefs.enabled(), mergeAllRunning(app)).also(::report)
+    /** The poll's first outcome (its only one in Save usage); see [runAll]. */
+    fun run(): AutoMergeOutcome = runAll().first()
+
+    /** One poll: every outcome in order (never empty), each reported. */
+    fun runAll(): List<AutoMergeOutcome> = LOCK.withLock {
+        val api = AppGraph.apiOrNull(app) ?: return listOf(AutoMergeOutcome.Skipped(AutoMergeOutcome.Skip.CANT_CHECK))
+        val enabled = prefs.enabled()
+        val running = mergeAllRunning(app)
+        val pace = if (enabled && !running) WorkPaceStore(app).fresh(api) else WorkPaceStore(app).cached()
+        val merger = AutoMerger({ MergeAllPlanning(api).candidates() }, PullsMergeAllGitHub(api, pace), pace)
+        merger.pollAll(enabled, running).also { outcomes ->
+            outcomes.forEach(::report)
+            if (outcomes.any { it is AutoMergeOutcome.Merged }) BoardJobs.refresh(app, RefreshTrigger.AUTOMATIC)
+        }
     }
 
     private fun report(outcome: AutoMergeOutcome) {
         val last = prefs.lastFailure()
         if (AutoMergeNotices.shouldNotify(last, outcome)) post(outcome)
         prefs.setLastFailure(AutoMergeNotices.remembered(last, outcome))
-        if (outcome is AutoMergeOutcome.Merged) BoardJobs.refresh(app, RefreshTrigger.AUTOMATIC)
     }
 
     private fun post(outcome: AutoMergeOutcome) {

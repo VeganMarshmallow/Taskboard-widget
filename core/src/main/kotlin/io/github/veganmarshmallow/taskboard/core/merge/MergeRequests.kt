@@ -5,6 +5,7 @@ import io.github.veganmarshmallow.taskboard.core.github.GitHubRequests.Companion
 import io.github.veganmarshmallow.taskboard.core.http.HttpRequest
 import io.github.veganmarshmallow.taskboard.core.model.GitHubNames
 import io.github.veganmarshmallow.taskboard.core.model.Repo
+import io.github.veganmarshmallow.taskboard.core.pace.WorkPace
 
 /**
  * Requests for merging a task's PR (task #30), in the project repo rather than the board. Repo
@@ -55,10 +56,16 @@ internal fun GitHubRequests.compare(repo: Repo, base: String, sha: String): Http
     return get("${repoPath(repo)}/compare/$base...$sha")
 }
 
-/** A merge commit, pinned to the head SHA that was checked: if the PR changed since, GitHub answers 409. */
-internal fun GitHubRequests.mergePull(pr: PullRequest): HttpRequest {
+/**
+ * A merge commit, pinned to the head SHA that was checked: if the PR changed since, GitHub answers 409.
+ * #83: with [pace] Faster, the commit message carries its trailer ([WorkPace.mergeTrailer]) under the
+ * PR title (GitHub's default message body), for the update-prs workflow; Save usage keeps GitHub's default.
+ */
+internal fun GitHubRequests.mergePull(pr: PullRequest, pace: WorkPace = WorkPace.DEFAULT): HttpRequest {
     require(SHA.matches(pr.headSha)) { "not a commit SHA" }
-    return withJson("PUT", "${repoPath(pr.repo)}/pulls/${pr.number}/merge", mapOf("merge_method" to "merge", "sha" to pr.headSha))
+    val body = linkedMapOf<String, Any?>("merge_method" to "merge", "sha" to pr.headSha)
+    pace.mergeTrailer?.let { body["commit_message"] = "${pr.title.trim().ifEmpty { "PR #${pr.number}" }}\n\n$it" }
+    return withJson("PUT", "${repoPath(pr.repo)}/pulls/${pr.number}/merge", body)
 }
 
 /**

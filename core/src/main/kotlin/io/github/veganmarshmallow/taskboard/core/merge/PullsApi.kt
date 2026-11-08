@@ -10,6 +10,7 @@ import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.json.JsonParser
 import io.github.veganmarshmallow.taskboard.core.json.string
 import io.github.veganmarshmallow.taskboard.core.model.Repo
+import io.github.veganmarshmallow.taskboard.core.pace.WorkPace
 import java.time.Instant
 
 /** Typed project-repo calls for merging, through [GitHubApi]'s request pipeline (timeouts, network errors). */
@@ -87,10 +88,10 @@ class PullsApi(private val api: GitHubApi) {
         PullJsonParser.behindBy(it.body)
     }
 
-    /** Merges [pr] at its checked head SHA. Never retried: a lost response may still mean it merged. */
-    fun merge(pr: PullRequest): MergeStep<Unit> {
+    /** Merges [pr] at its checked head SHA ([pace]: see [mergePull]). Never retried: a lost response may still mean it merged. */
+    fun merge(pr: PullRequest, pace: WorkPace = WorkPace.DEFAULT): MergeStep<Unit> {
         val request = try {
-            api.requests.mergePull(pr)
+            api.requests.mergePull(pr, pace)
         } catch (e: IllegalArgumentException) {
             return MergeStep.Stop(MergeProblem.Failed(BoardError.Unexpected("bad PR")))
         }

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- #83: the Work pace setting (setup/WorkPaceSection.kt). -->
+<resources>
+    <string name="settings_work_pace">Work pace</string>
+    <string name="pace_save">Save usage</string>
+    <string name="pace_save_hint">Claude works on one task at a time, and PRs are re-tested and merged one at a time.</string>
+    <string name="pace_fast">Faster</string>
+    <string name="pace_fast_hint">Claude works on several tasks at once, and green PRs merge back to back. Uses more of your Claude and GitHub limits.</string>
+    <string name="pace_loading">Reading the current setting…</string>
+    <string name="pace_load_failed">Couldn\'t read the current setting: %1$s</string>
+    <string name="pace_retry">Try again</string>
+    <string name="pace_saving">Saving…</string>
+    <string name="pace_saved">Saved. Takes effect from Claude\'s next run.</string>
+    <string name="pace_save_failed">Couldn\'t save: %1$s</string>
+    <string name="pace_needs_write">" Saving needs Contents: Read and write on claude-workspace in your token."</string>
+</resources>
