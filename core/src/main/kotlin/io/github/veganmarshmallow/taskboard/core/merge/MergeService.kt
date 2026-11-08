@@ -2,6 +2,7 @@ package io.github.veganmarshmallow.taskboard.core.merge
 
 import io.github.veganmarshmallow.taskboard.core.github.GitHubApi
 import io.github.veganmarshmallow.taskboard.core.model.Repo
+import io.github.veganmarshmallow.taskboard.core.pace.WorkPace
 import java.time.Duration
 
 /**
@@ -13,6 +14,7 @@ class MergeService(
     private val api: GitHubApi,
     sleep: (Duration) -> Unit = { Thread.sleep(it.toMillis()) },
     board: Repo = Repo.BOARD,
+    private val pace: WorkPace = WorkPace.DEFAULT,
 ) {
     private val pulls = PullsApi(api)
     private val lookup = TaskPrLookup(api, board)
@@ -23,6 +25,6 @@ class MergeService(
     }
 
     fun merge(pr: PullRequest): MergeStep<PullRequest> = guardedStep {
-        checker.recheck(pr).then { pulls.merge(pr) }.then { MergeStep.Ok(pr) }
+        checker.recheck(pr).then { pulls.merge(pr, pace) }.then { MergeStep.Ok(pr) }
     }
 }

@@ -5,6 +5,8 @@
 // picks it), not every open PR: CI runs once per merge, and the widget's auto merge merges that PR
 // once it is green, whose merge then runs this again for the PR after it. A PR that conflicts is
 // labelled and the one after it is tried instead, so the queue never stalls on a conflict.
+// #83: that is mode `next` (work pace Save usage). With Faster, the merge commit carries a
+// `Work-Pace: fast` trailer and the workflow passes mode `all`: every open PR is updated at once.
 //
 // For the PR chosen (a claude/* branch of this repo):
 // 1. Stacked on a branch whose own PR was merged: retarget it to the default branch.
@@ -17,8 +19,8 @@
 //    needed this run: its CI already ran on an up-to-date head.
 // 3. Then dispatch the build workflow on its branch: pushes made with GITHUB_TOKEN start no
 //    workflows, so without this the new head would have no CI run and never become mergeable.
-//    A ready PR gets the full run (emulator tests, preview release); a draft (only if a future
-//    mode updates drafts) just the quick `build` job (input full=false, #52).
+//    A ready PR gets the full run (emulator tests, preview release); a draft (only mode `all`
+//    updates drafts) just the quick `build` job (input full=false, #52).
 // 4. Then delete the PR's `pull_request` run GitHub holds for approval on the new head (#64,
 //    held-runs.js): GitHub registers it because of the update but never runs it (it came from
 //    GITHUB_TOKEN), and the dispatched build tests the same commit. So each update leaves exactly

@@ -8,6 +8,7 @@ import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllPhase.MERGE
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllPhase.PREPARE
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllPhase.UPDATE
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllPhase.WAIT
+import io.github.veganmarshmallow.taskboard.core.pace.WorkPace
 import java.time.Duration
 
 /**
@@ -24,12 +25,16 @@ import java.time.Duration
  * - Checks running, a head not updated yet, and network trouble are waited out, up to [checksTimeout]
  *   per PR. A failed merge request without a clear answer is retried only after re-reading the PR,
  *   so a merge that went through is counted, never sent twice.
+ * - #83, [pace] Faster: a PR behind its default branch after this run already merged one, whose own
+ *   checks are green right now, is merged as it is ([mergeAsIs]) instead of updated and re-tested.
+ *   Otherwise (Save usage, the first PR, checks not green) it is updated and waited for as before.
  */
 class MergeAllMachine(
     private val github: MergeAllGitHub,
     private val poll: Duration = POLL,
     private val checksTimeout: Duration = CHECKS_TIMEOUT,
     private val staleAfter: Duration = MergeAllHealth.staleAfter(poll),
+    private val pace: WorkPace = WorkPace.DEFAULT,
 ) {
     /** The state after a step, and how long to wait before the next one (null: go on at once). */
     data class Step(val state: MergeAllState, val waitFor: Duration? = null)
@@ -68,7 +73,7 @@ class MergeAllMachine(
             is MergeStep.Ok -> if (behind.value == 0L) {
                 Step(state.copy(oldHead = null, checkedHead = pr.headSha).at(WAIT, github.now()))
             } else {
-                when (val sent = github.updateBranch(pr)) {
+                mergeAsIs(state, pr) ?: when (val sent = github.updateBranch(pr)) {
                     is MergeStep.Ok -> Step(state.copy(oldHead = pr.headSha, checkedHead = null).at(WAIT, github.now()), poll)
                     // The repo's update workflow moved the branch first, or the answer was lost: look again
                     // once it settles (the request is pinned to the head, so it never updates twice).
@@ -96,7 +101,7 @@ class MergeAllMachine(
         is MergeStep.Stop -> waitOrStop(state, behind.problem)
         // The default branch moved again meanwhile: update once more.
         is MergeStep.Ok -> if (behind.value > 0) {
-            Step(state.copy(checkedHead = null).at(UPDATE, github.now()))
+            mergeAsIs(state, pr) ?: Step(state.copy(checkedHead = null).at(UPDATE, github.now()))
         } else {
             when (val checked = github.checks(pr)) {
                 is MergeStep.Ok -> Step(state.at(MERGE, github.now()))
@@ -124,6 +129,16 @@ class MergeAllMachine(
                 else -> stop(state, merged.problem)
             }
         }
+    }
+
+    /**
+     * #83 Faster only: once this run merged a PR, a PR it left behind goes straight to MERGE at its
+     * current head if that head's checks are green now. Null otherwise: update it as in Save usage.
+     */
+    private fun mergeAsIs(state: MergeAllState, pr: PullRequest): Step? {
+        if (!pace.mergesBackToBack || state.merged.isEmpty()) return null
+        if (github.checks(pr) !is MergeStep.Ok) return null
+        return Step(state.copy(oldHead = null, checkedHead = pr.headSha).at(MERGE, github.now()))
     }
 
     /**

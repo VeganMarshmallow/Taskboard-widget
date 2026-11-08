@@ -33,6 +33,10 @@ class SetupActivity : Activity() {
     private lateinit var saveButton: Button
     private val tester = ConnectionTester()
     private lateinit var updates: UpdateSection
+    private lateinit var workPace: WorkPaceSection
+
+    /** The Work pace section (#83); read by instrumented tests. */
+    val workPaceForTest: WorkPaceSection get() = workPace
     private lateinit var tokenHelp: TokenHelp
     private val widgetId by lazy {
         intent?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
@@ -46,6 +50,7 @@ class SetupActivity : Activity() {
         setContentView(R.layout.activity_setup)
         ThemeSection(this).bind()
         AutoMergeSection(this).bind()
+        workPace = WorkPaceSection(this).also { it.bind() }
         tokenHelp = TokenHelp(this).also { it.bind(savedInstanceState) }
         tokenStore = TokenStore(this)
         tokenField = findViewById(R.id.token)
@@ -87,6 +92,7 @@ class SetupActivity : Activity() {
 
     override fun onDestroy() {
         updates.onDestroy()
+        workPace.onDestroy()
         tester.shutdown()
         super.onDestroy()
     }

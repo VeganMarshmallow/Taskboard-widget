@@ -15,6 +15,7 @@ import io.github.veganmarshmallow.taskboard.core.merge.MergeStep
 import io.github.veganmarshmallow.taskboard.core.merge.PullRequest
 import io.github.veganmarshmallow.taskboard.core.work.RefreshTrigger
 import io.github.veganmarshmallow.taskboard.data.AppGraph
+import io.github.veganmarshmallow.taskboard.data.WorkPaceStore
 import io.github.veganmarshmallow.taskboard.setup.SetupActivity
 import io.github.veganmarshmallow.taskboard.widget.BoardJobs
 import io.github.veganmarshmallow.taskboard.widget.Connectivity
@@ -55,7 +56,7 @@ class MergeFlow(
             api == null -> host.show(dialogs.refusal(MergeProblem.Failed(BoardError.NoToken), issue))
             !Connectivity.isOnline(app) -> host.show(dialogs.refusal(MergeProblem.Failed(BoardError.Network), issue))
             else -> {
-                val merge = MergeService(api).also { service = it }
+                val merge = MergeService(api, pace = WorkPaceStore(app).cached()).also { service = it } // #83: the merge commit carries the pace
                 host.show(dialogs.checking(issue))
                 host.runTimed(PREPARE_BUDGET, { merge.prepare(issue) }) { step ->
                     when (step) {
