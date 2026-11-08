@@ -181,4 +181,12 @@ class MergeAllPlanTest {
         assertEquals(0, offered())
         assertEquals(0, offered(waiting(30, 11, MergeWait.CHECKS_RUNNING), waiting(31, 12, MergeWait.STACKED, base = "claude/11")))
     }
+
+    @Test fun twoStacksOnOneBaseAndATaskListedTwiceMatchThePlan() {
+        assertEquals("both PRs stacked on #11", 3, offered(ready(30, 11, 1), waiting(31, 12, MergeWait.STACKED, base = "claude/11"), waiting(32, 13, MergeWait.STACKED, base = "claude/11")))
+        val twice = listOf(ready(30, 11, 1), waiting(30, 11, MergeWait.CHECKS_FAILED), waiting(31, 12, MergeWait.STACKED, base = "claude/11"))
+        val inRun = MergeAllOffer.lanes(twice).filterValues { it.inRun }.keys
+        assertEquals("the first entry of a task listed twice counts, as in the plan", MergeAllPlanner.order(twice).map { it.issue }.toSet(), inRun)
+        assertEquals(setOf(30, 31), inRun)
+    }
 }
