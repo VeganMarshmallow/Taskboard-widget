@@ -59,8 +59,10 @@ class TaskPreviewActivity : Activity() {
         findViewById<View>(R.id.preview_merge).setOnClickListener { startMerge() }
         findViewById<View>(R.id.preview_retry).setOnClickListener { onRetry() }
         findViewById<View>(R.id.preview_ask).setOnClickListener { askClaude() }
+        val restored = restoredReply(number, savedInstanceState)
+        ReplyDrafts.remember(number, restored) // a form restored after process death beats a later empty one
         reply = ReplyBoxController(
-            ReplyDrafts, number, views.reply, restoredReply(number, savedInstanceState),
+            ReplyDrafts, number, views.reply, restored,
             start = { it.start(screen.offerUnblock, screen.offerRequestChanges) },
             send = { worker.reply(number, it) },
             show = { update(screen.withReply(it)) },

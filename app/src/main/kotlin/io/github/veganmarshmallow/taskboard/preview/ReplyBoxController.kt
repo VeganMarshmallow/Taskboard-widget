@@ -8,7 +8,9 @@ import io.github.veganmarshmallow.taskboard.core.reply.ReplyResult
 /**
  * One reply box on screen (task #86): the task sheet's, a Questions card's, or the ask box. Owns the
  * box's [form] for [key] in [memory] and keeps the rules every box shares:
- * - every change is remembered, so a reopened screen picks up the draft or a send still running;
+ * - every change is remembered, so a reopened screen picks up the draft or a send still running
+ *   ([initial] itself is not: a card rebuilt by a reload must not overwrite a newer form another
+ *   screen left in [memory]; the task sheet remembers a form restored from saved state itself);
  * - one listener per key: this box hears how a send ended until a newer screen takes over, and
  *   [resume] takes it back (re-reading the form that send left behind);
  * - [ReplyForm.start] refuses while a send is in flight, so a double tap sends once;
@@ -45,7 +47,6 @@ class ReplyBoxController(
             onRequestChanges = { checked -> if (checked != form.requestChanges) set(form.requestChangesChecked(checked)) },
             onSend = ::sendReply,
         )
-        memory.remember(key, initial)
         memory.listen(key, listener)
     }
 
