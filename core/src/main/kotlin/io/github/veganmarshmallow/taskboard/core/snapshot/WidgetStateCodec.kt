@@ -65,7 +65,7 @@ object WidgetStateCodec {
         "a" to item.canApprove,
         "r" to item.needsYouReason?.name,
         "m" to item.canMerge,
-        "lane" to item.mergeLane?.let { mapOf("next" to it.isNext, "wait" to it.wait?.name, "first" to it.firstTitle) },
+        "lane" to item.mergeLane?.let { mapOf("next" to it.isNext, "wait" to it.wait?.name, "first" to it.firstTitle, "run" to it.inRun) },
         "repo" to item.repo,
         "ty" to item.types.sorted(),
     )
@@ -97,7 +97,9 @@ object WidgetStateCodec {
     /** Absent before #45, or a reason this version doesn't know: no lane until the next refresh. */
     private fun laneFromMap(m: Map<*, *>): MergeLane? {
         val wait = m.string("wait")?.let { name -> MergeWait.entries.firstOrNull { it.name == name } ?: return null }
-        return MergeLane(isNext = m["next"] == true, wait = wait, firstTitle = m.string("first"))
+        val lane = MergeLane(isNext = m["next"] == true, wait = wait, firstTitle = m.string("first"))
+        // Absent before #60: the lane's guess from its wait, until the next refresh.
+        return (m["run"] as? Boolean)?.let { lane.copy(inRun = it) } ?: lane
     }
 
     private fun errorToMap(error: BoardError): Map<String, Any?> = when (error) {

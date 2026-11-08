@@ -75,12 +75,19 @@ class MergeAllJob(private val context: Context) {
             app.getSystemService(JobScheduler::class.java)?.cancel(BoardJob.MERGE_ALL_ID)
         }
 
-        /** Saves a new run of [plan] and schedules its job. False when a run is already going on. */
+        /**
+         * Saves a new run of [plan] and schedules its job. False when a run is already going on
+         * (#60: checked and saved in one step, so a second start at the same moment from another
+         * widget is refused); the widget is redrawn, so it shows the run that is going on.
+         */
         fun start(context: Context, plan: List<PlannedMerge>): Boolean {
             val app = context.applicationContext
-            val store = AppGraph.mergeAllStore(app)
-            if (plan.isEmpty() || store.load()?.running == true) return false
-            store.save(MergeAllState.start(UUID.randomUUID().toString(), plan, AppGraph.clock.instant()))
+            if (plan.isEmpty()) return false
+            val started = AppGraph.mergeAllStore(app).start(MergeAllState.start(UUID.randomUUID().toString(), plan, AppGraph.clock.instant()))
+            if (!started) {
+                StateRedraw.redraw(app)
+                return false
+            }
             BoardJobs.schedule(app, BoardJob.MergeAll())
             StateRedraw.redraw(app)
             return true

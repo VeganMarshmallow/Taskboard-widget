@@ -8,6 +8,7 @@ import io.github.veganmarshmallow.taskboard.core.github.GitHubApi
 import io.github.veganmarshmallow.taskboard.core.http.HttpResponse
 import io.github.veganmarshmallow.taskboard.core.json.JsonWriter
 import io.github.veganmarshmallow.taskboard.core.merge.MergeLaneLoader
+import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllOffer
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetStateCodec
 import io.github.veganmarshmallow.taskboard.core.work.TimeLimit
@@ -86,7 +87,7 @@ class MergeLanesTest {
         assertEquals("PR #13's checks finished first", MergeLane.NEXT, lanes[29])
         assertEquals(MergeLane(false, MergeWait.QUEUED, "Task 29"), lanes[30])
         assertEquals(MergeLane(false, MergeWait.CHECKS_RUNNING, "Task 29"), lanes[28])
-        assertEquals(MergeLane(false, MergeWait.STACKED, "Task 29"), lanes[27])
+        assertEquals("stacked on #14, which is not ready: not in a Merge all run (#60)", MergeLane(false, MergeWait.STACKED, "Task 29", inRun = false), lanes[27])
         assertEquals("one PR list for the repo", 1, s.count("/pulls?state=open"))
         assertEquals("no compare for PRs that failed a cheaper check", 2, s.count("/compare/"))
         assertEquals("a stacked PR costs no request of its own", 0, s.count("/pulls/15"))
@@ -201,6 +202,37 @@ class MergeLanesTest {
         assertEquals(MergeLane(false, MergeWait.DRAFT, "Task 30"), lanes[29])
     }
 
+    // #60: the offer counts the PRs Merge all's plan takes.
+
+    /** #30 and #29 ready; #27's PR is stacked on #28's, whose checks still run. */
+    private fun stackOnARunningBase() = Script(
+        issues = listOf(task(30), task(29), task(28), task(27)),
+        pulls = listOf(
+            pullJson(12, body = closes(30), sha = SHA_A),
+            pullJson(13, body = closes(29), sha = SHA_B),
+            pullJson(14, body = closes(28), sha = shaC),
+            pullJson(15, body = closes(27), base = "claude/14-branch"),
+        ),
+        runs = mapOf(SHA_A to runsJson(wfRun(sha = SHA_A)), SHA_B to runsJson(wfRun(sha = SHA_B)), shaC to runsJson(wfRun(sha = shaC, status = "in_progress", conclusion = null))),
+        behind = mapOf(SHA_A to 0L, SHA_B to 0L),
+    )
+
+    @Test fun theOfferLeavesOutAStackWhoseBaseIsNotInTheRun() {
+        val board = stackOnARunningBase().refresh().board!!
+        assertEquals("the two ready PRs, as the confirmation lists them; not 3", 2, MergeAllOffer.count(board))
+    }
+
+    @Test fun whetherARunTakesALaneSurvivesSavingAndLoading() {
+        val state = stackOnARunningBase().refresh()
+        val text = WidgetStateCodec.encode(state)
+        assertEquals(state, WidgetStateCodec.decode(text))
+        assertEquals(2, MergeAllOffer.count(WidgetStateCodec.decode(text).board))
+        // A board saved before #60 has no "run": the lane guesses from its wait, as before.
+        assertTrue(",\"run\":false" in text)
+        val old = WidgetStateCodec.decode(text.replace(",\"run\":false", "").replace(",\"run\":true", ""))
+        assertEquals(3, MergeAllOffer.count(old.board))
+    }
+
     @Test fun anUnknownStoredReasonDropsOnlyTheLane() {
         val s = Script(listOf(task(29)), listOf(pullJson(13, body = closes(29), draft = true)))
         val text = WidgetStateCodec.encode(s.refresh()).replace("\"DRAFT\"", "\"SOMETHING_NEW\"")
@@ -216,7 +248,7 @@ class MergeLanesTest {
             listOf(task(30), task(29)),
             listOf(pullJson(12, body = closes(30), draft = true), pullJson(13, body = closes(29), base = "claude/12-branch")),
         )
-        assertEquals(mapOf(30 to MergeLane(false, MergeWait.DRAFT, null), 29 to MergeLane(false, MergeWait.STACKED, null)), s.lanes())
+        assertEquals(mapOf(30 to MergeLane(false, MergeWait.DRAFT, null), 29 to MergeLane(false, MergeWait.STACKED, null, inRun = false)), s.lanes())
         assertEquals(0, s.count("/pulls/1") + s.count("/actions/runs") + s.count("/compare/"))
     }
 

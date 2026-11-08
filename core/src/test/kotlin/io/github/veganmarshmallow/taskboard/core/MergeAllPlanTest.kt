@@ -146,4 +146,39 @@ class MergeAllPlanTest {
         assertFalse("nothing to merge first", MergeAllOffer.shows(boardWith(lane(MergeWait.STACKED), lane(MergeWait.STACKED))))
         assertFalse("a board saved before #45 has no lanes", MergeAllOffer.shows(boardWith(null, null)))
     }
+
+    // #60: the offer counts the plan the confirmation lists.
+
+    private fun offered(vararg candidates: MergeCandidate): Int {
+        val issues = candidates.map { Issue(it.issue, it.title, setOf(Labels.IN_REVIEW), true) }
+        val board = BoardBuilder().build(issues, at(0)).withMergeLanes(MergeAllOffer.lanes(candidates.toList()))
+        assertEquals("the offer's count is the plan's size", MergeAllPlanner.order(candidates.toList()).size, MergeAllOffer.count(board))
+        return MergeAllOffer.count(board)
+    }
+
+    @Test fun aStackWhoseBaseIsNotInTheRunIsNotCounted() {
+        val c = arrayOf(
+            ready(30, 11, 1),
+            waiting(31, 12, MergeWait.CHECKS_RUNNING),
+            waiting(32, 13, MergeWait.STACKED, base = "claude/12"),
+        )
+        assertEquals("only #11; the dialog would list 1", 1, offered(*c))
+        assertFalse(MergeAllOffer.lanes(c.toList()).getValue(32).inRun)
+    }
+
+    @Test fun aStackOnAReadyPrIsCounted() {
+        assertEquals(2, offered(ready(30, 11, 1), waiting(31, 12, MergeWait.STACKED, base = "claude/11")))
+        assertEquals("a stack of stacks", 3, offered(ready(30, 11, 1), waiting(31, 12, MergeWait.STACKED, base = "claude/11"), waiting(32, 13, MergeWait.STACKED, base = "claude/12")))
+    }
+
+    @Test fun readyPrsAreCountedAndWaitingOnesAreNot() {
+        assertEquals(2, offered(ready(30, 11, 1), ready(31, 12, 2), waiting(32, 13, MergeWait.CHECKS_FAILED)))
+        assertEquals(1, offered(ready(30, 11, 1), waiting(31, 14, MergeWait.STACKED, base = "claude/nobody")))
+        assertEquals(1, offered(ready(30, 11, 1), waiting(31, 12, MergeWait.STACKED, repo = other, base = "claude/11")))
+    }
+
+    @Test fun nothingReadyCountsNothing() {
+        assertEquals(0, offered())
+        assertEquals(0, offered(waiting(30, 11, MergeWait.CHECKS_RUNNING), waiting(31, 12, MergeWait.STACKED, base = "claude/11")))
+    }
 }
