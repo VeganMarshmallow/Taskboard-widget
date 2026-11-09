@@ -12,7 +12,8 @@ import java.time.Duration
  *
  * #78: [online] is checked before each step (offline, the step waits without calling GitHub). A
  * Cancel tapped during a step is honoured right after it, not a poll later. A run reset or replaced
- * while a step was in flight is left alone: that step's result is dropped, not saved over it.
+ * while a step was in flight is left alone: that step's result is dropped, not saved over it
+ * ([MergeAllStore.saveIf], #81).
  */
 class MergeAllRunner(
     private val machine: MergeAllMachine,
@@ -35,10 +36,9 @@ class MergeAllRunner(
             } catch (t: Throwable) {
                 MergeAllMachine.Step(state.stopped(MergeAllStops.of(crashError(nonFatal(t))), state.updatedAt))
             }
-            val saved = store.load()
-            if (saved == null || saved.runId != state.runId || !saved.running) return Result(saved, null) // reset meanwhile
+            // Reset, ended or replaced while this step ran: its result is dropped (#81: checked and saved as one step).
+            if (!store.saveIf(step.state)) return Result(store.load(), null)
             state = step.state
-            store.save(state)
             onStep(state)
             // Cancel tapped while this step ran: the next step cancels rather than waiting a poll
             // (at MERGE it re-reads the PR first, so that one waits its poll like any other).
