@@ -158,3 +158,14 @@ test('update-prs takes its mode from the merge commit trailer (#83, work pace)',
   assert.match(update, /updatePrs\(\{\s*mode,/);
   assert.doesNotMatch(update, /secrets\./, 'no stored secret: the setting travels in the merge commit');
 });
+
+test('update-prs*.js only require files next to them, which the sparse checkout of .github/scripts brings (#84)', () => {
+  const dir = __dirname;
+  for (const file of fs.readdirSync(dir).filter((f) => /^update-prs.*\.js$/.test(f) && !f.endsWith('.test.js'))) {
+    const src = fs.readFileSync(path.join(dir, file), 'utf8');
+    for (const [, target] of src.matchAll(/require\('([^']+)'\)/g)) {
+      assert.ok(target.startsWith('./') && !target.includes('/', 2), `${file} requires ${target}, outside .github/scripts`);
+      assert.ok(fs.existsSync(path.join(dir, target)), `${file} requires missing ${target}`);
+    }
+  }
+});
