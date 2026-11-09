@@ -42,7 +42,8 @@ class MergeAllJob(private val context: Context) {
         val saved = store.load()?.takeIf { it.running } ?: return null
         val api = AppGraph.apiOrNull(app)
         if (api == null) {
-            ended(saved.stopped(MergeAllStop(MergeAllStop.Kind.NO_TOKEN), AppGraph.clock.instant()).also(store::save))
+            // Reset doesn't take LOCK: one tapped since the load wins (#81).
+            saved.stopped(MergeAllStop(MergeAllStop.Kind.NO_TOKEN), AppGraph.clock.instant()).takeIf(store::saveIf)?.let { ended(it) }
             return null
         }
         val pace = WorkPaceStore(app).cached() // #83: Faster merges green PRs back to back

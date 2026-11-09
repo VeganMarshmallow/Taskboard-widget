@@ -99,6 +99,14 @@ interface MergeAllStore {
      * two starts at the same moment (two widgets) exactly one wins. False: refused, nothing saved.
      */
     fun start(state: MergeAllState): Boolean
+
+    /**
+     * Saves [state] only while the saved run is the same run ([MergeAllState.runId]) and unfinished
+     * (#81): a compare-and-set, so a step finishing just as Reset is tapped (or the run ends or is
+     * replaced) can't bring its run back. False: refused, nothing saved. Every step-result save goes
+     * through this; [save] is for writing a run outright. The Cancel flag is kept apart and untouched.
+     */
+    fun saveIf(state: MergeAllState): Boolean
     fun save(state: MergeAllState)
     fun clear()
     fun requestCancel(runId: String)

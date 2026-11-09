@@ -1,7 +1,6 @@
 package io.github.veganmarshmallow.taskboard.core
 
 import io.github.veganmarshmallow.taskboard.core.mergeall.LockedMergeAllStore
-import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllRecords
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllState
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllStateCodec
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllStop
@@ -19,19 +18,7 @@ import java.util.concurrent.TimeUnit
 class MergeAllStartTest {
     private val now = Instant.parse("2026-11-08T10:00:00Z")
 
-    /** Key-value records like SharedPreferences: each call on its own. [onRead] runs after a read (to hold a race open). */
-    private class MemoryRecords(private val onRead: () -> Unit = {}) : MergeAllRecords {
-        @Volatile var state: String? = null
-        @Volatile var cancel: String? = null
-
-        override fun readState(): String? = state.also { onRead() }
-        override fun writeState(text: String) { state = text }
-        override fun readCancel(): String? = cancel
-        override fun writeCancel(runId: String) { cancel = runId }
-        override fun clear() { state = null; cancel = null }
-    }
-
-    private val records = MemoryRecords()
+    private val records = MemoryMergeAllRecords()
     private val store = LockedMergeAllStore(records, Any())
 
     private fun run(id: String) = MergeAllState.start(id, planned(31, 32), now)
@@ -88,7 +75,7 @@ class MergeAllStartTest {
     }
 
     /** Two widgets tap at once, each with its own store instance over the same records and the process's lock. */
-    private fun race(records: MemoryRecords, lock: () -> Any): Pair<List<String>, String?> {
+    private fun race(records: MemoryMergeAllRecords, lock: () -> Any): Pair<List<String>, String?> {
         val winners = Collections.synchronizedList(mutableListOf<String>())
         val barrier = CyclicBarrier(2)
         val threads = listOf("a", "b").map { id ->
@@ -105,7 +92,7 @@ class MergeAllStartTest {
 
     @Test fun twoStartsAtOnceExactlyOneWins() {
         repeat(20) {
-            val (winners, saved) = race(MemoryRecords(onRead = { Thread.sleep(20) }), lock = { PROCESS_LOCK })
+            val (winners, saved) = race(MemoryMergeAllRecords(onRead = { Thread.sleep(20) }), lock = { PROCESS_LOCK })
             assertEquals("exactly one start wins", 1, winners.size)
             assertEquals("the saved run is the winner's", winners.single(), saved)
         }
@@ -114,7 +101,7 @@ class MergeAllStartTest {
     @Test fun withoutTheSharedLockBothWouldStart() {
         // Each read waits until both starts have read: unlocked, both see "no run" and both save (the bug #60 fixes).
         val bothRead = CyclicBarrier(2)
-        val records = MemoryRecords(onRead = { bothRead.await(5, TimeUnit.SECONDS) })
+        val records = MemoryMergeAllRecords(onRead = { bothRead.await(5, TimeUnit.SECONDS) })
         val (winners, _) = race(records, lock = { Any() })
         assertEquals(2, winners.size)
     }
