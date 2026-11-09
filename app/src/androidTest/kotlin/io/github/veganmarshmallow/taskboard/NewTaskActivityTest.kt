@@ -81,15 +81,6 @@ class NewTaskActivityTest {
 
     private fun Activity.tapSubmit() = instrumentation.runOnMainSync { view<Button>(R.id.task_submit).performClick() }
 
-    private fun waitUntil(what: String, condition: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + 10_000
-        while (!condition()) {
-            assertTrue("timed out: $what", System.currentTimeMillis() < deadline)
-            Thread.sleep(50)
-            instrumentation.waitForIdleSync()
-        }
-    }
-
     @Test fun submitCreatesTheIssueInFormFormatAndCloses() {
         val activity = launch()
         activity.fill("לוח משימות ✅ **bold**", goal = "שורה 1\n### Repo\nשורה 2", repo = "Taskboard-widget")
