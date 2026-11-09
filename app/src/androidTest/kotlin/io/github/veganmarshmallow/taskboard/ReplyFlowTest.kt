@@ -1,7 +1,6 @@
 package io.github.veganmarshmallow.taskboard
 
 import android.app.job.JobScheduler
-import android.os.SystemClock
 import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
@@ -60,17 +59,6 @@ class ReplyFlowTest {
         return s
     }
 
-    private fun waitUntil(what: String, timeoutMs: Long = 20_000, condition: () -> Boolean) {
-        val deadline = SystemClock.uptimeMillis() + timeoutMs
-        while (SystemClock.uptimeMillis() < deadline) {
-            var ok = false
-            instrumentation.runOnMainSync { ok = condition() }
-            if (ok) return
-            SystemClock.sleep(100)
-        }
-        throw AssertionError("timed out waiting for: $what")
-    }
-
     private fun launch(): TaskPreviewActivity {
         val monitor = instrumentation.addMonitor(TaskPreviewActivity::class.java.name, null, false)
         try {
@@ -85,7 +73,7 @@ class ReplyFlowTest {
         val s = serve()
         val activity = launch()
         try {
-            waitUntil("reply box with the unblock checkbox") {
+            waitUntil("reply box with the unblock checkbox", timeoutMs = 20_000, onMainThread = true) {
                 activity.findViewById<View>(R.id.preview_reply).isShown &&
                     activity.findViewById<CheckBox>(R.id.preview_reply_unblock).let { it.isShown && it.isChecked }
             }
@@ -95,12 +83,12 @@ class ReplyFlowTest {
                 send.performClick()
                 send.performClick() // the second tap arrives before the first send is done
             }
-            waitUntil("sent") {
+            waitUntil("sent", timeoutMs = 20_000, onMainThread = true) {
                 activity.findViewById<TextView>(R.id.preview_reply_message).text.toString() ==
                     context.getString(R.string.reply_sent_unblocked)
             }
             // Let the widget refresh the send started end here, so it can't leak into later tests.
-            waitUntil("the refresh after the reply ended", timeoutMs = 60_000) {
+            waitUntil("the refresh after the reply ended", timeoutMs = 60_000, onMainThread = true) {
                 s.received.any { it.path.startsWith("$board/issues?") } &&
                     AppGraph.refreshTracker(context).status() != RefreshTracker.Status.RUNNING
             }

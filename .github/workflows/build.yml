@@ -198,7 +198,8 @@ jobs:
     timeout-minutes: 45
     env:
       GRADLE_OPTS: -Dorg.gradle.daemon=false
-      AVD_KEY: avd-30-google_apis-x86_64-pixel_5-v1
+      # v2 (#61): rebuilt once with a snapshot taken after the system settled.
+      AVD_KEY: avd-30-google_apis-x86_64-pixel_5-v2
     steps:
       - uses: actions/checkout@v5
         with:
