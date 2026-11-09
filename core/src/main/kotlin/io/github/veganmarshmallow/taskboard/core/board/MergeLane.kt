@@ -40,8 +40,17 @@ enum class MergeWait {
  * A Merge row's place in line (#45). [isNext]: the PR to merge first, shown in the strong shade.
  * Otherwise [wait] says why not, and [firstTitle] is the merge-next task's title, if there is one
  * ("Merge <title> first" when the muted button is tapped).
+ *
+ * [inRun] (#60): Merge all's plan ([io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllPlanner])
+ * takes this PR, so the offer counts it. A refresh always sets it from the plan; a lane built
+ * without one (a board saved before #60) guesses from [wait], counting every stacked PR.
  */
-data class MergeLane(val isNext: Boolean, val wait: MergeWait?, val firstTitle: String?) {
+data class MergeLane(
+    val isNext: Boolean,
+    val wait: MergeWait?,
+    val firstTitle: String?,
+    val inRun: Boolean = isNext || wait == MergeWait.QUEUED || wait == MergeWait.STACKED,
+) {
     companion object {
         val NEXT = MergeLane(isNext = true, wait = null, firstTitle = null)
     }

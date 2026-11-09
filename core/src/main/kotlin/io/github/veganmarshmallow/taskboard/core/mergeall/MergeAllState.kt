@@ -93,6 +93,12 @@ data class MergeAllState(
 /** Where a run is kept (#57). Cancel is kept apart, so a step saving its state never loses a tap on Cancel. */
 interface MergeAllStore {
     fun load(): MergeAllState?
+
+    /**
+     * Saves [state] as a new run, unless an unfinished run is saved (#60): a compare-and-set, so of
+     * two starts at the same moment (two widgets) exactly one wins. False: refused, nothing saved.
+     */
+    fun start(state: MergeAllState): Boolean
     fun save(state: MergeAllState)
     fun clear()
     fun requestCancel(runId: String)
