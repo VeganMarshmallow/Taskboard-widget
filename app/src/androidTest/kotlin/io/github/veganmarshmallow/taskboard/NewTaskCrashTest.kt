@@ -8,13 +8,10 @@ import io.github.veganmarshmallow.taskboard.core.github.GitHubApi
 import io.github.veganmarshmallow.taskboard.core.http.HttpClient
 import io.github.veganmarshmallow.taskboard.core.http.HttpResponse
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
-import io.github.veganmarshmallow.taskboard.core.task.NewIssue
-import io.github.veganmarshmallow.taskboard.core.task.NewTaskSession
 import io.github.veganmarshmallow.taskboard.core.task.NewTaskStore
 import io.github.veganmarshmallow.taskboard.core.task.SubmitMarker
 import io.github.veganmarshmallow.taskboard.core.task.SubmitMarkerCodec
 import io.github.veganmarshmallow.taskboard.core.task.SubmitRecovery
-import io.github.veganmarshmallow.taskboard.core.task.TaskDraft
 import io.github.veganmarshmallow.taskboard.newtask.NewTaskController
 import io.github.veganmarshmallow.taskboard.newtask.NewTaskDeps
 import io.github.veganmarshmallow.taskboard.newtask.RepoSuggestionStore
@@ -58,23 +55,9 @@ class NewTaskCrashTest {
         return NewTaskController(deps)
     }
 
-    private fun issue(session: NewTaskSession): NewIssue =
-        (session.start(TaskDraft(title = "A task", repo = "Taskboard-widget")) as NewTaskSession.Start.Send).issue
-
-    private fun waitUntil(what: String, condition: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + 10_000
-        while (true) {
-            var met = false
-            instrumentation.runOnMainSync { met = condition() }
-            if (met) return
-            assertTrue("timed out: $what", System.currentTimeMillis() < deadline)
-            Thread.sleep(50)
-        }
-    }
-
     private fun sendAndWait(controller: NewTaskController): Outcome<*>? {
-        instrumentation.runOnMainSync { controller.send(context, issue(controller.session)) }
-        waitUntil("send finished") { !controller.session.isSubmitting }
+        instrumentation.runOnMainSync { controller.send(context, sendableIssue(controller.session)) }
+        waitUntil("send finished", onMainThread = true) { !controller.session.isSubmitting }
         var result: Outcome<*>? = null
         instrumentation.runOnMainSync { result = controller.session.takeResult() }
         return result
@@ -116,7 +99,7 @@ class NewTaskCrashTest {
         store.marker = marker
         val controller = controller { throw NoSuchMethodError("issuesUpdatedSince") }
         instrumentation.runOnMainSync { controller.restore(context) }
-        waitUntil("check finished") { controller.checking == null }
+        waitUntil("check finished", onMainThread = true) { controller.checking == null }
         var result: SubmitRecovery.Result? = null
         instrumentation.runOnMainSync { result = controller.takeRecovery() }
         assertNotNull(result)
@@ -131,7 +114,7 @@ class NewTaskCrashTest {
         val controller = controller { if (calls.incrementAndGet() == 1) throw NoSuchMethodError("x") else null }
         repeat(2) {
             instrumentation.runOnMainSync { controller.restore(context) }
-            waitUntil("check finished") { controller.checking == null }
+            waitUntil("check finished", onMainThread = true) { controller.checking == null }
         }
         var result: SubmitRecovery.Result? = null
         instrumentation.runOnMainSync { result = controller.takeRecovery() }

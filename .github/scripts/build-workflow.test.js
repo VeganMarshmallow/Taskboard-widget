@@ -99,7 +99,7 @@ test('every avd-setup input is used by the action, and the jobs pass only declar
 test('avd-setup keeps the jobs\' AVD settings and cache keys', () => {
   const api30 = passedInputs(job('emulator'));
   assert.deepStrictEqual(api30, { 'api-level': '30', 'cache-key': '${{ env.AVD_KEY }}' });
-  assert.match(job('emulator'), /^      AVD_KEY: avd-30-google_apis-x86_64-pixel_5-v1$/m);
+  assert.match(job('emulator'), /^      AVD_KEY: avd-30-google_apis-x86_64-pixel_5-v2$/m);
   const api35 = passedInputs(job('emulator-recent'));
   assert.deepStrictEqual(api35, { 'api-level': '35', 'ram-size': '4096M', 'emulator-boot-timeout': '1200', 'cache-key': '${{ env.AVD_KEY }}' });
   assert.match(job('emulator-recent'), /^      AVD_KEY: avd-35-google_apis-x86_64-pixel_5-4096M-v1$/m);
@@ -157,4 +157,15 @@ test('update-prs takes its mode from the merge commit trailer (#83, work pace)',
   assert.match(update, /modeForCommit\(context\.payload\.head_commit && context\.payload\.head_commit\.message\)/);
   assert.match(update, /updatePrs\(\{\s*mode,/);
   assert.doesNotMatch(update, /secrets\./, 'no stored secret: the setting travels in the merge commit');
+});
+
+test('update-prs*.js only require files next to them, which the sparse checkout of .github/scripts brings (#84)', () => {
+  const dir = __dirname;
+  for (const file of fs.readdirSync(dir).filter((f) => /^update-prs.*\.js$/.test(f) && !f.endsWith('.test.js'))) {
+    const src = fs.readFileSync(path.join(dir, file), 'utf8');
+    for (const [, target] of src.matchAll(/require\('([^']+)'\)/g)) {
+      assert.ok(target.startsWith('./') && !target.includes('/', 2), `${file} requires ${target}, outside .github/scripts`);
+      assert.ok(fs.existsSync(path.join(dir, target)), `${file} requires missing ${target}`);
+    }
+  }
 });

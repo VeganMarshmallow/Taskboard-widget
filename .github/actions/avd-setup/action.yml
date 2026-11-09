@@ -64,6 +64,9 @@ runs:
         key: ${{ inputs.cache-key }}
 
     # From the android-emulator-runner README: boot once, save the snapshot, cache it.
+    # #61: the snapshot is saved when the script exits, so the script first waits until system_server
+    # has stayed up for a while; a snapshot taken mid-restart dies on every restore. If the system
+    # never settles the step fails and nothing is saved (the next run on main tries again).
     - name: Create AVD snapshot (main only, on a cache miss)
       if: steps.avd.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
       uses: reactivecircus/android-emulator-runner@v2
@@ -77,7 +80,7 @@ runs:
         emulator-boot-timeout: ${{ inputs.emulator-boot-timeout }}
         ram-size: ${{ inputs.ram-size }}
         emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-        script: echo "AVD snapshot created"
+        script: .github/scripts/snapshot-settle.sh
 
     - name: Save AVD snapshot
       if: steps.avd.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'

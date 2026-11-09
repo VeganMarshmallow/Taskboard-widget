@@ -65,15 +65,6 @@ class NewTaskPersistenceTest {
 
     private fun Activity.text(id: Int): String = findViewById<TextView>(id).text.toString()
 
-    private fun waitUntil(what: String, condition: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + 10_000
-        while (!condition()) {
-            assertTrue("timed out: $what", System.currentTimeMillis() < deadline)
-            Thread.sleep(50)
-            instrumentation.waitForIdleSync()
-        }
-    }
-
     private fun leftByDeadSubmit() {
         prefs.draft = TaskDraftCodec.encode(draft)
         prefs.marker = SubmitMarkerCodec.encode(SubmitMarker(draft.title, started))

@@ -5,7 +5,6 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.ComponentName
-import android.os.SystemClock
 import android.widget.Button
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -48,22 +47,11 @@ class PreviewActivityTest {
         }
     }
 
-    private fun waitUntil(what: String, condition: () -> Boolean) {
-        val deadline = SystemClock.uptimeMillis() + 10_000
-        while (SystemClock.uptimeMillis() < deadline) {
-            var ok = false
-            instrumentation.runOnMainSync { ok = condition() }
-            if (ok) return
-            SystemClock.sleep(50)
-        }
-        throw AssertionError("timed out waiting for: $what")
-    }
-
     private fun previewIntent() = Intent(context, TaskPreviewActivity::class.java)
 
     @Test fun missingIssueNumberFinishesAtOnce() {
         val activity = launch(previewIntent())
-        waitUntil("finished") { activity.isFinishing || activity.isDestroyed }
+        waitUntil("finished", onMainThread = true) { activity.isFinishing || activity.isDestroyed }
     }
 
     @Test fun invalidIssueNumbersFinishAtOnce() {
@@ -74,14 +62,14 @@ class PreviewActivityTest {
             { putExtra("issue", 12L) },
         ).forEach { extra ->
             val activity = launch(previewIntent().extra())
-            waitUntil("finished") { activity.isFinishing || activity.isDestroyed }
+            waitUntil("finished", onMainThread = true) { activity.isFinishing || activity.isDestroyed }
         }
     }
 
     @Test fun withoutATokenTheSheetOffersSetUp() {
         val activity = launch(TaskPreviewActivity.intent(context, 11))
         try {
-            waitUntil("Set up offered") {
+            waitUntil("Set up offered", onMainThread = true) {
                 val retry = activity.findViewById<Button>(R.id.preview_retry)
                 retry?.isShown == true && retry.text.toString() == context.getString(R.string.preview_set_up)
             }
