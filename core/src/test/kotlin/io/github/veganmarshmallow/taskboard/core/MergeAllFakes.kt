@@ -92,6 +92,7 @@ class TextMergeAllStore : MergeAllStore {
     private var cancel: String? = null
 
     override fun load(): MergeAllState? = MergeAllStateCodec.decode(text)
+    override fun start(state: MergeAllState): Boolean = (load()?.running != true).also { if (it) save(state) }
     override fun save(state: MergeAllState) { text = MergeAllStateCodec.encode(state) }
     override fun clear() { text = null; cancel = null }
     override fun requestCancel(runId: String) { cancel = runId }

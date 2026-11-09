@@ -83,7 +83,7 @@ class MergeNextTest {
         assertEquals("PR #31 passed first", MergeLane.NEXT, lanes[45])
         assertEquals(MergeLane(false, MergeWait.QUEUED, TITLE_45), lanes[44])
         assertEquals(MergeLane(false, MergeWait.CHECKS_RUNNING, TITLE_45), lanes[43])
-        assertEquals(MergeLane(false, MergeWait.STACKED, TITLE_45), lanes[42])
+        assertEquals("stacked on #43, whose checks run: not in a Merge all run (#60)", MergeLane(false, MergeWait.STACKED, TITLE_45, inRun = false), lanes[42])
         assertEquals(MergeLane(false, MergeWait.CONFLICT_CLAUDE_FIXES, TITLE_45), lanes[41])
         val s = server!!
         assertEquals("one PR list per repo", 1, s.received.count { it.path.startsWith("$REPO/pulls?") })

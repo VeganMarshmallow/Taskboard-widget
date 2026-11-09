@@ -31,15 +31,16 @@ object MergeNext {
     fun ranked(candidates: List<MergeCandidate>): List<MergeCandidate> =
         candidates.filter { it.readiness is Readiness.Ready }.sortedWith(ORDER)
 
-    /** Each candidate's lane, by issue number (a task listed twice keeps its first entry). */
-    fun lanes(candidates: List<MergeCandidate>): Map<Int, MergeLane> {
+    /**
+     * Each candidate's lane, by issue number (a task listed twice keeps its first entry). [inRun]:
+     * the issues Merge all's plan takes (#60); null leaves [MergeLane.inRun] to its guess from the wait.
+     */
+    fun lanes(candidates: List<MergeCandidate>, inRun: Set<Int>? = null): Map<Int, MergeLane> {
         val unique = candidates.distinctBy { it.issue }
         val next = pick(unique)
         return unique.associate { c ->
-            c.issue to when {
-                c == next -> MergeLane.NEXT
-                else -> MergeLane(isNext = false, wait = waitOf(c.readiness), firstTitle = next?.title)
-            }
+            val lane = if (c == next) MergeLane.NEXT else MergeLane(isNext = false, wait = waitOf(c.readiness), firstTitle = next?.title)
+            c.issue to if (inRun == null) lane else lane.copy(inRun = c.issue in inRun)
         }
     }
 
