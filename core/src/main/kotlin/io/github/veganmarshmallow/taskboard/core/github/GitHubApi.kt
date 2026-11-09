@@ -68,7 +68,7 @@ class GitHubApi(
      * each page parsed with [parse] (issues here; the Questions screen's listings, task #82).
      */
     internal fun <T> fetchPages(first: HttpRequest, pages: Int, parse: (String) -> List<T>): Outcome<List<T>> =
-        PagedFetcher(pages, requests::page) { request: HttpRequest -> sendPage(request, parse) }.fetchAll(first).map { it.issues }
+        PagedFetcher(pages, requests::page) { request: HttpRequest -> sendPage(request, parse) }.fetchAll(first).map { it.items }
 
     private fun <T> sendPage(request: HttpRequest, parse: (String) -> List<T>): Outcome<PagedFetcher.Page<T>> = when (val r = send(request)) {
         is Outcome.Failure -> r

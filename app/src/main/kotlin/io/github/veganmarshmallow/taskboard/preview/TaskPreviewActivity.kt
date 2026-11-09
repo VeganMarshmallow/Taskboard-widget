@@ -15,7 +15,6 @@ import io.github.veganmarshmallow.taskboard.core.http.Outcome
 import io.github.veganmarshmallow.taskboard.core.preview.PreviewScreen
 import io.github.veganmarshmallow.taskboard.core.preview.TaskPreview
 import io.github.veganmarshmallow.taskboard.core.reply.ReplyForm
-import io.github.veganmarshmallow.taskboard.core.reply.ReplyResult
 import io.github.veganmarshmallow.taskboard.core.reply.StatusMove
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.StateStore
@@ -35,6 +34,7 @@ class TaskPreviewActivity : Activity() {
     private lateinit var views: PreviewViews
     private lateinit var worker: PreviewWorker
     private lateinit var screen: PreviewScreen
+    private lateinit var reply: ReplyBoxController
 
     /** The merge dialog's flow while it is open (task #30); read by instrumented tests. */
     var mergeFlow: MergeFlow? = null
@@ -59,13 +59,15 @@ class TaskPreviewActivity : Activity() {
         findViewById<View>(R.id.preview_merge).setOnClickListener { startMerge() }
         findViewById<View>(R.id.preview_retry).setOnClickListener { onRetry() }
         findViewById<View>(R.id.preview_ask).setOnClickListener { askClaude() }
-        views.reply.listen(
-            onEdit = ::onReplyEdited,
-            onUnblock = { update(screen.withReply(screen.reply.unblockChecked(it))) },
-            onRequestChanges = { update(screen.withReply(screen.reply.requestChangesChecked(it))) },
-            onSend = ::sendReply,
+        val restored = restoredReply(number, savedInstanceState)
+        ReplyDrafts.remember(number, restored) // a form restored after process death beats a later empty one
+        reply = ReplyBoxController(
+            ReplyDrafts, number, views.reply, restored,
+            start = { it.start(screen.offerUnblock, screen.offerRequestChanges) },
+            send = { worker.reply(number, it) },
+            show = { update(screen.withReply(it)) },
+            onPosted = ::load,
         )
-        ReplyDrafts.listen(number, onReplyFinished)
 
         val cached = TaskPreview.fromBoard(StateStore(this).load().board, number)
         update(
@@ -73,7 +75,7 @@ class TaskPreviewActivity : Activity() {
                 number, cached,
                 approvedEarlier = savedInstanceState?.getBoolean(STATE_APPROVED) == true,
                 mergedEarlier = savedInstanceState?.getBoolean(STATE_MERGED) == true,
-            ).withReply(restoredReply(number, savedInstanceState)),
+            ).withReply(reply.form),
         )
         load()
     }
@@ -92,7 +94,7 @@ class TaskPreviewActivity : Activity() {
 
     override fun onDestroy() {
         if (::worker.isInitialized) worker.close()
-        if (::screen.isInitialized) ReplyDrafts.stopListening(screen.number, onReplyFinished)
+        if (::reply.isInitialized) reply.close()
         mergeFlow?.close()
         super.onDestroy()
     }
@@ -150,26 +152,6 @@ class TaskPreviewActivity : Activity() {
             pendingMove = StatusMove.entries.firstOrNull { it.name == saved.getString(STATE_REPLY_PENDING_MOVE) },
         )
 
-    private fun onReplyEdited(text: String) {
-        if (text == screen.reply.draft) return
-        update(screen.withReply(screen.reply.edit(text)))
-    }
-
-    /**
-     * [ReplyForm.start] refuses while a send is in flight, also one started by an earlier sheet
-     * for this issue ([ReplyDrafts]), so a double tap or a reopened sheet posts once.
-     */
-    private fun sendReply() {
-        val start = screen.reply.start(screen.offerUnblock, screen.offerRequestChanges) ?: return
-        update(screen.withReply(start.form))
-        worker.reply(screen.number, start.action)
-    }
-
-    private val onReplyFinished: (ReplyForm, ReplyResult) -> Unit = { form, result ->
-        update(screen.withReply(form))
-        if (result.posted) load()
-    }
-
     /** Task #82: the Questions screen, its ask box about this task. */
     private fun askClaude() {
         startActivity(QuestionsActivity.intent(this, screen.number, screen.task?.title))
@@ -196,7 +178,6 @@ class TaskPreviewActivity : Activity() {
 
     private fun update(next: PreviewScreen) {
         screen = next
-        ReplyDrafts.remember(next.number, next.reply)
         views.bind(next)
     }
 

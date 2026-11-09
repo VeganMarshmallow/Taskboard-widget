@@ -170,7 +170,7 @@ class NetworkEdgeCasesTest {
         }
         val result = (fetcher.fetchAll(HttpRequest("GET", "$apiBase/x")) as Outcome.Success).value
         assertTrue(result.truncated)
-        assertEquals(2, result.issues.size)
+        assertEquals(2, result.items.size)
     }
 
     @Test fun foreignOrDowngradedNextLinksAreRefusedBeforeAnyRequest() {
