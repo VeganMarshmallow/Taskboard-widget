@@ -10,8 +10,6 @@ import io.github.veganmarshmallow.taskboard.core.http.HttpClient
 import io.github.veganmarshmallow.taskboard.core.http.HttpRequest
 import io.github.veganmarshmallow.taskboard.core.http.HttpResponse
 import io.github.veganmarshmallow.taskboard.core.http.Outcome
-import io.github.veganmarshmallow.taskboard.core.task.NewIssue
-import io.github.veganmarshmallow.taskboard.core.task.NewTaskSession
 import io.github.veganmarshmallow.taskboard.core.task.TaskDraft
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.newtask.NewTaskController
@@ -67,21 +65,9 @@ class NewTaskDepsTest {
     private fun syncDeps(apiProvider: (Context) -> GitHubApi?, suggestions: Executor = direct) =
         NewTaskDeps(apiProvider, sendExecutor = direct, suggestionsExecutor = suggestions, mainThread = direct)
 
-    private fun issue(session: NewTaskSession): NewIssue =
-        (session.start(TaskDraft(title = "A task", repo = "Taskboard-widget")) as NewTaskSession.Start.Send).issue
-
     /** Sends synchronously on the main thread (effects toast, so they need a looper). */
     private fun sendNow(controller: NewTaskController) =
-        instrumentation.runOnMainSync { controller.send(context, issue(controller.session)) }
-
-    private fun waitUntil(what: String, condition: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + 10_000
-        while (!condition()) {
-            assertTrue("timed out: $what", System.currentTimeMillis() < deadline)
-            Thread.sleep(50)
-            instrumentation.waitForIdleSync()
-        }
-    }
+        instrumentation.runOnMainSync { controller.send(context, sendableIssue(controller.session)) }
 
     private fun clearSuggestionCache() =
         context.getSharedPreferences("repo_suggestions", Context.MODE_PRIVATE).edit().clear().commit()
@@ -118,7 +104,7 @@ class NewTaskDepsTest {
         var onMain = false
         instrumentation.runOnMainSync {
             controller.listener = { onMain = Looper.myLooper() == Looper.getMainLooper(); delivered.countDown() }
-            controller.send(context, issue(controller.session))
+            controller.send(context, sendableIssue(controller.session))
         }
         assertTrue("listener called", delivered.await(10, TimeUnit.SECONDS))
         assertTrue(onMain)
@@ -136,7 +122,7 @@ class NewTaskDepsTest {
         val calls = AtomicInteger()
         instrumentation.runOnMainSync {
             controller.listener = { calls.incrementAndGet() }
-            controller.send(context, issue(controller.session))
+            controller.send(context, sendableIssue(controller.session))
             controller.listener = null // the form's onPause: Activity gone before the result
         }
         http.postGate!!.countDown()
@@ -153,7 +139,7 @@ class NewTaskDepsTest {
         val deps = NewTaskDeps.standard(api)
         val controller = NewTaskController(deps)
         RepoSuggestionStore(context, deps).refresh { }
-        instrumentation.runOnMainSync { controller.send(context, issue(controller.session)) }
+        instrumentation.runOnMainSync { controller.send(context, sendableIssue(controller.session)) }
         waitUntil("submit finishes while suggestions hang") { !controller.session.isSubmitting }
         instrumentation.runOnMainSync { assertTrue(controller.session.takeResult() is Outcome.Success) }
     }
