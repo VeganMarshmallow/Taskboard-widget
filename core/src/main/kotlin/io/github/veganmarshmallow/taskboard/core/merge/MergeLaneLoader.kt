@@ -5,6 +5,7 @@ import io.github.veganmarshmallow.taskboard.core.board.MergeLaneSource
 import io.github.veganmarshmallow.taskboard.core.board.MergeWait
 import io.github.veganmarshmallow.taskboard.core.board.Placement
 import io.github.veganmarshmallow.taskboard.core.github.GitHubApi
+import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllOffer
 import io.github.veganmarshmallow.taskboard.core.model.Issue
 import io.github.veganmarshmallow.taskboard.core.model.Repo
 import io.github.veganmarshmallow.taskboard.core.work.RefreshRunner
@@ -34,7 +35,7 @@ class MergeLaneLoader(
         val left = deadline?.let { minOf(budget, Duration.between(clock.instant(), it)) } ?: budget
         val result = if (left.isNegative || left.isZero) Timed.TimedOut else limit.run(left) { MergeCandidates(board).of(tasks, api) }
         return when (result) {
-            is Timed.Done -> MergeNext.lanes(result.value)
+            is Timed.Done -> MergeAllOffer.lanes(result.value)
             else -> tasks.associate { it.number to MergeLane(isNext = false, wait = MergeWait.UNKNOWN, firstTitle = null) }
         }
     }

@@ -3,7 +3,6 @@ package io.github.veganmarshmallow.taskboard
 import android.app.Activity
 import android.app.job.JobScheduler
 import android.content.Intent
-import android.os.SystemClock
 import android.view.View
 import android.widget.Button
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -56,17 +55,6 @@ class MergeFlowTest {
     }
 
     private fun service() = MergeService(AppGraph.apiOrNull(context)!!, sleep = {})
-
-    private fun waitUntil(what: String, timeoutMs: Long = 20_000, condition: () -> Boolean) {
-        val deadline = SystemClock.uptimeMillis() + timeoutMs
-        while (SystemClock.uptimeMillis() < deadline) {
-            var ok = false
-            instrumentation.runOnMainSync { ok = condition() }
-            if (ok) return
-            SystemClock.sleep(100)
-        }
-        throw AssertionError("timed out waiting for: $what")
-    }
 
     private fun <T : Activity> launch(type: Class<T>, intent: Intent): T {
         val monitor = instrumentation.addMonitor(type.name, null, false)
@@ -123,9 +111,9 @@ class MergeFlowTest {
         val s = serve(FakeMerges.script())
         val activity = launch(TaskPreviewActivity::class.java, TaskPreviewActivity.intent(context, 30))
         try {
-            waitUntil("Merge button") { activity.findViewById<View>(R.id.preview_merge).isShown }
+            waitUntil("Merge button", timeoutMs = 20_000, onMainThread = true) { activity.findViewById<View>(R.id.preview_merge).isShown }
             instrumentation.runOnMainSync { activity.findViewById<Button>(R.id.preview_merge).performClick() }
-            waitUntil("confirmation") { activity.mergeFlow?.shown?.kind == MergeDialog.Kind.CONFIRM }
+            waitUntil("confirmation", timeoutMs = 20_000, onMainThread = true) { activity.mergeFlow?.shown?.kind == MergeDialog.Kind.CONFIRM }
             var flow: MergeFlow? = null
             instrumentation.runOnMainSync { flow = activity.mergeFlow }
             assertEquals("Merge PR #12?", flow!!.shown!!.title)
@@ -134,10 +122,10 @@ class MergeFlowTest {
             assertTrue("nothing merged before confirming", s.received.none { it.method == "PUT" })
             // A double tap: the second click arrives before the first one's work is done.
             instrumentation.runOnMainSync { clickPrimary(flow!!); clickPrimary(flow!!) }
-            waitUntil("merged and closed") { activity.mergeFlow == null && activity.findViewById<View>(R.id.preview_merged).isShown }
+            waitUntil("merged and closed", timeoutMs = 20_000, onMainThread = true) { activity.mergeFlow == null && activity.findViewById<View>(R.id.preview_merged).isShown }
             // The refresh the merge starts must end inside this test, so its job can't leave a
             // running mark for later tests; by then a second merge would also have sent its PUT.
-            waitUntil("the refresh after the merge ended", timeoutMs = 60_000) {
+            waitUntil("the refresh after the merge ended", timeoutMs = 60_000, onMainThread = true) {
                 s.received.any { it.path.startsWith("/repos/VeganMarshmallow/claude-workspace/issues?") } &&
                     AppGraph.refreshTracker(context).status() != RefreshTracker.Status.RUNNING
             }
@@ -152,13 +140,13 @@ class MergeFlowTest {
         val s = serve(FakeMerges.script(stacked = true))
         val intent = RowAction.Merge(30).toFillIn().setClass(context, RowActionActivity::class.java)
         val activity = launch(RowActionActivity::class.java, intent)
-        waitUntil("refusal") { activity.mergeFlow?.shown?.kind == MergeDialog.Kind.REFUSAL }
+        waitUntil("refusal", timeoutMs = 20_000, onMainThread = true) { activity.mergeFlow?.shown?.kind == MergeDialog.Kind.REFUSAL }
         var lines: List<String> = emptyList()
         instrumentation.runOnMainSync { lines = activity.mergeFlow!!.shown!!.lines }
         assertEquals("This PR is stacked on claude/11-first; merge #11 first.", lines[0])
         assertTrue(s.received.none { it.method == "PUT" })
         instrumentation.runOnMainSync { clickSecondary(activity.mergeFlow!!) } // Close
-        waitUntil("trampoline finished") { activity.isFinishing || activity.isDestroyed }
+        waitUntil("trampoline finished", timeoutMs = 20_000, onMainThread = true) { activity.isFinishing || activity.isDestroyed }
     }
 
     @Test fun withoutATokenTheFlowOffersSetUpAndSendsNothing() {
@@ -166,7 +154,7 @@ class MergeFlowTest {
         val intent = RowAction.Merge(30).toFillIn().setClass(context, RowActionActivity::class.java)
         val activity = launch(RowActionActivity::class.java, intent)
         try {
-            waitUntil("refusal") { activity.mergeFlow?.shown?.kind == MergeDialog.Kind.REFUSAL }
+            waitUntil("refusal", timeoutMs = 20_000, onMainThread = true) { activity.mergeFlow?.shown?.kind == MergeDialog.Kind.REFUSAL }
             instrumentation.runOnMainSync {
                 assertEquals(context.getString(R.string.merge_set_up), dialogButton(activity.mergeFlow!!, R.id.merge_primary).text.toString())
             }

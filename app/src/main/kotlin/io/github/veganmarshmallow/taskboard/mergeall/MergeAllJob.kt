@@ -42,7 +42,8 @@ class MergeAllJob(private val context: Context) {
         val saved = store.load()?.takeIf { it.running } ?: return null
         val api = AppGraph.apiOrNull(app)
         if (api == null) {
-            ended(saved.stopped(MergeAllStop(MergeAllStop.Kind.NO_TOKEN), AppGraph.clock.instant()).also(store::save))
+            // Reset doesn't take LOCK: one tapped since the load wins (#81).
+            saved.stopped(MergeAllStop(MergeAllStop.Kind.NO_TOKEN), AppGraph.clock.instant()).takeIf(store::saveIf)?.let { ended(it) }
             return null
         }
         val pace = WorkPaceStore(app).cached() // #83: Faster merges green PRs back to back
@@ -75,12 +76,19 @@ class MergeAllJob(private val context: Context) {
             app.getSystemService(JobScheduler::class.java)?.cancel(BoardJob.MERGE_ALL_ID)
         }
 
-        /** Saves a new run of [plan] and schedules its job. False when a run is already going on. */
+        /**
+         * Saves a new run of [plan] and schedules its job. False when a run is already going on
+         * (#60: checked and saved in one step, so a second start at the same moment from another
+         * widget is refused); the widget is redrawn, so it shows the run that is going on.
+         */
         fun start(context: Context, plan: List<PlannedMerge>): Boolean {
             val app = context.applicationContext
-            val store = AppGraph.mergeAllStore(app)
-            if (plan.isEmpty() || store.load()?.running == true) return false
-            store.save(MergeAllState.start(UUID.randomUUID().toString(), plan, AppGraph.clock.instant()))
+            if (plan.isEmpty()) return false
+            val started = AppGraph.mergeAllStore(app).start(MergeAllState.start(UUID.randomUUID().toString(), plan, AppGraph.clock.instant()))
+            if (!started) {
+                StateRedraw.redraw(app)
+                return false
+            }
             BoardJobs.schedule(app, BoardJob.MergeAll())
             StateRedraw.redraw(app)
             return true

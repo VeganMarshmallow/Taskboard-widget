@@ -72,7 +72,7 @@ object AppGraph {
     fun messages(context: Context): ErrorMessages = ErrorMessages(TimeText(context)::format)
 
     /** The Merge all run's store (#57). */
-    fun mergeAllStore(context: Context): MergeAllStore = MergeAllPrefs(context)
+    fun mergeAllStore(context: Context): MergeAllStore = MergeAllPrefs.store(context)
 
     /** Null when no token is saved. */
     fun apiOrNull(context: Context): GitHubApi? = TokenStore(context).get()?.let { api(context, it) }

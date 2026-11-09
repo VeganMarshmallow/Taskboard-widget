@@ -30,29 +30,61 @@
 // Nothing here pushes to the default branch, so this workflow can't trigger itself.
 'use strict';
 
-const { dropHeldRuns } = require('./held-runs.js');
+// #84: this file is only the per-run orchestration. The GitHub calls are update-prs-github.js,
+// the steps for one PR update-prs-one.js; each is required relative to this file, so the
+// workflow's sparse checkout of .github/scripts brings them all.
+
 const { selectPrsToUpdate, MODES } = require('./update-prs-select.js');
+const gh = require('./update-prs-github.js');
+const { updateOne } = require('./update-prs-one.js');
 
 const PREFIX = 'claude/';
-const LABEL = 'needs-rebase';
 
-function messageOf(error) {
-  return String((error && error.response && error.response.data && error.response.data.message) || (error && error.message) || '');
+/** Results that mean the PR needs nothing more this run (a conflict or an error does not: the next PR is tried). */
+const SETTLED = new Set(['updated', 'update-pending', 'up-to-date', 'retargeted']);
+
+/** Claude's open PRs: claude/* branches of this repo (not forks). */
+async function listOurPrs({ github, owner, repo }) {
+  const open = await github.paginate(github.rest.pulls.list, { owner, repo, state: 'open', per_page: 100 });
+  return open.filter((p) => p.head.ref.startsWith(PREFIX) && p.head.repo && p.head.repo.full_name === `${owner}/${repo}`);
 }
 
-/** update-branch's 422 for a merge conflict (other 422s, e.g. a moved head, are plain errors). */
-function isConflict(error) {
-  return Boolean(error) && error.status === 422 && /conflict/i.test(messageOf(error));
+/** The base branches (other than main) of [prs] whose own PR was merged; one that can't be told counts as open. */
+async function findMergedBases({ main, log }, prs, baseWasMerged) {
+  const mergedBases = new Set();
+  for (const pr of prs) {
+    if (pr.base.ref === main || mergedBases.has(pr.base.ref)) continue;
+    try {
+      if (await baseWasMerged(pr.base.ref)) mergedBases.add(pr.base.ref);
+    } catch (error) {
+      log(`#${pr.number}: couldn't tell whether ${pr.base.ref} was merged: ${error.message}`); // treated as stacked
+    }
+  }
+  return mergedBases;
 }
 
-/** A dispatch refused because the branch's build.yml predates the `full` input (#52). */
-function isUnknownInput(error) {
-  return Boolean(error) && error.status === 422 && /unexpected inputs/i.test(messageOf(error));
+async function attempt(ctx, pr, deps) {
+  try {
+    return await updateOne(ctx, pr, deps);
+  } catch (error) {
+    ctx.log(`#${pr.number}: failed: ${error.status || ''} ${error.message}`);
+    return { number: pr.number, action: 'error', error: String(error.message) };
+  }
 }
 
-/** GitHub refusing a GITHUB_TOKEN push that would change workflow files (needs the `workflows` scope). */
-function isWorkflowRefusal(error) {
-  return Boolean(error) && (error.status === 403 || error.status === 422) && /workflow/i.test(messageOf(error));
+// Every PR still stacked on a merged branch is retargeted now, even one not updated this run (a
+// draft, or queued behind the next PR): otherwise it would stay stacked, which Merge all and auto
+// merge never take, until some later merge happened to pick it.
+async function retargetWaiting(ctx, prs, mergedBases, byNumber) {
+  for (const pr of prs) {
+    if (pr.base.ref === ctx.main || !mergedBases.has(pr.base.ref)) continue;
+    try {
+      await gh.retarget(ctx, pr);
+    } catch (error) {
+      ctx.log(`#${pr.number}: failed to retarget: ${error.status || ''} ${error.message}`);
+      byNumber.set(pr.number, { number: pr.number, action: 'error', error: String(error.message) });
+    }
+  }
 }
 
 async function updatePrs({
@@ -68,115 +100,10 @@ async function updatePrs({
   pollMs = 5000,
   mode = MODES.NEXT,
 }) {
-  const fullName = `${owner}/${repo}`;
-  const merged = new Map();
-
-  async function baseWasMerged(base) {
-    if (!merged.has(base)) {
-      const closed = await github.paginate(github.rest.pulls.list, { owner, repo, state: 'closed', head: `${owner}:${base}`, per_page: 100 });
-      merged.set(base, closed.some((p) => Boolean(p.merged_at)));
-    }
-    return merged.get(base);
-  }
-
-  async function waitForNewHead(number, oldSha) {
-    for (let i = 0; i < headPolls; i++) {
-      await wait(pollMs);
-      const { data } = await github.rest.pulls.get({ owner, repo, pull_number: number });
-      if (data.head.sha !== oldSha) return data.head.sha;
-    }
-    return null;
-  }
-
-  async function markNeedsRebase(pr, labels, why) {
-    if (labels.includes(LABEL)) return;
-    await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: [LABEL] });
-    await github.rest.issues.createComment({
-      owner, repo, issue_number: pr.number,
-      body: `🤖 Couldn't update this branch with \`${main}\`: ${why}. Labelled \`${LABEL}\`; Claude rebases it on its next board run.`,
-    });
-  }
-
-  async function clearLabel(n, labels) {
-    if (labels.includes(LABEL)) {
-      await github.rest.issues.removeLabel({ owner, repo, issue_number: n, name: LABEL }).catch(() => {});
-    }
-  }
-
-  // A branch whose head hasn't moved yet may still carry a build.yml without the `full` input:
-  // GitHub refuses unknown inputs, so dispatch it plainly (that file runs everything anyway).
-  async function dispatch(ref, full) {
-    const args = { owner, repo, workflow_id: workflow, ref };
-    try {
-      await github.rest.actions.createWorkflowDispatch({ ...args, inputs: { full: String(full) } });
-    } catch (error) {
-      if (!isUnknownInput(error)) throw error;
-      await github.rest.actions.createWorkflowDispatch(args);
-    }
-  }
-
-  /** Moves a PR whose base branch's own PR was merged onto the default branch. No CI is started. */
-  async function retarget(pr) {
-    await github.rest.pulls.update({ owner, repo, pull_number: pr.number, base: main });
-    log(`#${pr.number}: retargeted from ${pr.base.ref} to ${main}`);
-  }
-
-  async function updateOne(pr) {
-    const n = pr.number;
-    const labels = (pr.labels || []).map((l) => l.name);
-    let retargeted = false;
-    if (pr.base.ref !== main) {
-      if (!(await baseWasMerged(pr.base.ref))) return { number: n, action: 'stacked' };
-      await retarget(pr);
-      retargeted = true;
-    }
-    const { data: diff } = await github.rest.repos.compareCommitsWithBasehead({ owner, repo, basehead: `${main}...${pr.head.sha}` });
-    if (diff.behind_by === 0) {
-      await clearLabel(n, labels);
-      return { number: n, action: retargeted ? 'retargeted' : 'up-to-date' };
-    }
-    try {
-      await github.rest.pulls.updateBranch({ owner, repo, pull_number: n, expected_head_sha: pr.head.sha });
-    } catch (error) {
-      const why = isConflict(error) ? 'merge conflict' : isWorkflowRefusal(error) ? `\`${main}\` changed workflow files, which this workflow's token may not push` : null;
-      if (!why) throw error;
-      await markNeedsRebase(pr, labels, why);
-      log(`#${n}: ${why}; labelled ${LABEL}`);
-      return { number: n, action: 'conflict' };
-    }
-    const head = await waitForNewHead(n, pr.head.sha);
-    await clearLabel(n, labels);
-    const full = !pr.draft;
-    await dispatch(pr.head.ref, full);
-    const dropped = head ? await dropHeldRuns({ github, owner, repo, workflow, sha: head, wait, polls: heldPolls, pollMs, log }) : 0;
-    log(`#${n}: updated with ${main}${head ? ` (now ${head.slice(0, 7)})` : ' (head not moved yet)'}; ${workflow} dispatched (${full ? 'full' : 'build only, draft'})` +
-      (dropped ? `; deleted ${dropped} held pull_request run(s)` : ''));
-    return { number: n, action: head ? 'updated' : 'update-pending' };
-  }
-
-  /** Results that mean the PR needs nothing more this run (a conflict or an error does not: the next PR is tried). */
-  const SETTLED = new Set(['updated', 'update-pending', 'up-to-date', 'retargeted']);
-
-  async function attempt(pr) {
-    try {
-      return await updateOne(pr);
-    } catch (error) {
-      log(`#${pr.number}: failed: ${error.status || ''} ${error.message}`);
-      return { number: pr.number, action: 'error', error: String(error.message) };
-    }
-  }
-
-  const open = await github.paginate(github.rest.pulls.list, { owner, repo, state: 'open', per_page: 100 });
-  const ours = open.filter((p) => p.head.ref.startsWith(PREFIX) && p.head.repo && p.head.repo.full_name === fullName);
-  const mergedBases = new Set();
-  for (const pr of ours) {
-    if (pr.base.ref === main || mergedBases.has(pr.base.ref)) continue;
-    try {
-      if (await baseWasMerged(pr.base.ref)) mergedBases.add(pr.base.ref);
-    } catch (error) {
-      log(`#${pr.number}: couldn't tell whether ${pr.base.ref} was merged: ${error.message}`); // treated as stacked
-    }
-  }
+  const ctx = { github, owner, repo, main, workflow, log, wait, headPolls, heldPolls, pollMs };
+  const baseWasMerged = gh.mergedBaseChecker(ctx);
+  const ours = await listOurPrs(ctx);
+  const mergedBases = await findMergedBases(ctx, ours, baseWasMerged);
   const { queue, skipped, limit } = selectPrsToUpdate(ours, { main, mergedBases, mode });
   const byNumber = new Map(skipped.map(({ pr, action }) => [pr.number, { number: pr.number, action }]));
   const waiting = []; // not updated this run
@@ -187,24 +114,16 @@ async function updatePrs({
       waiting.push(pr);
       continue;
     }
-    const result = await attempt(pr);
+    const result = await attempt(ctx, pr, { baseWasMerged });
     if (SETTLED.has(result.action)) settled += 1;
     byNumber.set(pr.number, result);
   }
-  // Every PR still stacked on a merged branch is retargeted now, even one not updated this run (a
-  // draft, or queued behind the next PR): otherwise it would stay stacked, which Merge all and auto
-  // merge never take, until some later merge happened to pick it.
-  for (const pr of [...waiting, ...skipped.filter((s) => s.action === 'draft').map((s) => s.pr)]) {
-    if (pr.base.ref === main || !mergedBases.has(pr.base.ref)) continue;
-    try {
-      await retarget(pr);
-    } catch (error) {
-      log(`#${pr.number}: failed to retarget: ${error.status || ''} ${error.message}`);
-      byNumber.set(pr.number, { number: pr.number, action: 'error', error: String(error.message) });
-    }
-  }
+  const drafts = skipped.filter((s) => s.action === 'draft').map((s) => s.pr);
+  await retargetWaiting(ctx, [...waiting, ...drafts], mergedBases, byNumber);
   if (queue.length) log(`next in merge order: ${queue.map((p) => `#${p.number}`).join(', ')} (updating up to ${limit})`);
   return ours.map((pr) => byNumber.get(pr.number));
 }
 
+// The error checks and label name are re-exported for existing callers and tests.
+const { isConflict, isWorkflowRefusal, isUnknownInput, LABEL } = gh;
 module.exports = { updatePrs, isConflict, isWorkflowRefusal, isUnknownInput, LABEL };

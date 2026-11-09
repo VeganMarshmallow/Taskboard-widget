@@ -13,7 +13,7 @@ class MergeAllControl(private val store: MergeAllStore, private val now: () -> I
         val state = store.load()?.takeIf { it.running } ?: return null
         store.requestCancel(state.runId)
         if (!idle) return null
-        return MergeAllHealth.cancelNow(state, now())?.also(store::save)
+        return MergeAllHealth.cancelNow(state, now())?.takeIf(store::saveIf) // a Reset meanwhile wins (#81)
     }
 
     /** The escape hatch: forgets the run, whatever state it is in. A step in flight drops its result ([MergeAllRunner]). */

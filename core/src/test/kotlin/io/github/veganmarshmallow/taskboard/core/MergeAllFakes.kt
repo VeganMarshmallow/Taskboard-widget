@@ -6,6 +6,7 @@ import io.github.veganmarshmallow.taskboard.core.merge.MergeStep
 import io.github.veganmarshmallow.taskboard.core.merge.PullRef
 import io.github.veganmarshmallow.taskboard.core.merge.PullRequest
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllGitHub
+import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllRecords
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllState
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllStateCodec
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllStore
@@ -92,8 +93,33 @@ class TextMergeAllStore : MergeAllStore {
     private var cancel: String? = null
 
     override fun load(): MergeAllState? = MergeAllStateCodec.decode(text)
+    override fun start(state: MergeAllState): Boolean = (load()?.running != true).also { if (it) save(state) }
+    override fun saveIf(state: MergeAllState): Boolean =
+        load().let { it != null && it.runId == state.runId && it.running }.also { if (it) save(state) }
     override fun save(state: MergeAllState) { text = MergeAllStateCodec.encode(state) }
     override fun clear() { text = null; cancel = null }
     override fun requestCancel(runId: String) { cancel = runId }
     override fun cancelRequested(runId: String): Boolean = cancel == runId
+}
+
+/** [inner], with [beforeSaveIf] run just before each [saveIf]: something tapped after a step finished but before its save (#81). */
+class BeforeSaveStore(private val inner: MergeAllStore, var beforeSaveIf: () -> Unit = {}) : MergeAllStore by inner {
+    var refused = 0
+
+    override fun saveIf(state: MergeAllState): Boolean {
+        beforeSaveIf()
+        return inner.saveIf(state).also { if (!it) refused++ }
+    }
+}
+
+/** Key-value records like SharedPreferences: each call on its own. [onRead] runs after a read (to hold a race open). */
+class MemoryMergeAllRecords(private val onRead: () -> Unit = {}) : MergeAllRecords {
+    @Volatile var state: String? = null
+    @Volatile var cancel: String? = null
+
+    override fun readState(): String? = state.also { onRead() }
+    override fun writeState(text: String) { state = text }
+    override fun readCancel(): String? = cancel
+    override fun writeCancel(runId: String) { cancel = runId }
+    override fun clear() { state = null; cancel = null }
 }

@@ -4,7 +4,6 @@ import android.app.Activity
 import android.app.job.JobScheduler
 import android.content.Context
 import android.content.Intent
-import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
 import androidx.test.platform.app.InstrumentationRegistry
@@ -80,16 +79,8 @@ object FakeQuestions {
         }
     }
 
-    fun waitUntil(what: String, timeoutMs: Long = 20_000, condition: () -> Boolean) {
-        val deadline = SystemClock.uptimeMillis() + timeoutMs
-        while (SystemClock.uptimeMillis() < deadline) {
-            var ok = false
-            instrumentation.runOnMainSync { ok = condition() }
-            if (ok) return
-            SystemClock.sleep(100)
-        }
-        throw AssertionError("timed out waiting for: $what")
-    }
+    fun waitUntil(what: String, timeoutMs: Long = 20_000, condition: () -> Boolean) =
+        io.github.veganmarshmallow.taskboard.waitUntil(what, timeoutMs, onMainThread = true, condition = condition)
 
     /** The widget refresh a posted question or reply starts has ended, so it can't leak into later tests. */
     fun waitForRefresh(server: FakeGitHubServer, before: Int) {
