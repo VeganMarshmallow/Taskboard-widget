@@ -24,11 +24,13 @@ import java.util.concurrent.Executors
  * `.board/settings.json` ([BoardSettingsApi]). Opening the screen reads the file (the last known
  * value shows meanwhile, locked); a tap saves it and says it takes effect from Claude's next run.
  * What is shown and allowed is [WorkPaceForm]; this class renders it and runs the requests.
+ * [onPaceShown] gets the pace on screen after every render (the Auto merge description follows it, #88).
  */
 class WorkPaceSection(
     private val activity: Activity,
     private val store: WorkPaceStore = WorkPaceStore(activity),
     private val apiOrNull: () -> GitHubApi? = { AppGraph.apiOrNull(activity) },
+    private val onPaceShown: (WorkPace) -> Unit = {},
 ) {
     private val group: RadioGroup = activity.findViewById(R.id.work_pace_choice)
     private val status: TextView = activity.findViewById(R.id.work_pace_status)
@@ -86,6 +88,7 @@ class WorkPaceSection(
         val text = statusText(next)
         status.text = text
         status.visibility = if (text.isEmpty()) View.GONE else View.VISIBLE
+        onPaceShown(next.shown)
     }
 
     private fun statusText(f: WorkPaceForm): String {
