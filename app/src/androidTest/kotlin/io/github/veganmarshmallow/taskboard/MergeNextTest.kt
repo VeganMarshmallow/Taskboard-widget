@@ -15,12 +15,15 @@ import io.github.veganmarshmallow.taskboard.core.board.MergeLane
 import io.github.veganmarshmallow.taskboard.core.board.MergeWait
 import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.core.board.withMergeLanes
+import io.github.veganmarshmallow.taskboard.core.github.GitHubApi
 import io.github.veganmarshmallow.taskboard.core.merge.MergeLaneLoader
+import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllOffer
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.data.StateStore
 import io.github.veganmarshmallow.taskboard.data.TestOverrides
 import io.github.veganmarshmallow.taskboard.data.TokenStore
+import io.github.veganmarshmallow.taskboard.widget.ConnectivityProbe
 import io.github.veganmarshmallow.taskboard.widget.MergeLaneViews
 import io.github.veganmarshmallow.taskboard.widget.RowAction
 import io.github.veganmarshmallow.taskboard.widget.RowActionActivity
@@ -56,13 +59,19 @@ class MergeNextTest {
         StateStore(context).save(WidgetState.INITIAL)
     }
 
+    /**
+     * #89/#91: this refresh gets its own client to the fake server, and neither the client nor a
+     * token is published app-wide ([TestOverrides.httpClient], [TokenStore]). A background refresh
+     * started meanwhile (widget update, AppUpdatedReceiver, a scheduled job, the auto-merge poll)
+     * then finds no token and sends nothing, so every request [FakeGitHubServer.received] records
+     * is this refresh's own and the request counts below are exact.
+     */
     private fun refresh(): WidgetState {
         val s = FakeGitHubServer(::route)
         server = s
-        TestOverrides.httpClient = s::client
-        TokenStore(context).save("github_pat_TESTONLY")
-        return BoardLoader(Clock.fixed(FakeBoards.NOW, ZoneOffset.UTC), mergeLanes = MergeLaneLoader())
-            .refresh(WidgetState.INITIAL, AppGraph.apiOrNull(context))
+        val api = GitHubApi(s.client(), "github_pat_TESTONLY", AppGraph.clock, probe = ConnectivityProbe(context)) // as AppGraph.api builds it
+        return BoardLoader(Clock.fixed(FakeBoards.NOW, ZoneOffset.UTC), mergeLanes = MergeLaneLoader(lanesOf = MergeAllOffer::lanes))
+            .refresh(WidgetState.INITIAL, api)
     }
 
     private fun lanes(state: WidgetState): Map<Int, MergeLane?> =
@@ -79,6 +88,7 @@ class MergeNextTest {
     @Test fun refreshHighlightsThePrReadyFirst() {
         val state = refresh()
         assertNull(state.error)
+        assertNull("no token app-wide, so no background refresh can reach the fake server", TokenStore(context).get())
         val lanes = lanes(state)
         assertEquals("PR #31 passed first", MergeLane.NEXT, lanes[45])
         assertEquals(MergeLane(false, MergeWait.QUEUED, TITLE_45), lanes[44])
