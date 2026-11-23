@@ -17,10 +17,10 @@ class PagedFetcher<T>(
         require(maxPages >= 1) { "maxPages must be at least 1" }
     }
 
-    data class Page<T>(val issues: List<T>, val linkHeader: String?)
+    data class Page<T>(val items: List<T>, val linkHeader: String?)
 
     /** All items across pages. [truncated] is true when [maxPages] stopped us early. */
-    data class Result<T>(val issues: List<T>, val truncated: Boolean)
+    data class Result<T>(val items: List<T>, val truncated: Boolean)
 
     fun fetchAll(first: HttpRequest): Outcome<Result<T>> {
         val all = ArrayList<T>()
@@ -32,7 +32,7 @@ class PagedFetcher<T>(
                 is Outcome.Success -> outcome.value
                 is Outcome.Failure -> return outcome
             }
-            all.addAll(page.issues)
+            all.addAll(page.items)
             val next = LinkHeader.nextUrl(page.linkHeader)
                 ?: return Outcome.Success(Result(all, truncated = false))
             if (next in seenUrls) return Outcome.Success(Result(all, truncated = false)) // loop guard
