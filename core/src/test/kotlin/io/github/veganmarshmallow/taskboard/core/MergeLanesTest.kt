@@ -7,6 +7,7 @@ import io.github.veganmarshmallow.taskboard.core.board.Section
 import io.github.veganmarshmallow.taskboard.core.github.GitHubApi
 import io.github.veganmarshmallow.taskboard.core.http.HttpResponse
 import io.github.veganmarshmallow.taskboard.core.json.JsonWriter
+import io.github.veganmarshmallow.taskboard.core.merge.MergeCandidate
 import io.github.veganmarshmallow.taskboard.core.merge.MergeLaneLoader
 import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllOffer
 import io.github.veganmarshmallow.taskboard.core.snapshot.WidgetState
@@ -18,6 +19,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
 import java.time.Duration
+import java.time.Instant
 
 /** The merge-next step of a refresh (#45) against a scripted GitHub: lookups, checks, cost and failures. */
 class MergeLanesTest {
@@ -29,6 +31,14 @@ class MergeLanesTest {
         issueJson(n, *labels, title = "Task $n") + ("body" to body)
 
     private fun closes(n: Int) = "Closes VeganMarshmallow/claude-workspace#$n"
+
+    /** The loader as the app builds it (#90: the lane function is injected; the app passes [MergeAllOffer.lanes]). */
+    private fun laneLoader(
+        budget: Duration = MergeLaneLoader.BUDGET,
+        limit: TimeLimit = TimeLimit(),
+        deadline: Instant? = null,
+        lanesOf: (List<MergeCandidate>) -> Map<Int, MergeLane> = MergeAllOffer::lanes,
+    ) = MergeLaneLoader(budget, limit, clock = FIXED_CLOCK, deadline = deadline, lanesOf = lanesOf)
 
     /** Scripted GitHub. [pulls]: open PRs; [runs]/[behind]: per head SHA. */
     private inner class Script(
@@ -53,10 +63,10 @@ class MergeLanesTest {
             else -> throw IOException("no route for $url")
         }
 
-        fun refresh(loader: MergeLaneLoader = MergeLaneLoader()): WidgetState =
+        fun refresh(loader: MergeLaneLoader = laneLoader()): WidgetState =
             BoardLoader(FIXED_CLOCK, mergeLanes = loader).refresh(WidgetState.INITIAL, GitHubApi(http, TOKEN, FIXED_CLOCK))
 
-        fun lanes(loader: MergeLaneLoader = MergeLaneLoader()): Map<Int, MergeLane?> =
+        fun lanes(loader: MergeLaneLoader = laneLoader()): Map<Int, MergeLane?> =
             refresh(loader).board!!.section(Section.NEEDS_YOU).items.associate { it.number to it.mergeLane }
 
         fun count(part: String) = http.requests.count { part in it.url }
@@ -171,7 +181,7 @@ class MergeLanesTest {
             .on({ it.url.startsWith("$boardUrl/issues?") && "state=open" in it.url }) { ok(page(task(30))) }
             .on({ it.url.startsWith("$boardUrl/issues?") }) { ok("[]") }
             .on({ true }) { status(404) }
-        val state = BoardLoader(FIXED_CLOCK, mergeLanes = MergeLaneLoader()).refresh(WidgetState.INITIAL, GitHubApi(http, TOKEN, FIXED_CLOCK))
+        val state = BoardLoader(FIXED_CLOCK, mergeLanes = laneLoader()).refresh(WidgetState.INITIAL, GitHubApi(http, TOKEN, FIXED_CLOCK))
         assertNull(state.error)
         assertEquals(MergeWait.UNKNOWN, state.board!!.section(Section.NEEDS_YOU).items.single().mergeLane?.wait)
     }
@@ -179,7 +189,7 @@ class MergeLanesTest {
     @Test fun outOfTimeEveryRowIsUnknown() {
         val s = Script(listOf(task(30), task(29)), emptyList())
         val never = TimeLimit { /* never starts: the wait always times out */ }
-        val lanes = s.lanes(MergeLaneLoader(Duration.ofMillis(1), never))
+        val lanes = s.lanes(laneLoader(budget = Duration.ofMillis(1), limit = never))
         assertEquals(mapOf(30 to MergeLane(false, MergeWait.UNKNOWN, null), 29 to MergeLane(false, MergeWait.UNKNOWN, null)), lanes)
     }
 
@@ -286,14 +296,79 @@ class MergeLanesTest {
 
     @Test fun pastTheRefreshDeadlineEveryRowIsUnknownWithoutRequests() {
         val s = Script(listOf(task(30)), listOf(pullJson(12, body = closes(30))), mapOf(SHA_A to runsJson(passed())), mapOf(SHA_A to 0L))
-        val late = MergeLaneLoader(clock = FIXED_CLOCK, deadline = FIXED_CLOCK.instant())
+        val late = laneLoader(deadline = FIXED_CLOCK.instant())
         assertEquals(MergeLane(false, MergeWait.UNKNOWN, null), s.lanes(late)[30])
         assertEquals(0, s.count("/Taskboard-widget/"))
     }
 
+    @Test fun theLanesComeFromTheInjectedFunction() {
+        val s = Script(listOf(task(30), task(29)), listOf(pullJson(12, body = closes(30)), pullJson(13, body = closes(29), draft = true)), mapOf(SHA_A to runsJson(passed())), mapOf(SHA_A to 0L))
+        val seen = mutableListOf<List<MergeCandidate>>()
+        val marked = MergeLane(false, MergeWait.QUEUED, "from the injected function")
+        val lanes = s.lanes(laneLoader(lanesOf = { seen += it; mapOf(30 to marked) }))
+        assertEquals("called once, with every checked candidate", listOf(listOf(30, 29)), seen.map { c -> c.map { it.issue } })
+        assertEquals(marked, lanes[30])
+        assertNull("only the rows the function returned get a lane", lanes[29])
+    }
+
+    @Test fun theInjectedFunctionIsNotCalledWhenTheStepTimesOut() {
+        val s = Script(listOf(task(30)), listOf(pullJson(12, body = closes(30))))
+        var calls = 0
+        val lanes = s.lanes(laneLoader(deadline = FIXED_CLOCK.instant(), lanesOf = { calls++; emptyMap() }))
+        assertEquals(0, calls)
+        assertEquals(MergeLane(false, MergeWait.UNKNOWN, null), lanes[30])
+    }
+
+    @Test fun forRefreshPassesTheInjectedFunctionOn() {
+        val s = Script(listOf(task(30)), listOf(pullJson(12, body = closes(30))), mapOf(SHA_A to runsJson(passed())), mapOf(SHA_A to 0L))
+        val marked = MergeLane(false, MergeWait.QUEUED, "from forRefresh")
+        assertEquals(marked, s.lanes(MergeLaneLoader.forRefresh(java.time.Clock.systemUTC()) { mapOf(30 to marked) })[30])
+    }
+
+    @Test fun noMergeRowsNeverCallsTheInjectedFunction() {
+        val s = Script(listOf(task(30, labels = arrayOf("status: todo"))), listOf(pullJson(12, body = closes(30))))
+        var calls = 0
+        val state = s.refresh(laneLoader(lanesOf = { calls++; emptyMap() }))
+        assertNull(state.error)
+        assertEquals(0, calls)
+        assertEquals("no PR requests without a Merge row", 0, s.count("/Taskboard-widget/"))
+    }
+
+    @Test fun aMergeRowWithoutAPrStillReachesTheInjectedFunctionOnce() {
+        val s = Script(listOf(task(30)), emptyList())
+        val seen = mutableListOf<List<MergeCandidate>>()
+        val lanes = s.lanes(laneLoader(lanesOf = { seen += it; emptyMap() }))
+        assertEquals(1, seen.size)
+        assertNull("an empty result leaves the row without a lane", lanes[30])
+        assertNull("the default lane function copes with it too", Script(listOf(task(30)), emptyList()).refresh().error)
+    }
+
+    @Test fun lanesForUnknownNumbersAreIgnored() {
+        val s = Script(listOf(task(30)), listOf(pullJson(12, body = closes(30))), mapOf(SHA_A to runsJson(passed())), mapOf(SHA_A to 0L))
+        val lanes = s.lanes(laneLoader(lanesOf = { mapOf(30 to MergeLane.NEXT, 999 to MergeLane.NEXT, -1 to MergeLane.NEXT) }))
+        assertEquals(mapOf(30 to MergeLane.NEXT), lanes)
+    }
+
+    @Test fun aThrowingInjectedFunctionReadsCantCheckAndTheBoardIsShown() {
+        val s = Script(listOf(task(30), task(29)), listOf(pullJson(12, body = closes(30))), mapOf(SHA_A to runsJson(passed())), mapOf(SHA_A to 0L))
+        val state = s.refresh(laneLoader(lanesOf = { throw IllegalStateException("boom") }))
+        assertNull(state.error)
+        val unknown = MergeLane(false, MergeWait.UNKNOWN, null)
+        assertEquals(mapOf(30 to unknown, 29 to unknown), state.board!!.section(Section.NEEDS_YOU).items.associate { it.number to it.mergeLane })
+    }
+
+    @Test fun theInjectedFunctionIsNotCalledWhenTheBudgetRunsOut() {
+        val s = Script(listOf(task(30)), listOf(pullJson(12, body = closes(30))))
+        var calls = 0
+        val never = TimeLimit { /* never starts */ }
+        val lanes = s.lanes(laneLoader(budget = Duration.ofMillis(1), limit = never, lanesOf = { calls++; emptyMap() }))
+        assertEquals(0, calls)
+        assertEquals(MergeLane(false, MergeWait.UNKNOWN, null), lanes[30])
+    }
+
     @Test fun forRefreshStillRanksWithinTheRefreshLimit() {
         val s = Script(listOf(task(30)), listOf(pullJson(12, body = closes(30))), mapOf(SHA_A to runsJson(passed())), mapOf(SHA_A to 0L))
-        val loader = MergeLaneLoader.forRefresh(java.time.Clock.systemUTC())
+        val loader = MergeLaneLoader.forRefresh(java.time.Clock.systemUTC(), MergeAllOffer::lanes)
         assertEquals(MergeLane.NEXT, s.lanes(loader)[30])
     }
 

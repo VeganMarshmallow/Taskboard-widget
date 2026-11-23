@@ -5,7 +5,6 @@ import io.github.veganmarshmallow.taskboard.core.board.MergeLaneSource
 import io.github.veganmarshmallow.taskboard.core.board.MergeWait
 import io.github.veganmarshmallow.taskboard.core.board.Placement
 import io.github.veganmarshmallow.taskboard.core.github.GitHubApi
-import io.github.veganmarshmallow.taskboard.core.mergeall.MergeAllOffer
 import io.github.veganmarshmallow.taskboard.core.model.Issue
 import io.github.veganmarshmallow.taskboard.core.model.Repo
 import io.github.veganmarshmallow.taskboard.core.work.RefreshRunner
@@ -21,6 +20,10 @@ import java.time.Instant
  * ([MergeNext]). It runs within [budget], a slice of the refresh's own, and never past [deadline]
  * (the refresh's own limit less a margin), so a slow board fetch is never starved by this step:
  * when time runs out, or anything throws, every row reads "can't check" and the board is still shown.
+ *
+ * [lanesOf] turns the checked candidates into lanes. The app passes `MergeAllOffer::lanes` (lanes
+ * marked with whether Merge all's plan takes each PR, #60); it is injected so that this package does
+ * not depend on `core.mergeall`, which already depends on it (#90).
  */
 class MergeLaneLoader(
     private val budget: Duration = BUDGET,
@@ -28,14 +31,16 @@ class MergeLaneLoader(
     private val board: Repo = Repo.BOARD,
     private val clock: Clock = Clock.systemUTC(),
     private val deadline: Instant? = null,
+    private val lanesOf: (List<MergeCandidate>) -> Map<Int, MergeLane>,
 ) : MergeLaneSource {
     override fun lanes(issues: List<Issue>, api: GitHubApi): Map<Int, MergeLane> {
         val tasks = issues.filter(Placement::canMerge).distinctBy { it.number }
         if (tasks.isEmpty()) return emptyMap()
         val left = deadline?.let { minOf(budget, Duration.between(clock.instant(), it)) } ?: budget
-        val result = if (left.isNegative || left.isZero) Timed.TimedOut else limit.run(left) { MergeCandidates(board).of(tasks, api) }
+        // lanesOf runs inside the limit too, so a throwing or slow lane function also reads "can't check".
+        val result = if (left.isNegative || left.isZero) Timed.TimedOut else limit.run(left) { lanesOf(MergeCandidates(board).of(tasks, api)) }
         return when (result) {
-            is Timed.Done -> MergeAllOffer.lanes(result.value)
+            is Timed.Done -> result.value
             else -> tasks.associate { it.number to MergeLane(isNext = false, wait = MergeWait.UNKNOWN, firstTitle = null) }
         }
     }
@@ -48,7 +53,7 @@ class MergeLaneLoader(
         val MARGIN: Duration = Duration.ofSeconds(5)
 
         /** For a refresh starting now under [RefreshRunner]: ends by the refresh's limit less [MARGIN]. */
-        fun forRefresh(clock: Clock): MergeLaneLoader =
-            MergeLaneLoader(clock = clock, deadline = clock.instant().plus(RefreshRunner.RUN_BUDGET).minus(MARGIN))
+        fun forRefresh(clock: Clock, lanesOf: (List<MergeCandidate>) -> Map<Int, MergeLane>): MergeLaneLoader =
+            MergeLaneLoader(clock = clock, deadline = clock.instant().plus(RefreshRunner.RUN_BUDGET).minus(MARGIN), lanesOf = lanesOf)
     }
 }
