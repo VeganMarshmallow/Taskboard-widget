@@ -31,7 +31,10 @@
     <!-- Auto merge (#79): the settings switch and its notification channel. -->
     <string name="settings_merging">Merging</string>
     <string name="auto_merge">Auto merge</string>
-    <string name="auto_merge_hint">Merges Claude\'s next PR as soon as it is ready: all checks passed, up to date, no conflicts, not stacked. One at a time, in Merge all\'s order, with your token. Each merge and failure is notified.</string>
+    <!-- %1$s is auto_merge_order_save or auto_merge_order_fast, from the Work pace shown above it (#88). -->
+    <string name="auto_merge_hint">Merges Claude\'s next PR as soon as it is ready: all checks passed, up to date, no conflicts, not stacked. %1$s, in Merge all\'s order, with your token. Each merge and failure is notified.</string>
+    <string name="auto_merge_order_save">One at a time</string>
+    <string name="auto_merge_order_fast">Ready PRs back to back</string>
     <string name="auto_merge_channel">Auto merge</string>
     <string name="merge_all_done_title">Merge all finished</string>
     <string name="merge_all_cancelled_title">Merge all cancelled</string>

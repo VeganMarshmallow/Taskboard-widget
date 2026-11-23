@@ -49,8 +49,8 @@ class SetupActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_setup)
         ThemeSection(this).bind()
-        AutoMergeSection(this).bind()
-        workPace = WorkPaceSection(this).also { it.bind() }
+        val autoMerge = AutoMergeSection(this).also { it.bind() }
+        workPace = WorkPaceSection(this, onPaceShown = autoMerge::showPace).also { it.bind() }
         tokenHelp = TokenHelp(this).also { it.bind(savedInstanceState) }
         tokenStore = TokenStore(this)
         tokenField = findViewById(R.id.token)
