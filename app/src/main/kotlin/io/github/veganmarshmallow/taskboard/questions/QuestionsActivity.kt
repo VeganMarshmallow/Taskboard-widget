@@ -16,11 +16,10 @@ import io.github.veganmarshmallow.taskboard.core.questions.AskTopic
 import io.github.veganmarshmallow.taskboard.core.questions.Questions
 import io.github.veganmarshmallow.taskboard.core.questions.QuestionsScreen
 import io.github.veganmarshmallow.taskboard.core.reply.ReplyAction
-import io.github.veganmarshmallow.taskboard.core.reply.ReplyForm
-import io.github.veganmarshmallow.taskboard.core.reply.ReplyResult
 import io.github.veganmarshmallow.taskboard.data.AppGraph
 import io.github.veganmarshmallow.taskboard.preview.AskDrafts
 import io.github.veganmarshmallow.taskboard.preview.PreviewWorker
+import io.github.veganmarshmallow.taskboard.preview.ReplyBoxController
 import io.github.veganmarshmallow.taskboard.preview.ReplyDrafts
 import io.github.veganmarshmallow.taskboard.preview.TaskPreviewActivity
 import io.github.veganmarshmallow.taskboard.setup.SetupActivity
@@ -29,17 +28,20 @@ import io.github.veganmarshmallow.taskboard.theme.AppTheme
 /**
  * The Questions screen (task #82), opened from the widget header's badge or a task sheet's "Ask
  * Claude": the ask box, Claude's open questions (each with the task sheet's reply box), and the
- * owner's questions with Claude's answers. Decisions live in core ([QuestionsScreen], the reply's
- * [ReplyForm]); this class wires the worker, the drafts ([AskDrafts], [ReplyDrafts]) and the views.
+ * owner's questions with Claude's answers. Decisions live in core ([QuestionsScreen]); each reply
+ * box (the ask box over [AskDrafts], each card's over [ReplyDrafts]) is a [ReplyBoxController];
+ * this class loads, renders the two lists and the status line.
  */
 class QuestionsActivity : Activity() {
     private lateinit var messages: ErrorMessages
     private lateinit var worker: PreviewWorker
     private lateinit var ask: AskBoxViews
     private lateinit var screen: QuestionsScreen
-    private val cards = LinkedHashMap<Int, ClaudeQuestionViews>()
-    private val cardForms = HashMap<Int, ReplyForm>()
-    private val cardListeners = HashMap<Int, (ReplyForm, ReplyResult) -> Unit>()
+    private lateinit var askBox: ReplyBoxController
+
+    /** Each card's reply box by issue, kept across reloads so a card keeps its form; [shown] are on screen. */
+    private val replies = HashMap<Int, ReplyBoxController>()
+    private var shown: List<Int> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AppTheme.apply(this)
@@ -48,20 +50,18 @@ class QuestionsActivity : Activity() {
         messages = AppGraph.messages(this)
         worker = PreviewWorker(this)
         ask = AskBoxViews(findViewById(R.id.questions_root), messages)
-        ask.box.listen(
-            onEdit = { text -> if (text != screen.ask.draft) update(screen.withAsk(screen.ask.edit(text))) },
-            onUnblock = {},
-            onRequestChanges = {},
-            onSend = ::sendQuestion,
-        )
         ask.onGeneral(::askInGeneral)
         findViewById<View>(R.id.questions_retry).setOnClickListener { onRetry() }
 
         val topic = intent?.getIntExtra(EXTRA_ISSUE, 0)?.takeIf { it > 0 }?.let { AskTopic(it, intent.getStringExtra(EXTRA_TITLE)) }
         val initial = QuestionsScreen(topic = topic)
-        screen = initial.withAsk(AskDrafts.form(initial.askKey))
-        AskDrafts.listen(screen.askKey, onAskFinished)
-        update(screen)
+        askBox = ReplyBoxController(
+            AskDrafts, initial.askKey, ask.box,
+            send = ::askClaude,
+            show = { update(screen.withAsk(it)) },
+            onPosted = ::load,
+        )
+        update(initial.withAsk(askBox.form))
         load()
     }
 
@@ -72,16 +72,13 @@ class QuestionsActivity : Activity() {
      */
     override fun onResume() {
         super.onResume()
-        cards.keys.toList().forEach { issue ->
-            cardListeners[issue]?.let { ReplyDrafts.listen(issue, it) }
-            if (ReplyDrafts.knows(issue)) updateCard(issue, ReplyDrafts.form(issue))
-        }
+        shown.forEach { replies[it]?.resume() }
     }
 
     override fun onDestroy() {
         if (::worker.isInitialized) worker.close()
-        if (::screen.isInitialized) AskDrafts.stopListening(screen.askKey, onAskFinished)
-        cardListeners.forEach { (issue, listener) -> ReplyDrafts.stopListening(issue, listener) }
+        if (::askBox.isInitialized) askBox.close()
+        replies.values.forEach { it.close() }
         super.onDestroy()
     }
 
@@ -100,7 +97,6 @@ class QuestionsActivity : Activity() {
 
     private fun update(next: QuestionsScreen) {
         screen = next
-        AskDrafts.remember(next.askKey, next.ask)
         ask.bind(next)
         bindStatus(next)
     }
@@ -127,14 +123,13 @@ class QuestionsActivity : Activity() {
         val toClaude = findViewById<ViewGroup>(R.id.questions_to_claude)
         fromClaude.removeAllViews()
         toClaude.removeAllViews()
-        cards.clear()
         val inflater = LayoutInflater.from(this)
         questions.fromClaude.forEach { question ->
             val card = ClaudeQuestionViews(inflater.inflate(R.layout.item_claude_question, fromClaude, false), messages, question)
             fromClaude.addView(card.card)
-            cards[question.issue] = card
             wireCard(card)
         }
+        shown = questions.fromClaude.map { it.issue }
         questions.toClaude.forEach { question ->
             val card = inflater.inflate(R.layout.item_owner_question, toClaude, false)
             OwnerQuestionViews.bind(card, question)
@@ -147,54 +142,26 @@ class QuestionsActivity : Activity() {
     /** A card's reply box lives in [ReplyDrafts], shared with the task sheet, so a send is never doubled. */
     private fun wireCard(card: ClaudeQuestionViews) {
         val issue = card.question.issue
-        cardForms[issue] = cardForms[issue] ?: ReplyDrafts.form(issue)
-        card.bind(cardForms.getValue(issue))
-        card.reply.listen(
-            onEdit = { text -> cardForms[issue]?.takeIf { it.draft != text }?.let { updateCard(issue, it.edit(text)) } },
-            onUnblock = { checked -> cardForms[issue]?.let { updateCard(issue, it.unblockChecked(checked)) } },
-            onRequestChanges = {},
-            onSend = { sendReply(card) },
+        val form = replies[issue]?.form ?: ReplyDrafts.form(issue)
+        card.bind(form)
+        replies[issue] = ReplyBoxController(
+            ReplyDrafts, issue, card.reply, form,
+            start = { it.start(offerUnblock = card.question.needsOwner) },
+            send = { worker.reply(issue, it) },
+            show = card::bind,
+            onPosted = ::load,
         )
         card.onOpen { startActivity(TaskPreviewActivity.intent(this, issue)) }
-        val listener = cardListeners.getOrPut(issue) {
-            { form: ReplyForm, result: ReplyResult ->
-                updateCard(issue, form)
-                if (result.posted) load()
-            }
-        }
-        ReplyDrafts.listen(issue, listener)
     }
 
-    private fun updateCard(issue: Int, form: ReplyForm) {
-        cardForms[issue] = form
-        ReplyDrafts.remember(issue, form)
-        cards[issue]?.bind(form)
-    }
-
-    private fun sendReply(card: ClaudeQuestionViews) {
-        val issue = card.question.issue
-        val start = cardForms[issue]?.start(offerUnblock = card.question.needsOwner) ?: return
-        updateCard(issue, start.form)
-        worker.reply(issue, start.action)
-    }
-
-    /** [ReplyForm.start] refuses while a send is in flight, so a double tap asks once. */
-    private fun sendQuestion() {
-        val start = screen.ask.start(offerUnblock = false) ?: return
-        val text = (start.action as? ReplyAction.Post)?.text ?: return
-        update(screen.withAsk(start.form))
+    private fun askClaude(action: ReplyAction) {
+        val text = (action as? ReplyAction.Post)?.text ?: return
         worker.ask(screen.askKey, screen.topic?.number, text)
     }
 
     private fun askInGeneral() {
-        AskDrafts.stopListening(screen.askKey, onAskFinished)
-        update(screen.askGeneral(AskDrafts.form(QuestionsScreen.GENERAL)))
-        AskDrafts.listen(screen.askKey, onAskFinished)
-    }
-
-    private val onAskFinished: (ReplyForm, ReplyResult) -> Unit = { form, result ->
-        update(screen.withAsk(form))
-        if (result.posted) load()
+        screen = screen.askGeneral(screen.ask)
+        askBox.switchTo(screen.askKey)
     }
 
     private fun onRetry() {
