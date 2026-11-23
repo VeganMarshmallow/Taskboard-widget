@@ -37,9 +37,10 @@ class MergeLaneLoader(
         val tasks = issues.filter(Placement::canMerge).distinctBy { it.number }
         if (tasks.isEmpty()) return emptyMap()
         val left = deadline?.let { minOf(budget, Duration.between(clock.instant(), it)) } ?: budget
-        val result = if (left.isNegative || left.isZero) Timed.TimedOut else limit.run(left) { MergeCandidates(board).of(tasks, api) }
+        // lanesOf runs inside the limit too, so a throwing or slow lane function also reads "can't check".
+        val result = if (left.isNegative || left.isZero) Timed.TimedOut else limit.run(left) { lanesOf(MergeCandidates(board).of(tasks, api)) }
         return when (result) {
-            is Timed.Done -> lanesOf(result.value)
+            is Timed.Done -> result.value
             else -> tasks.associate { it.number to MergeLane(isNext = false, wait = MergeWait.UNKNOWN, firstTitle = null) }
         }
     }

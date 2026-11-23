@@ -325,6 +325,47 @@ class MergeLanesTest {
         assertEquals(marked, s.lanes(MergeLaneLoader.forRefresh(java.time.Clock.systemUTC()) { mapOf(30 to marked) })[30])
     }
 
+    @Test fun noMergeRowsNeverCallsTheInjectedFunction() {
+        val s = Script(listOf(task(30, labels = arrayOf("status: todo"))), listOf(pullJson(12, body = closes(30))))
+        var calls = 0
+        val state = s.refresh(laneLoader(lanesOf = { calls++; emptyMap() }))
+        assertNull(state.error)
+        assertEquals(0, calls)
+        assertEquals("no PR requests without a Merge row", 0, s.count("/Taskboard-widget/"))
+    }
+
+    @Test fun aMergeRowWithoutAPrStillReachesTheInjectedFunctionOnce() {
+        val s = Script(listOf(task(30)), emptyList())
+        val seen = mutableListOf<List<MergeCandidate>>()
+        val lanes = s.lanes(laneLoader(lanesOf = { seen += it; emptyMap() }))
+        assertEquals(1, seen.size)
+        assertNull("an empty result leaves the row without a lane", lanes[30])
+        assertNull("the default lane function copes with it too", Script(listOf(task(30)), emptyList()).refresh().error)
+    }
+
+    @Test fun lanesForUnknownNumbersAreIgnored() {
+        val s = Script(listOf(task(30)), listOf(pullJson(12, body = closes(30))), mapOf(SHA_A to runsJson(passed())), mapOf(SHA_A to 0L))
+        val lanes = s.lanes(laneLoader(lanesOf = { mapOf(30 to MergeLane.NEXT, 999 to MergeLane.NEXT, -1 to MergeLane.NEXT) }))
+        assertEquals(mapOf(30 to MergeLane.NEXT), lanes)
+    }
+
+    @Test fun aThrowingInjectedFunctionReadsCantCheckAndTheBoardIsShown() {
+        val s = Script(listOf(task(30), task(29)), listOf(pullJson(12, body = closes(30))), mapOf(SHA_A to runsJson(passed())), mapOf(SHA_A to 0L))
+        val state = s.refresh(laneLoader(lanesOf = { throw IllegalStateException("boom") }))
+        assertNull(state.error)
+        val unknown = MergeLane(false, MergeWait.UNKNOWN, null)
+        assertEquals(mapOf(30 to unknown, 29 to unknown), state.board!!.section(Section.NEEDS_YOU).items.associate { it.number to it.mergeLane })
+    }
+
+    @Test fun theInjectedFunctionIsNotCalledWhenTheBudgetRunsOut() {
+        val s = Script(listOf(task(30)), listOf(pullJson(12, body = closes(30))))
+        var calls = 0
+        val never = TimeLimit { /* never starts */ }
+        val lanes = s.lanes(laneLoader(budget = Duration.ofMillis(1), limit = never, lanesOf = { calls++; emptyMap() }))
+        assertEquals(0, calls)
+        assertEquals(MergeLane(false, MergeWait.UNKNOWN, null), lanes[30])
+    }
+
     @Test fun forRefreshStillRanksWithinTheRefreshLimit() {
         val s = Script(listOf(task(30)), listOf(pullJson(12, body = closes(30))), mapOf(SHA_A to runsJson(passed())), mapOf(SHA_A to 0L))
         val loader = MergeLaneLoader.forRefresh(java.time.Clock.systemUTC(), MergeAllOffer::lanes)
